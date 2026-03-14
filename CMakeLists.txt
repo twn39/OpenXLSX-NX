@@ -10,7 +10,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(OPENXLSX_BUILD_TESTS "Build and run library tests" ON)
 option(OPENXLSX_BUILD_BENCHMARKS "Build benchmark programs" OFF)
 option(OPENXLSX_CREATE_DOCS "Build library documentation" OFF)
-option(OPENXLSX_ENABLE_NOWIDE "Enable Nowide for UTF-8 support on Windows" ON)
 option(OPENXLSX_ENABLE_LTO "Enable Link-Time Optimization (LTO/IPO) if supported" ON)
 
 set(OPENXLSX_LIBRARY_TYPE "STATIC" CACHE STRING "Library type (STATIC or SHARED)")
@@ -59,13 +58,6 @@ FetchContent_Declare(libzip GIT_REPOSITORY https://github.com/nih-at/libzip.git 
 FetchContent_MakeAvailable(libzip)
 
 # Third-party subdirectories
-set(NOWIDE_INSTALL OFF CACHE BOOL "" FORCE)
-set(NOWIDE_TESTING OFF CACHE BOOL "" FORCE)
-add_subdirectory(third_party/nowide EXCLUDE_FROM_ALL)
-
-if(WIN32)
-    set(OPENXLSX_ENABLE_NOWIDE ON)
-endif()
 
 # Sources
 file(GLOB OPENXLSX_SOURCES OpenXLSX/sources/*.cpp)
@@ -86,11 +78,6 @@ target_include_directories(OpenXLSX
 
 target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip)
 target_compile_definitions(OpenXLSX PUBLIC FMT_HEADER_ONLY)
-
-if (OPENXLSX_ENABLE_NOWIDE)
-    target_link_libraries(OpenXLSX PRIVATE nowide::nowide)
-    target_compile_definitions(OpenXLSX PRIVATE ENABLE_NOWIDE)
-endif ()
 
 if ("${OPENXLSX_LIBRARY_TYPE}" STREQUAL "STATIC")
     target_compile_definitions(OpenXLSX PUBLIC OPENXLSX_STATIC_DEFINE)
@@ -133,9 +120,6 @@ if(OPENXLSX_BUILD_TESTS)
     file(GLOB TEST_SOURCES Tests/testXL*.cpp Tests/main.cpp)
     add_executable(OpenXLSXTests ${TEST_SOURCES})
     target_link_libraries(OpenXLSXTests PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2WithMain)
-
-    add_executable(comprehensive_verify comprehensive_verify.cpp)
-    target_link_libraries(comprehensive_verify PRIVATE OpenXLSX::OpenXLSX)
 
     # Copy test data to build directory
     add_custom_command(TARGET OpenXLSXTests POST_BUILD

@@ -87,7 +87,7 @@ The build system includes platform-specific optimizations for `Release` builds (
 ## 🤝 Credits
 - [PugiXML](https://pugixml.org/) - Fast XML parsing.
 - [libzip](https://libzip.org/) & [zlib-ng](https://github.com/zlib-ng/zlib-ng) - Fast and compatible ZIP archive handling.
-- [Boost.Nowide](https://github.com/boostorg/nowide) - UTF-8 file system support on Windows.
+- [std::filesystem] - UTF-8 file system support on Windows (C++17).
 
 ---
 

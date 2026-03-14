@@ -45,12 +45,11 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 
 // ===== External Includes ===== //
 #include <algorithm>
-#ifdef ENABLE_NOWIDE
-#    include <nowide/fstream.hpp>
-#endif
+#include <filesystem>
 #if defined(_WIN32)
 #    include <random>
 #endif
+#include <fstream>
 #include <pugixml.hpp>
 #include <sys/stat.h>    // for stat, to test if a file exists and if a file is a directory
 #include <vector>        // std::vector
@@ -679,11 +678,7 @@ void XLDocument::create(const std::string& fileName, bool forceOverwrite)
     }
 
     // ===== Create a temporary output file stream.
-#ifdef ENABLE_NOWIDE
-    nowide::ofstream outfile(fileName, std::ios::binary);
-#else
-    std::ofstream outfile(fileName, std::ios::binary);
-#endif
+    std::ofstream outfile(std::filesystem::u8path(fileName), std::ios::binary);
 
     // ===== Stream the binary data for an empty workbook to the output file.
     // ===== Casting, in particular reinterpret_cast, is discouraged, but in this case it is unfortunately unavoidable.
