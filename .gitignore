@@ -57,3 +57,4 @@ __pycache__/
 .python-version
 uv.lock
 pyproject.toml
+.venv

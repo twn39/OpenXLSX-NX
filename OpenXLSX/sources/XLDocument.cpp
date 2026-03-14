@@ -42,7 +42,6 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-
 // ===== External Includes ===== //
 #include <algorithm>
 #include <filesystem>

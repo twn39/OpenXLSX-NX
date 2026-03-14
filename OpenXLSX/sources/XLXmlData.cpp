@@ -110,7 +110,7 @@ std::string XLXmlData::getRawData(XLXmlSavingDeclaration savingDeclaration) cons
     }
 
     std::ostringstream ostr;
-    doc->save(ostr, "", pugi::format_raw);
+    doc->save(ostr, "", pugi::format_default);
     return ostr.str();
 }
 

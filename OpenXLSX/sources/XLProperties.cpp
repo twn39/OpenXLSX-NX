@@ -244,6 +244,8 @@ void XLProperties::createFromTemplate()
 
     props.append_child("dc:creator").text().set("Kenneth Balslev");
     props.append_child("cp:lastModifiedBy").text().set("Kenneth Balslev");
+    props.append_child("dc:title").text().set("");
+    props.append_child("dc:subject").text().set("");
 
     XMLNode prop{};
     prop                              = props.append_child("dcterms:created");
@@ -283,7 +285,7 @@ void XLProperties::setProperty(const std::string& name, const std::string& value
     if (m_xmlData == nullptr) return;
     XMLNode node = xmlDocument().document_element().child(name.c_str());
     if (node.empty())
-        node = xmlDocument().document_element().append_child(name.c_str());    // .append_child, to be in line with ::property behavior
+        node = xmlDocument().document_element().append_child(name.c_str());
 
     node.text().set(value.c_str());
 }
@@ -305,7 +307,7 @@ std::string XLProperties::property(const std::string& name) const
 {
     if (m_xmlData == nullptr) return "";
     XMLNode property = xmlDocument().document_element().child(name.c_str());
-    if (property.empty()) property = xmlDocument().document_element().append_child(name.c_str());
+    if (property.empty()) return "";
 
     return property.text().get();
 }
