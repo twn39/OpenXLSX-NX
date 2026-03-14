@@ -54,3 +54,6 @@ coverage_report/
 __pycache__/
 *.pyc
 !/Tests/shared_formula_test.xlsx
+.python-version
+uv.lock
+pyproject.toml

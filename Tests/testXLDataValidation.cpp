@@ -59,4 +59,76 @@ TEST_CASE("XLDataValidation Tests", "[XLDataValidation]")
         doc.save();
         doc.close();
     }
+
+    SECTION("New Data Validation Features (P1, P2, P3)") {
+        XLDocument doc;
+        doc.create("./testNewDataValidationFeatures.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+        auto& validations = wks.dataValidations();
+
+        // 1. Test Decimal Range with P1 properties
+        auto dv1 = validations.append();
+        dv1.setSqref("C1:C5");
+        dv1.setDecimalRange(0.5, 99.9);
+        dv1.setShowDropDown(false);
+        dv1.setShowInputMessage(true);
+        dv1.setShowErrorMessage(true);
+        dv1.setIMEMode(XLIMEMode::Disabled);
+
+        // 2. Test Date and Time Range
+        auto dv2 = validations.append();
+        dv2.setSqref("D1:D5");
+        dv2.setDateRange("2023-01-01", "2023-12-31");
+
+        auto dv3 = validations.append();
+        dv3.setSqref("E1:E5");
+        dv3.setTimeRange("08:00", "18:00");
+
+        // 3. Test Text Length
+        auto dv4 = validations.append();
+        dv4.setSqref("F1:F5");
+        dv4.setTextLengthRange(1, 10);
+
+        REQUIRE(validations.count() == 4);
+
+        // Test Getters before saving
+        REQUIRE(dv1.sqref() == "C1:C5");
+        REQUIRE(dv1.type() == XLDataValidationType::Decimal);
+        REQUIRE(dv1.operator_() == XLDataValidationOperator::Between);
+        REQUIRE(dv1.formula1() == "0.5");
+        REQUIRE(dv1.formula2() == "99.9");
+        REQUIRE(dv1.showDropDown() == false);
+        REQUIRE(dv1.imeMode() == XLIMEMode::Disabled);
+
+        REQUIRE(dv2.type() == XLDataValidationType::Date);
+        REQUIRE(dv2.formula1() == "2023-01-01");
+
+        // Test at(sqref)
+        auto dvFound = validations.at("C1:C5");
+        REQUIRE_FALSE(dvFound.empty());
+        REQUIRE(dvFound.type() == XLDataValidationType::Decimal);
+
+        doc.save();
+        doc.close();
+
+        // Re-open and verify persistence
+        XLDocument doc2;
+        doc2.open("./testNewDataValidationFeatures.xlsx");
+        auto wks2 = doc2.workbook().worksheet("Sheet1");
+        auto& v2 = wks2.dataValidations();
+        
+        auto dvVerify = v2.at("C1:C5");
+        REQUIRE_FALSE(dvVerify.empty());
+        REQUIRE(dvVerify.type() == XLDataValidationType::Decimal);
+        REQUIRE(dvVerify.formula1() == "0.5");
+        REQUIRE(dvVerify.showDropDown() == false);
+        REQUIRE(dvVerify.imeMode() == XLIMEMode::Disabled);
+
+        auto dvText = v2.at("F1:F5");
+        REQUIRE(dvText.type() == XLDataValidationType::TextLength);
+        REQUIRE(dvText.formula1() == "1");
+        REQUIRE(dvText.formula2() == "10");
+
+        doc2.close();
+    }
 }
