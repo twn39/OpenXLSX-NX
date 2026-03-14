@@ -714,7 +714,7 @@ void XLCustomProperties::setProperty(const std::string& name, const std::string&
         }
 
         prop = props.append_child("property");
-        prop.append_attribute("fmtid") = "{D5CDD502-2E9C-101B-9397-08002B2CF9AE}";
+        prop.append_attribute("fmtid") = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}";
         prop.append_attribute("pid")   = maxPid + 1;
         prop.append_attribute("name")  = name.c_str();
     }
@@ -768,7 +768,7 @@ void XLCustomProperties::setProperty(const std::string& name, int value)
         }
 
         prop = props.append_child("property");
-        prop.append_attribute("fmtid") = "{D5CDD502-2E9C-101B-9397-08002B2CF9AE}";
+        prop.append_attribute("fmtid") = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}";
         prop.append_attribute("pid")   = maxPid + 1;
         prop.append_attribute("name")  = name.c_str();
     }
@@ -814,7 +814,7 @@ void XLCustomProperties::setProperty(const std::string& name, double value)
         }
 
         prop = props.append_child("property");
-        prop.append_attribute("fmtid") = "{D5CDD502-2E9C-101B-9397-08002B2CF9AE}";
+        prop.append_attribute("fmtid") = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}";
         prop.append_attribute("pid")   = maxPid + 1;
         prop.append_attribute("name")  = name.c_str();
     }
@@ -860,7 +860,7 @@ void XLCustomProperties::setProperty(const std::string& name, bool value)
         }
 
         prop = props.append_child("property");
-        prop.append_attribute("fmtid") = "{D5CDD502-2E9C-101B-9397-08002B2CF9AE}";
+        prop.append_attribute("fmtid") = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}";
         prop.append_attribute("pid")   = maxPid + 1;
         prop.append_attribute("name")  = name.c_str();
     }

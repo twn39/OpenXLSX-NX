@@ -1422,7 +1422,7 @@ bool XLDocument::execCommand(const XLCommand& command)
 
             // ===== If docProps/custom.xml is missing
             if (!m_archive.hasEntry("docProps/custom.xml"))
-                m_archive.addEntry("docProps/custom.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"standalone=\"yes\"?>");
+                m_archive.addEntry("docProps/custom.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
 
             // ===== If [Content Types].xml has no relationship for docProps/custom.xml
             if (!hasXmlData("docProps/custom.xml")) {
