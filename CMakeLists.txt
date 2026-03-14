@@ -45,7 +45,11 @@ FetchContent_Declare(zlib GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git 
 FetchContent_MakeAvailable(zlib)
 
 # Help libzip find zlib-ng
-set(ZLIB_LIBRARY zlib CACHE INTERNAL "")
+if(WIN32)
+    set(ZLIB_LIBRARY "${zlib_BINARY_DIR}/zlib.lib" CACHE INTERNAL "")
+else()
+    set(ZLIB_LIBRARY "${zlib_BINARY_DIR}/libz.a" CACHE INTERNAL "")
+endif()
 set(ZLIB_INCLUDE_DIR "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE INTERNAL "")
 set(ZLIB_FOUND TRUE CACHE INTERNAL "")
 
@@ -59,6 +63,7 @@ set(BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 set(BUILD_REGRESS OFF CACHE BOOL "" FORCE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_DOC OFF CACHE BOOL "" FORCE)
+set(BUILD_OSSFUZZ OFF CACHE BOOL "" FORCE)
 set(LIBZIP_DO_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(libzip GIT_REPOSITORY https://github.com/nih-at/libzip.git GIT_TAG v1.11.4)
 FetchContent_MakeAvailable(libzip)
