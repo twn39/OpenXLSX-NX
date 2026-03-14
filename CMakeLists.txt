@@ -44,6 +44,14 @@ set(ZLIB_COMPAT ON CACHE BOOL "" FORCE)
 FetchContent_Declare(zlib GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.2.4)
 FetchContent_MakeAvailable(zlib)
 
+# Help libzip find zlib-ng (Override find_package(ZLIB))
+# We use CACHE INTERNAL to ensure these are picked up by libzip's find_package
+set(ZLIB_FOUND TRUE CACHE INTERNAL "")
+set(ZLIB_INCLUDE_DIR "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE INTERNAL "")
+set(ZLIB_INCLUDE_DIRS "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE INTERNAL "")
+set(ZLIB_LIBRARIES zlib CACHE INTERNAL "")
+set(ZLIB_LIBRARY zlib CACHE INTERNAL "")
+
 # Create alias for standard find_package compatibility
 if(TARGET zlib AND NOT TARGET ZLIB::ZLIB)
     add_library(ZLIB::ZLIB ALIAS zlib)
