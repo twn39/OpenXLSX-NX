@@ -66,8 +66,8 @@ cmake --build . --target OpenXLSXBenchmark
 - Test data (images) is automatically copied to the build directory during the build process.
 
 ### Third Party (`third_party/`)
-- Local version of `zippy`. 
-- `pugixml`, `nowide`, `fmt`, and `fast_float` are managed via `FetchContent` in the root `CMakeLists.txt`.
+- Local versions of `nowide` and `zippy`. 
+- `pugixml`, `fmt`, and `fast_float` are managed via `FetchContent` in the root `CMakeLists.txt`.
 
 ## Usage Tips for AI
 - **Single Build Entry**: Do not look for `CMakeLists.txt` in subdirectories; everything is in the root.

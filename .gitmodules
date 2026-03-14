@@ -1,0 +1,3 @@
+[submodule "third_party/nowide"]
+	path = third_party/nowide
+	url = https://github.com/boostorg/nowide.git
