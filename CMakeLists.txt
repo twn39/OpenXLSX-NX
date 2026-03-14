@@ -44,14 +44,10 @@ set(ZLIB_COMPAT ON CACHE BOOL "" FORCE)
 FetchContent_Declare(zlib GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.2.4)
 FetchContent_MakeAvailable(zlib)
 
-# Help libzip find zlib-ng
-if(WIN32)
-    set(ZLIB_LIBRARY "${zlib_BINARY_DIR}/zlib.lib" CACHE INTERNAL "")
-else()
-    set(ZLIB_LIBRARY "${zlib_BINARY_DIR}/libz.a" CACHE INTERNAL "")
+# Create alias for standard find_package compatibility
+if(TARGET zlib AND NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS zlib)
 endif()
-set(ZLIB_INCLUDE_DIR "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE INTERNAL "")
-set(ZLIB_FOUND TRUE CACHE INTERNAL "")
 
 # Set up libzip
 set(ENABLE_BZIP2 OFF CACHE BOOL "" FORCE)
@@ -87,7 +83,7 @@ target_include_directories(OpenXLSX
         $<BUILD_INTERFACE:${fmt_SOURCE_DIR}/include>
 )
 
-target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip)
+target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip zlib)
 target_compile_definitions(OpenXLSX PUBLIC FMT_HEADER_ONLY)
 
 if ("${OPENXLSX_LIBRARY_TYPE}" STREQUAL "STATIC")
