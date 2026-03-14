@@ -28,6 +28,17 @@ std::string getRawXml(XLDocument& doc, const std::string& path)
     return (doc.*fn)(path);
 }
 
+// Wrapper class for easier testing
+class XLDocumentTest
+{
+public:
+    XLDocument doc;
+    void open(const std::string& filename) { doc.open(filename); }
+    void close() { doc.close(); }
+    std::string getRawXml(const std::string& path) { return ::getRawXml(doc, path); }
+    std::string property(XLProperty prop) { return doc.property(prop); }
+};
+
 TEST_CASE("OOXML Verification Tests", "[OOXML]")
 {
     SECTION("Verify Document Properties in core.xml")
@@ -44,16 +55,17 @@ TEST_CASE("OOXML Verification Tests", "[OOXML]")
         }
 
         {
-            XLDocument doc;
-            doc.open(filename);
+            XLDocumentTest testDoc;
+            testTestDoc: // Wait, I'll just use the doc directly.
+            testDoc.open(filename);
 
             // Verify properties via API
-            REQUIRE(doc.property(XLProperty::Title) == "Test Title");
-            REQUIRE(doc.property(XLProperty::Subject) == "Test Subject");
-            REQUIRE(doc.property(XLProperty::Creator) == "OpenXLSX Tester");
+            REQUIRE(testDoc.property(XLProperty::Title) == "Test Title");
+            REQUIRE(testDoc.property(XLProperty::Subject) == "Test Subject");
+            REQUIRE(testDoc.property(XLProperty::Creator) == "OpenXLSX Tester");
 
             // Verify raw XML content in core.xml
-            std::string coreXml = getRawXml(doc, "docProps/core.xml");
+            std::string coreXml = testDoc.getRawXml("docProps/core.xml");
 
             // 1. Check for XML declaration (preserved by format_default)
             REQUIRE(coreXml.find("<?xml") != std::string::npos);
@@ -69,7 +81,65 @@ TEST_CASE("OOXML Verification Tests", "[OOXML]")
             // 4. Check for Creator with correct namespace
             REQUIRE(coreXml.find("<dc:creator>OpenXLSX Tester</dc:creator>") != std::string::npos);
 
+            testDoc.close();
+        }
+        std::filesystem::remove(filename);
+    }
+
+    SECTION("Verify Data Validation in sheet1.xml")
+    {
+        std::string filename = "ooxml_dv_test.xlsx";
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            // 1. Add a list validation
+            auto dv1 = wks.dataValidations().append();
+            dv1.setSqref("A1");
+            dv1.setList({"Alpha", "Beta", "Gamma"});
+            dv1.setPrompt("Title1", "Message1");
+
+            // 2. Add a numeric range validation
+            auto dv2 = wks.dataValidations().append();
+            dv2.setSqref("B1:B10");
+            dv2.setType(XLDataValidationType::Whole);
+            dv2.setOperator(XLDataValidationOperator::Between);
+            dv2.setFormula1("1");
+            dv2.setFormula2("100");
+            dv2.setError("ErrorTitle", "Value must be between 1 and 100");
+
+            doc.save();
             doc.close();
+        }
+
+        {
+            XLDocumentTest testDoc;
+            testDoc.open(filename);
+
+            // Verify raw XML content in sheet1.xml
+            std::string sheetXml = testDoc.getRawXml("xl/worksheets/sheet1.xml");
+
+            // 1. Check for dataValidations container and count
+            REQUIRE(sheetXml.find("<dataValidations count=\"2\">") != std::string::npos);
+
+            // 2. Check for the list validation
+            REQUIRE(sheetXml.find("type=\"list\"") != std::string::npos);
+            REQUIRE(sheetXml.find("sqref=\"A1\"") != std::string::npos);
+            REQUIRE(sheetXml.find("<formula1>\"Alpha,Beta,Gamma\"</formula1>") != std::string::npos);
+            REQUIRE(sheetXml.find("promptTitle=\"Title1\"") != std::string::npos);
+            REQUIRE(sheetXml.find("prompt=\"Message1\"") != std::string::npos);
+
+            // 3. Check for the numeric validation
+            REQUIRE(sheetXml.find("type=\"whole\"") != std::string::npos);
+            REQUIRE(sheetXml.find("operator=\"between\"") != std::string::npos);
+            REQUIRE(sheetXml.find("sqref=\"B1:B10\"") != std::string::npos);
+            REQUIRE(sheetXml.find("<formula1>1</formula1>") != std::string::npos);
+            REQUIRE(sheetXml.find("<formula2>100</formula2>") != std::string::npos);
+            REQUIRE(sheetXml.find("errorTitle=\"ErrorTitle\"") != std::string::npos);
+            REQUIRE(sheetXml.find("error=\"Value must be between 1 and 100\"") != std::string::npos);
+
+            testDoc.close();
         }
         std::filesystem::remove(filename);
     }
@@ -85,18 +155,18 @@ TEST_CASE("OOXML Verification Tests", "[OOXML]")
         }
 
         {
-            XLDocument doc;
-            doc.open(filename);
+            XLDocumentTest testDoc;
+            testDoc.open(filename);
 
             // Check workbook.xml
-            std::string workbookXml = getRawXml(doc, "xl/workbook.xml");
+            std::string workbookXml = testDoc.getRawXml("xl/workbook.xml");
             REQUIRE(workbookXml.find("<?xml") != std::string::npos);
 
             // Check sheet1.xml
-            std::string sheetXml = getRawXml(doc, "xl/worksheets/sheet1.xml");
+            std::string sheetXml = testDoc.getRawXml("xl/worksheets/sheet1.xml");
             REQUIRE(sheetXml.find("<?xml") != std::string::npos);
 
-            doc.close();
+            testDoc.close();
         }
         std::filesystem::remove(filename);
     }
