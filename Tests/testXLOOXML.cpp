@@ -144,6 +144,65 @@ TEST_CASE("OOXML Verification Tests", "[OOXML]")
         std::filesystem::remove(filename);
     }
 
+    SECTION("Verify Hyperlinks in worksheet and relationships")
+    {
+        std::string filename = "ooxml_hyperlink_test.xlsx";
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            // 1. Add an external hyperlink
+            wks.cell("A1").value() = "External Link";
+            wks.addHyperlink("A1", "https://www.github.com", "GitHub");
+
+            // 2. Add an internal hyperlink
+            wks.cell("B2").value() = "Internal Link";
+            wks.addInternalHyperlink("B2", "Sheet1!A10", "Scroll Down");
+
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLDocumentTest testDoc;
+            testDoc.open(filename);
+
+            // 1. Verify sheet1.xml
+            std::string sheetXml = testDoc.getRawXml("xl/worksheets/sheet1.xml");
+            
+            // Check hyperlinks container
+            REQUIRE(sheetXml.find("<hyperlinks>") != std::string::npos);
+            
+            // Check external link entry (should have r:id and tooltip, but no location)
+            REQUIRE(sheetXml.find("ref=\"A1\"") != std::string::npos);
+            REQUIRE(sheetXml.find("tooltip=\"GitHub\"") != std::string::npos);
+            REQUIRE(sheetXml.find("r:id=\"") != std::string::npos);
+            
+            // Check internal link entry (should have location and tooltip)
+            REQUIRE(sheetXml.find("ref=\"B2\"") != std::string::npos);
+            REQUIRE(sheetXml.find("location=\"Sheet1!A10\"") != std::string::npos);
+            REQUIRE(sheetXml.find("tooltip=\"Scroll Down\"") != std::string::npos);
+
+            // 2. Verify sheet1.xml.rels for the external link
+            std::string relsXml = testDoc.getRawXml("xl/worksheets/_rels/sheet1.xml.rels");
+            
+            // Find the relationship ID used in A1
+            size_t a1Pos = sheetXml.find("ref=\"A1\"");
+            size_t idStart = sheetXml.find("r:id=\"", a1Pos) + 6;
+            size_t idEnd = sheetXml.find("\"", idStart);
+            std::string rId = sheetXml.substr(idStart, idEnd - idStart);
+            
+            // Verify this ID exists in rels and points to GitHub
+            REQUIRE(relsXml.find("Id=\"" + rId + "\"") != std::string::npos);
+            REQUIRE(relsXml.find("Target=\"https://www.github.com\"") != std::string::npos);
+            REQUIRE(relsXml.find("TargetMode=\"External\"") != std::string::npos);
+
+            testDoc.close();
+        }
+        std::filesystem::remove(filename);
+    }
+
     SECTION("Verify XML Declaration persistence in other files")
     {
         std::string filename = "ooxml_decl_test.xlsx";
