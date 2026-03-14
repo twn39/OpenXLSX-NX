@@ -92,6 +92,26 @@ void XLZipArchive::open(const std::string& fileName) {
     if (!m_archive) m_archive = std::make_shared<LibZipApp>();
 
     int err = 0;
+#if defined(_WIN32)
+    zip_error_t zerr;
+    zip_error_init(&zerr);
+    // Use wide string for Windows to support UTF-8 paths
+    std::wstring wPath  = std::filesystem::u8path(fileName).wstring();
+    zip_source_t* src = zip_source_win32w_create(wPath.c_str(), 0, -1, &zerr);
+    if (!src) {
+        std::string msg = zip_error_strerror(&zerr);
+        zip_error_fini(&zerr);
+        throw XLInternalError("Failed to create zip source: " + msg);
+    }
+    m_archive->archive = zip_open_from_source(src, ZIP_CREATE, &zerr);
+    if (!m_archive->archive) {
+        std::string msg = zip_error_strerror(&zerr);
+        zip_source_free(src);
+        zip_error_fini(&zerr);
+        throw XLInternalError("Failed to open zip archive from source: " + msg);
+    }
+    zip_error_fini(&zerr);
+#else
     m_archive->archive = zip_open(fileName.c_str(), ZIP_CREATE, &err);
     if (!m_archive->archive) {
         zip_error_t zerr;
@@ -100,6 +120,7 @@ void XLZipArchive::open(const std::string& fileName) {
         zip_error_fini(&zerr);
         throw XLInternalError("Failed to open zip archive: " + msg);
     }
+#endif
     m_archive->currentPath = fileName;
 }
 
@@ -125,8 +146,8 @@ void XLZipArchive::save(const std::string& path) {
     } else {
         std::string current = m_archive->currentPath;
         close();
-        if (std::filesystem::exists(current)) {
-            std::filesystem::copy_file(current, path, std::filesystem::copy_options::overwrite_existing);
+        if (std::filesystem::exists(std::filesystem::u8path(current))) {
+            std::filesystem::copy_file(std::filesystem::u8path(current), std::filesystem::u8path(path), std::filesystem::copy_options::overwrite_existing);
         }
         open(current);
     }
