@@ -33,16 +33,17 @@ set(PUGIXML_XPATH OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(pugixml GIT_REPOSITORY https://github.com/zeux/pugixml.git GIT_TAG v1.15)
 FetchContent_MakeAvailable(pugixml)
 
+# Set up nowide
+set(NOWIDE_INSTALL OFF CACHE BOOL "" FORCE)
+set(NOWIDE_TESTING OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(nowide GIT_REPOSITORY https://github.com/boostorg/nowide.git GIT_TAG v11.3.1)
+FetchContent_MakeAvailable(nowide)
+
 # Set up Catch2 (if tests or benchmarks are enabled)
 if(OPENXLSX_BUILD_TESTS OR OPENXLSX_BUILD_BENCHMARKS)
     FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.13.0)
     FetchContent_MakeAvailable(Catch2)
 endif()
-
-# Third-party subdirectories
-set(NOWIDE_INSTALL OFF CACHE BOOL "" FORCE)
-set(NOWIDE_TESTING OFF CACHE BOOL "" FORCE)
-add_subdirectory(third_party/nowide EXCLUDE_FROM_ALL)
 
 if(WIN32)
     set(OPENXLSX_ENABLE_NOWIDE ON)
