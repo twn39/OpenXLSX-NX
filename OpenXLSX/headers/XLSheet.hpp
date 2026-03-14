@@ -69,6 +69,7 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 #include "XLColumn.hpp"
 #include "XLCommandQuery.hpp"
 #include "XLComments.hpp"    // XLComments
+#include "XLDataValidation.hpp"
 #include "XLDocument.hpp"
 #include "XLException.hpp"
 #include "XLMergeCells.hpp"
@@ -1047,6 +1048,12 @@ namespace OpenXLSX
         XLMergeCells& merges();
 
         /**
+         * @brief get an XLDataValidations object to directly access the member functions
+         * @returns an XLDataValidations object for this worksheet
+         */
+        XLDataValidations& dataValidations();
+
+        /**
          * @brief merge the cells indicated by range
          * @param rangeToMerge the XLCellRange to merge, can be obtained from XLWorksheet::range functions
          * @param emptyHiddenCells if true (XLEmptyHiddenCells), the values of hidden cells will be deleted
@@ -1319,6 +1326,7 @@ namespace OpenXLSX
     private:                                                                  // ---------- Private Member Variables ---------- //
         XLRelationships                                    m_relationships{}; /**< class handling the worksheet relationships */
         XLMergeCells                                       m_merges{};        /**< class handling the <mergeCells> */
+        XLDataValidations                                  m_dataValidations{}; /**< class handling the <dataValidations> */
         XLDrawing                                          m_drawing{};       /**< class handling the worksheet drawing object */
         XLVmlDrawing                                       m_vmlDrawing{};    /**< class handling the worksheet VML drawing object */
         XLComments                                         m_comments{};      /**< class handling the worksheet comments */

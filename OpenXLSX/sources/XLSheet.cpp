@@ -1423,6 +1423,15 @@ XLMergeCells& XLWorksheet::merges()
 }
 
 /**
+ * @details upon first access, ensure that the worksheet's <dataValidations> tag exists, and create an XLDataValidations object
+ */
+XLDataValidations& XLWorksheet::dataValidations()
+{
+    if (m_dataValidations.empty()) m_dataValidations = XLDataValidations(xmlDocument().document_element());
+    return m_dataValidations;
+}
+
+/**
  * @details create a new mergeCell element in the worksheet mergeCells array, with the only
  *          attribute being ref="A1:D6" (with the top left and bottom right cells of the range)
  *          The mergeCell element otherwise remains empty (no value)
