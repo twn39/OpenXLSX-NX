@@ -1774,6 +1774,59 @@ XLDrawing& XLWorksheet::drawing()
 }
 
 /**
+ * @details
+ */
+void XLWorksheet::addImage(const std::string& name, const std::string& data, uint32_t row, uint32_t col, uint32_t width, uint32_t height)
+{
+    // 1. Add image to document archive
+    std::string internalPath = parentDoc().addImage(name, data);
+
+    // 2. Ensure drawing object is initialized
+    XLDrawing& drw = drawing();
+
+    // 3. Add relationship from drawing to image
+    std::string drawingPath = drw.getXmlPath();
+    std::string imageRelativePath = getPathARelativeToPathB(internalPath, drawingPath);
+    
+    XLRelationshipItem imgRel;
+    if (!drw.relationships().targetExists(imageRelativePath))
+        imgRel = drw.relationships().addRelationship(XLRelationshipType::Image, imageRelativePath);
+    else
+        imgRel = drw.relationships().relationshipByTarget(imageRelativePath);
+
+    // 4. Add image to drawing XML
+    drw.addImage(imgRel.id(), name, "", row, col, width, height);
+}
+
+/**
+ * @details
+ */
+std::vector<XLDrawingItem> XLWorksheet::images()
+{
+    std::vector<XLDrawingItem> result;
+    if (!m_drawing.valid()) {
+        // Check if drawing relationship exists
+        std::string drawingRelativePath = "";
+        for (auto& rel : relationships().relationships()) {
+            if (rel.type() == XLRelationshipType::Drawing) {
+                drawingRelativePath = rel.target();
+                break;
+            }
+        }
+        if (drawingRelativePath.empty()) return result;
+        
+        // Load drawing
+        m_drawing = drawing();
+    }
+
+    uint32_t count = m_drawing.imageCount();
+    for (uint32_t i = 0; i < count; ++i) {
+        result.push_back(m_drawing.image(i));
+    }
+    return result;
+}
+
+/**
  * @details fetches XLVmlDrawing for the sheet - creates & assigns the class if empty
  */
 XLVmlDrawing& XLWorksheet::vmlDrawing()

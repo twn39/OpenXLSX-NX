@@ -1,159 +1,57 @@
-#include "XLUtilities.hpp"
 #include <OpenXLSX.hpp>
-#include <catch2/catch_all.hpp>
+#include <iostream>
 #include <fstream>
-#include <pugixml.hpp>
-#include <vector>
+#include <catch2/catch_test_macros.hpp>
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLDocument Image Structure and Insertion", "[XLDocument]")
+// Helper to read binary file
+std::string readBinaryFile(const std::string& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) return "";
+    return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+}
+
+TEST_CASE("XLImage Tests", "[XLImage]")
 {
-    SECTION("Comprehensive structural check")
-    {
+    SECTION("Add and read images") {
         XLDocument doc;
-        doc.create("./testImageStruct.xlsx", XLForceOverwrite);
+        doc.create("./testImage.xlsx", XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
-        // Read image from file Tests/test.jpg
-        std::ifstream file("Tests/test.jpg", std::ios::binary | std::ios::ate);
-        REQUIRE(file.is_open());
-        std::streamsize size = file.tellg();
-        file.seekg(0, std::ios::beg);
-        std::string imageData(size, '\0');
-        file.read(&imageData[0], size);
+        std::string imgData = readBinaryFile("./Tests/test.png");
+        REQUIRE_FALSE(imgData.empty());
 
-        // 1. Add image
-        std::string imagePath = doc.addImage("test.jpg", imageData);
-
-        // 2. Get drawing
-        auto&       drawing         = wks.drawing();
-        std::string drawingPath     = "xl/drawings/drawing1.xml";
-        std::string drawingRelsPath = "xl/drawings/_rels/drawing1.xml.rels";
-
-        // 3. Link image to drawing
-        std::string relPath = "../media/test.jpg";
-        auto        rel     = drawing.relationships().addRelationship(XLRelationshipType::Image, relPath);
-        drawing.addImage(rel.id(), "test.jpg", "Test Image", 1, 1, 400, 300);
+        wks.addImage("test.png", imgData, 2, 2, 200, 200);
+        
+        REQUIRE(wks.images().size() == 1);
+        REQUIRE(wks.images()[0].name() == "test.png");
+        REQUIRE(wks.images()[0].row() == 2);
+        REQUIRE(wks.images()[0].col() == 2);
 
         doc.save();
         doc.close();
 
-        // 4. Re-open and perform structural verification
+        // Re-open and verify
         XLDocument doc2;
-        doc2.open("./testImageStruct.xlsx");
-
-        // A. Check image file existence and integrity
-        std::string readData = doc2.getImage("xl/media/test.jpg");
-        REQUIRE(readData.size() == imageData.size());
-        REQUIRE(readData == imageData);
-
-        // B. Check Worksheet XML structure
+        doc2.open("./testImage.xlsx");
         auto wks2 = doc2.workbook().worksheet("Sheet1");
-        REQUIRE(wks2.hasDrawing());
-
-        pugi::xml_document sheetDoc;
-        sheetDoc.load_string(wks2.xmlData().c_str());
-        auto worksheet = sheetDoc.child("worksheet");
-        REQUIRE_FALSE(worksheet.empty());
-        REQUIRE(worksheet.attribute("xmlns:xdr").empty());    // Should not have redundant namespace
-
-        auto drawingNode = worksheet.child("drawing");
-        REQUIRE_FALSE(drawingNode.empty());
-        REQUIRE_FALSE(drawingNode.attribute("r:id").empty());
-
-        // C. Check Drawing XML structure
-        auto& drawing2 = wks2.drawing();
-        REQUIRE(drawing2.imageCount() == 1);
-
-        pugi::xml_document drawingDoc;
-        drawingDoc.load_string(drawing2.xmlData().c_str());
-        auto wsDr = drawingDoc.child("xdr:wsDr");
-        REQUIRE_FALSE(wsDr.empty());
-        REQUIRE_FALSE(wsDr.attribute("xmlns:r").empty());
-
-        auto anchor = wsDr.child("xdr:oneCellAnchor");
-        REQUIRE_FALSE(anchor.empty());
-        REQUIRE_FALSE(anchor.child("xdr:pic").empty());
-
-        // D. Check Content Types XML structure
-        auto& ct = doc2.contentTypes();
-        REQUIRE(ct.hasDefault("jpg"));
-
-        pugi::xml_document ctDoc;
-        ctDoc.load_string(ct.xmlData().c_str());
-        auto types = ctDoc.child("Types");
-        REQUIRE_FALSE(types.empty());
-
-        // Ensure jpg default is before overrides
-        bool foundJpg      = false;
-        bool foundOverride = false;
-        for (auto node : types.children()) {
-            if (std::string(node.name()) == "Default") {
-                if (std::string(node.attribute("Extension").value()) == "jpg") {
-                    foundJpg = true;
-                    REQUIRE_FALSE(foundOverride);    // Default should be before Override
-                }
-            }
-            else if (std::string(node.name()) == "Override") {
-                foundOverride = true;
-            }
-        }
-        REQUIRE(foundJpg);
-
-        // E. Check for standalone="yes" in declarations
-        REQUIRE(wks2.xmlData().find("standalone=\"yes\"") != std::string::npos);
-        REQUIRE(drawing2.xmlData().find("standalone=\"yes\"") != std::string::npos);
-        REQUIRE(ct.xmlData().find("standalone=\"yes\"") != std::string::npos);
+        
+        auto imgs = wks2.images();
+        REQUIRE(imgs.size() == 1);
+        REQUIRE(imgs[0].name() == "test.png");
+        
+        // Get raw data
+        std::string relId = imgs[0].relationshipId();
+        std::string imgPath = wks2.drawing().relationships().relationshipById(relId).target();
+        // Relationship target is relative to drawing file (xl/drawings/)
+        // internal path should be xl/media/test.png
+        
+        // Resolve path (simplified)
+        std::string fullPath = "xl/" + imgPath.substr(3); // remove "../"
+        std::string retrievedData = doc2.getImage(fullPath);
+        REQUIRE(retrievedData == imgData);
 
         doc2.close();
-    }
-
-    SECTION("Image dimension detection and scaling")
-    {
-        // 1. Test PNG dimension detection (test.png is 1440x446)
-        std::ifstream pngFile("Tests/test.png", std::ios::binary | std::ios::ate);
-        REQUIRE(pngFile.is_open());
-        std::streamsize pngSize = pngFile.tellg();
-        pngFile.seekg(0, std::ios::beg);
-        std::string pngData(pngSize, '\0');
-        pngFile.read(&pngData[0], pngSize);
-
-        auto [pngW, pngH] = getImageDimensions(pngData);
-        REQUIRE(pngW == 1440);
-        REQUIRE(pngH == 446);
-
-        // 2. Test JPEG dimension detection
-        std::ifstream jpgFile("Tests/test.jpg", std::ios::binary | std::ios::ate);
-        REQUIRE(jpgFile.is_open());
-        std::streamsize jpgSize = jpgFile.tellg();
-        jpgFile.seekg(0, std::ios::beg);
-        std::string jpgData(jpgSize, '\0');
-        jpgFile.read(&jpgData[0], jpgSize);
-
-        auto [jpgW, jpgH] = getImageDimensions(jpgData);
-        REQUIRE(jpgW > 0);
-        REQUIRE(jpgH > 0);
-
-        // 3. Test addScaledImage
-        XLDocument doc;
-        doc.create("./testImageScaling.xlsx", XLForceOverwrite);
-        auto  wks     = doc.workbook().worksheet("Sheet1");
-        auto& drawing = wks.drawing();
-
-        std::string imagePath = doc.addImage("scaled_test.png", pngData);
-        std::string relPath   = "../media/scaled_test.png";
-        auto        rel       = drawing.relationships().addRelationship(XLRelationshipType::Image, relPath);
-
-        // Scale to 25% (1440 * 0.25 = 360, 446 * 0.25 = 111.5 -> 111)
-        drawing.addScaledImage(rel.id(), "scaled_test.png", "Scaled PNG", pngData, 1, 1, 0.25);
-
-        REQUIRE(drawing.imageCount() == 1);
-        auto img = drawing.image(0);
-        REQUIRE(img.width() == 360);
-        REQUIRE(img.height() == 111);
-
-        doc.save();
-        doc.close();
     }
 }

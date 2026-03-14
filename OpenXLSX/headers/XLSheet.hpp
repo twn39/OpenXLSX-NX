@@ -1246,6 +1246,23 @@ namespace OpenXLSX
         XLDrawing& drawing();
 
         /**
+         * @brief Add an image to the worksheet.
+         * @param name The name of the image (e.g. "image1.png").
+         * @param data The binary data of the image.
+         * @param row The row where the image should be placed (0-indexed).
+         * @param col The column where the image should be placed (0-indexed).
+         * @param width The width of the image in pixels.
+         * @param height The height of the image in pixels.
+         */
+        void addImage(const std::string& name, const std::string& data, uint32_t row, uint32_t col, uint32_t width, uint32_t height);
+
+        /**
+         * @brief Get a list of images in this worksheet.
+         * @return A vector of XLDrawingItem objects.
+         */
+        std::vector<XLDrawingItem> images();
+
+        /**
          * @brief fetch a reference to the worksheet VML drawing object
          */
         XLVmlDrawing& vmlDrawing();
