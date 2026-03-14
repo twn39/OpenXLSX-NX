@@ -1303,6 +1303,34 @@ namespace OpenXLSX
          */
         void addInternalHyperlink(const std::string& cellRef, const std::string& location, const std::string& tooltip = "");
 
+        /**
+         * @brief Check if a cell has a hyperlink.
+         * @param cellRef The cell reference (e.g. "A1").
+         * @return True if the cell has a hyperlink, false otherwise.
+         */
+        bool hasHyperlink(const std::string& cellRef) const;
+
+        /**
+         * @brief Get the hyperlink target for a cell.
+         * @param cellRef The cell reference (e.g. "A1").
+         * @return The hyperlink target (URL or internal location), or an empty string if no hyperlink exists.
+         */
+        std::string getHyperlink(const std::string& cellRef) const;
+
+        /**
+         * @brief Remove a hyperlink from a cell.
+         * @param cellRef The cell reference (e.g. "A1").
+         */
+        void removeHyperlink(const std::string& cellRef);
+
+        /**
+         * @brief Helper method to create an internal location string.
+         * @param sheetName The name of the target sheet.
+         * @param cellRef The target cell reference.
+         * @return A string in the format "SheetName!CellRef".
+         */
+        static std::string makeInternalLocation(const std::string& sheetName, const std::string& cellRef);
+
     private:
         /**
          * @brief fetch the # number from the xml path xl/worksheets/sheet#.xml

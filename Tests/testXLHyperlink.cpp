@@ -59,4 +59,37 @@ TEST_CASE("XLWorksheet Hyperlink Support", "[XLWorksheet]") {
         
         doc2.close();
     }
+
+    SECTION("Hyperlink CRUD Operations") {
+        XLDocument doc;
+        doc.create("./testHyperlinkCRUD.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        // 1. Initial state
+        REQUIRE_FALSE(wks.hasHyperlink("A1"));
+        REQUIRE(wks.getHyperlink("A1") == "");
+
+        // 2. Add and check
+        wks.addHyperlink("A1", "https://www.google.com");
+        REQUIRE(wks.hasHyperlink("A1"));
+        REQUIRE(wks.getHyperlink("A1") == "https://www.google.com");
+
+        // 3. Update and check
+        wks.addHyperlink("A1", "https://www.github.com");
+        REQUIRE(wks.hasHyperlink("A1"));
+        REQUIRE(wks.getHyperlink("A1") == "https://www.github.com");
+
+        // 4. Internal link
+        wks.addInternalHyperlink("B2", "Sheet1!A10");
+        REQUIRE(wks.hasHyperlink("B2"));
+        REQUIRE(wks.getHyperlink("B2") == "Sheet1!A10");
+
+        // 5. Remove
+        wks.removeHyperlink("A1");
+        REQUIRE_FALSE(wks.hasHyperlink("A1"));
+        REQUIRE(wks.getHyperlink("A1") == "");
+
+        doc.save();
+        doc.close();
+    }
 }

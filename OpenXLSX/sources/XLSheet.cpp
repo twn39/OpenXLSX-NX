@@ -1927,6 +1927,9 @@ XLTables& XLWorksheet::tables()
 
 void XLWorksheet::addHyperlink(const std::string& cellRef, const std::string& url, const std::string& tooltip)
 {
+    // 0. Remove existing hyperlink if present
+    removeHyperlink(cellRef);
+
     // 1. Ensure sheet relationships exist
     std::ignore = relationships();
 
@@ -1947,6 +1950,9 @@ void XLWorksheet::addHyperlink(const std::string& cellRef, const std::string& ur
 
 void XLWorksheet::addInternalHyperlink(const std::string& cellRef, const std::string& location, const std::string& tooltip)
 {
+    // 0. Remove existing hyperlink if present
+    removeHyperlink(cellRef);
+
     // 1. Find or create <hyperlinks> node
     XMLNode docElement    = xmlDocument().document_element();
     XMLNode hyperlinksNode = docElement.child("hyperlinks");
@@ -1958,6 +1964,66 @@ void XLWorksheet::addInternalHyperlink(const std::string& cellRef, const std::st
     hyperlinkNode.append_attribute("location").set_value(location.c_str());
     hyperlinkNode.append_attribute("display").set_value(location.c_str());
     if (!tooltip.empty()) { hyperlinkNode.append_attribute("tooltip").set_value(tooltip.c_str()); }
+}
+
+bool XLWorksheet::hasHyperlink(const std::string& cellRef) const
+{
+    XMLNode docElement    = xmlDocument().document_element();
+    XMLNode hyperlinksNode = docElement.child("hyperlinks");
+    if (hyperlinksNode.empty()) return false;
+
+    for (auto link : hyperlinksNode.children("hyperlink")) {
+        if (std::string(link.attribute("ref").value()) == cellRef) return true;
+    }
+    return false;
+}
+
+std::string XLWorksheet::getHyperlink(const std::string& cellRef) const
+{
+    XMLNode docElement    = xmlDocument().document_element();
+    XMLNode hyperlinksNode = docElement.child("hyperlinks");
+    if (hyperlinksNode.empty()) return "";
+
+    for (auto link : hyperlinksNode.children("hyperlink")) {
+        if (std::string(link.attribute("ref").value()) == cellRef) {
+            if (link.attribute("location")) return link.attribute("location").value();
+            if (link.attribute("r:id")) {
+                const auto rId = link.attribute("r:id").value();
+                return const_cast<XLWorksheet*>(this)->relationships().relationshipById(rId).target();
+            }
+        }
+    }
+    return "";
+}
+
+void XLWorksheet::removeHyperlink(const std::string& cellRef)
+{
+    XMLNode docElement    = xmlDocument().document_element();
+    XMLNode hyperlinksNode = docElement.child("hyperlinks");
+    if (hyperlinksNode.empty()) return;
+
+    for (auto link : hyperlinksNode.children("hyperlink")) {
+        if (std::string(link.attribute("ref").value()) == cellRef) {
+            // If it's an external relationship, we might want to remove it,
+            // but multiple cells could point to the same URL, so we'll leave the relationship for now.
+            // (Excelize also doesn't immediately remove relationships to avoid orphaned rIds if they are reused).
+            hyperlinksNode.remove_child(link);
+            break;
+        }
+    }
+
+    // Clean up <hyperlinks> node if empty
+    if (hyperlinksNode.first_child().empty()) {
+        docElement.remove_child(hyperlinksNode);
+    }
+}
+
+std::string XLWorksheet::makeInternalLocation(const std::string& sheetName, const std::string& cellRef)
+{
+    if (sheetName.find(' ') != std::string::npos) {
+        return "'" + sheetName + "'!" + cellRef;
+    }
+    return sheetName + "!" + cellRef;
 }
 
 /**
