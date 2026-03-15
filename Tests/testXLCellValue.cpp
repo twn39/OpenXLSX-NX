@@ -15,7 +15,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         XLCellValue value;
 
         REQUIRE(value.type() == XLValueType::Empty);
-        REQUIRE(value.typeAsString() == "empty");
+        REQUIRE(std::string(value.typeAsString()) == "empty");
         REQUIRE(value.get<std::string>().empty());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE_THROWS(value.get<double>());
@@ -27,7 +27,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         XLCellValue value(3.14159);
 
         REQUIRE(value.type() == XLValueType::Float);
-        REQUIRE(value.typeAsString() == "float");
+        REQUIRE(std::string(value.typeAsString()) == "float");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 3.14159);
@@ -39,7 +39,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         XLCellValue value(42);
 
         REQUIRE(value.type() == XLValueType::Integer);
-        REQUIRE(value.typeAsString() == "integer");
+        REQUIRE(std::string(value.typeAsString()) == "integer");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE(value.get<int>() == 42);
         REQUIRE(value.get<double>() == 42.0);
@@ -51,7 +51,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         XLCellValue value(true);
 
         REQUIRE(value.type() == XLValueType::Boolean);
-        REQUIRE(value.typeAsString() == "boolean");
+        REQUIRE(std::string(value.typeAsString()) == "boolean");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 1.0);
@@ -63,7 +63,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         XLCellValue value("Hello OpenXLSX!");
 
         REQUIRE(value.type() == XLValueType::String);
-        REQUIRE(value.typeAsString() == "string");
+        REQUIRE(std::string(value.typeAsString()) == "string");
         REQUIRE(value.get<std::string>() == "Hello OpenXLSX!");
         REQUIRE_THROWS(value.get<int>());
         REQUIRE_THROWS(value.get<double>());
@@ -76,7 +76,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         auto        copy = value;
 
         REQUIRE(copy.type() == XLValueType::String);
-        REQUIRE(value.typeAsString() == "string");
+        REQUIRE(std::string(value.typeAsString()) == "string");
         REQUIRE(copy.get<std::string>() == "Hello OpenXLSX!");
         REQUIRE_THROWS(copy.get<int>());
         REQUIRE_THROWS(copy.get<double>());
@@ -89,7 +89,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         auto        copy = std::move(value);
 
         REQUIRE(copy.type() == XLValueType::String);
-        REQUIRE(value.typeAsString() == "string");
+        REQUIRE(std::string(value.typeAsString()) == "string");
         REQUIRE(copy.get<std::string>() == "Hello OpenXLSX!");
         REQUIRE_THROWS(copy.get<int>());
         REQUIRE_THROWS(copy.get<double>());
@@ -103,7 +103,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         copy = value;
 
         REQUIRE(copy.type() == XLValueType::String);
-        REQUIRE(value.typeAsString() == "string");
+        REQUIRE(std::string(value.typeAsString()) == "string");
         REQUIRE(copy.get<std::string>() == "Hello OpenXLSX!");
         REQUIRE_THROWS(copy.get<int>());
         REQUIRE_THROWS(copy.get<double>());
@@ -117,7 +117,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         copy = std::move(value);
 
         REQUIRE(copy.type() == XLValueType::String);
-        REQUIRE(value.typeAsString() == "string");
+        REQUIRE(std::string(value.typeAsString()) == "string");
         REQUIRE(copy.get<std::string>() == "Hello OpenXLSX!");
         REQUIRE_THROWS(copy.get<int>());
         REQUIRE_THROWS(copy.get<double>());
@@ -130,7 +130,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value = 3.14159;
 
         REQUIRE(value.type() == XLValueType::Float);
-        REQUIRE(value.typeAsString() == "float");
+        REQUIRE(std::string(value.typeAsString()) == "float");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 3.14159);
@@ -143,7 +143,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value = 42;
 
         REQUIRE(value.type() == XLValueType::Integer);
-        REQUIRE(value.typeAsString() == "integer");
+        REQUIRE(std::string(value.typeAsString()) == "integer");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE(value.get<int>() == 42);
         REQUIRE(value.get<double>() == 42.0);
@@ -156,7 +156,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value = true;
 
         REQUIRE(value.type() == XLValueType::Boolean);
-        REQUIRE(value.typeAsString() == "boolean");
+        REQUIRE(std::string(value.typeAsString()) == "boolean");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 1.0);
@@ -169,7 +169,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value = "Hello OpenXLSX!";
 
         REQUIRE(value.type() == XLValueType::String);
-        REQUIRE(value.typeAsString() == "string");
+        REQUIRE(std::string(value.typeAsString()) == "string");
         REQUIRE(value.get<std::string>() == "Hello OpenXLSX!");
         REQUIRE_THROWS(value.get<int>());
         REQUIRE_THROWS(value.get<double>());
@@ -186,7 +186,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         wks.cell("A1").value() = "Hello OpenXLSX!";
         value                  = wks.cell("A1").value();
         REQUIRE(value.type() == XLValueType::String);
-        REQUIRE(value.typeAsString() == "string");
+        REQUIRE(std::string(value.typeAsString()) == "string");
         REQUIRE(value.get<std::string>() == "Hello OpenXLSX!");
         REQUIRE_THROWS(value.get<int>());
         REQUIRE_THROWS(value.get<double>());
@@ -195,7 +195,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         wks.cell("A1").value() = 3.14159;
         value                  = wks.cell("A1").value();
         REQUIRE(value.type() == XLValueType::Float);
-        REQUIRE(value.typeAsString() == "float");
+        REQUIRE(std::string(value.typeAsString()) == "float");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 3.14159);
@@ -204,7 +204,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         wks.cell("A1").value() = 42;
         value                  = wks.cell("A1").value();
         REQUIRE(value.type() == XLValueType::Integer);
-        REQUIRE(value.typeAsString() == "integer");
+        REQUIRE(std::string(value.typeAsString()) == "integer");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE(value.get<int>() == 42);
         REQUIRE(value.get<double>() == 42.0);
@@ -213,7 +213,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         wks.cell("A1").value() = true;
         value                  = wks.cell("A1").value();
         REQUIRE(value.type() == XLValueType::Boolean);
-        REQUIRE(value.typeAsString() == "boolean");
+        REQUIRE(std::string(value.typeAsString()) == "boolean");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 1.0);
@@ -226,7 +226,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value.set(3.14159);
 
         REQUIRE(value.type() == XLValueType::Float);
-        REQUIRE(value.typeAsString() == "float");
+        REQUIRE(std::string(value.typeAsString()) == "float");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 3.14159);
@@ -239,7 +239,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value.set(std::numeric_limits<double>::quiet_NaN());
 
         REQUIRE(value.type() == XLValueType::Error);
-        REQUIRE(value.typeAsString() == "error");
+        REQUIRE(std::string(value.typeAsString()) == "error");
         REQUIRE(value.get<std::string>() == "#NUM!");
         REQUIRE_THROWS(value.get<int>());
         //        REQUIRE_THROWS(value.get<double>());
@@ -252,7 +252,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value.set(std::numeric_limits<double>::infinity());
 
         REQUIRE(value.type() == XLValueType::Error);
-        REQUIRE(value.typeAsString() == "error");
+        REQUIRE(std::string(value.typeAsString()) == "error");
         REQUIRE(value.get<std::string>() == "#NUM!");
         REQUIRE_THROWS(value.get<int>());
         //        REQUIRE_THROWS(value.get<double>());
@@ -265,7 +265,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value.set(42);
 
         REQUIRE(value.type() == XLValueType::Integer);
-        REQUIRE(value.typeAsString() == "integer");
+        REQUIRE(std::string(value.typeAsString()) == "integer");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE(value.get<int>() == 42);
         REQUIRE(value.get<double>() == 42.0);
@@ -278,7 +278,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value.set(true);
 
         REQUIRE(value.type() == XLValueType::Boolean);
-        REQUIRE(value.typeAsString() == "boolean");
+        REQUIRE(std::string(value.typeAsString()) == "boolean");
         REQUIRE_THROWS(value.get<std::string>());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 1.0);
@@ -291,7 +291,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value.set("Hello OpenXLSX!");
 
         REQUIRE(value.type() == XLValueType::String);
-        REQUIRE(value.typeAsString() == "string");
+        REQUIRE(std::string(value.typeAsString()) == "string");
         REQUIRE(value.get<std::string>() == "Hello OpenXLSX!");
         REQUIRE_THROWS(value.get<int>());
         REQUIRE_THROWS(value.get<double>());
@@ -305,7 +305,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value.clear();
 
         REQUIRE(value.type() == XLValueType::Empty);
-        REQUIRE(value.typeAsString() == "empty");
+        REQUIRE(std::string(value.typeAsString()) == "empty");
         REQUIRE(value.get<std::string>().empty());
         REQUIRE_THROWS(value.get<int>());
         REQUIRE_THROWS(value.get<double>());
@@ -319,7 +319,7 @@ TEST_CASE("XLCellValue Tests", "[XLCellValue]")
         value.setError("#N/A");
 
         REQUIRE(value.type() == XLValueType::Error);
-        REQUIRE(value.typeAsString() == "error");
+        REQUIRE(std::string(value.typeAsString()) == "error");
         REQUIRE(value.get<std::string>() == "#N/A");
         REQUIRE_THROWS(value.get<int>());
         //        REQUIRE_THROWS(value.get<double>());

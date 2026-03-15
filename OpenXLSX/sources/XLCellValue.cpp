@@ -96,7 +96,7 @@ XLValueType XLCellValue::type() const { return m_type; }
  * @pre
  * @post
  */
-std::string XLCellValue::typeAsString() const
+const char* XLCellValue::typeAsString() const
 {
     switch (type()) {
         case XLValueType::Empty:
@@ -249,36 +249,35 @@ XLValueType XLCellValueProxy::type() const
     // ===== If neither a Type attribute or a getValue node is present, the cell is empty.
     if (!m_cellNode->attribute("t") and !m_cellNode->child("v")) return XLValueType::Empty;
 
+    std::string_view typeAttr = m_cellNode->attribute("t").value();
+
     // ===== If a Type attribute is not present, but a value node is, the cell contains a number.
-    if (m_cellNode->attribute("t").empty() ||
-        ((strcmp(m_cellNode->attribute("t").value(), "n") == 0) and not m_cellNode->child("v").empty()))
+    if (typeAttr.empty() || (typeAttr == "n" && not m_cellNode->child("v").empty()))
     {
-        if (const std::string numberString = m_cellNode->child("v").text().get(); numberString.find('.') != std::string::npos ||
-                                                                                  numberString.find("E-") != std::string::npos ||
-                                                                                  numberString.find("e-") != std::string::npos)
+        std::string_view numberString = m_cellNode->child("v").text().get();
+        if (numberString.find('.') != std::string_view::npos ||
+            numberString.find("E-") != std::string_view::npos ||
+            numberString.find("e-") != std::string_view::npos)
             return XLValueType::Float;
         return XLValueType::Integer;
     }
 
     // ===== If the cell is of type "s", the cell contains a shared string.
-    if (not m_cellNode->attribute("t").empty() and strcmp(m_cellNode->attribute("t").value(), "s") == 0) {
-        // For now, we don't have an easy way to check if a shared string is rich text without looking at XLSharedStrings.
-        // But XLCellValueProxy doesn't have direct access to the XML of shared strings easily here.
-        // Actually, let's keep it as String for now, and getValue() will decide.
+    if (typeAttr == "s") {
         return XLValueType::String;
     }
 
     // ===== If the cell is of type "inlineStr", the cell contains an inline string.
-    if (not m_cellNode->attribute("t").empty() and strcmp(m_cellNode->attribute("t").value(), "inlineStr") == 0) {
+    if (typeAttr == "inlineStr") {
         if (not m_cellNode->child("is").child("r").empty()) return XLValueType::RichText;
         return XLValueType::String;
     }
 
     // ===== If the cell is of type "str", the cell contains an ordinary string.
-    if (not m_cellNode->attribute("t").empty() and strcmp(m_cellNode->attribute("t").value(), "str") == 0) return XLValueType::String;
+    if (typeAttr == "str") return XLValueType::String;
 
     // ===== If the cell is of type "b", the cell contains a boolean.
-    if (not m_cellNode->attribute("t").empty() and strcmp(m_cellNode->attribute("t").value(), "b") == 0) return XLValueType::Boolean;
+    if (typeAttr == "b") return XLValueType::Boolean;
 
     // ===== Otherwise, the cell contains an error.
     return XLValueType::Error;    // the m_typeAttribute has the ValueAsString "e"
@@ -344,7 +343,7 @@ void XLCellValueProxy::setRichText(const XLRichText& richTextValue)
  * @pre
  * @post
  */
-std::string XLCellValueProxy::typeAsString() const
+const char* XLCellValueProxy::typeAsString() const
 {
     switch (type()) {
         case XLValueType::Empty:
@@ -585,30 +584,22 @@ XLCellValue XLCellValueProxy::getValue() const
             return XLCellValue{m_cellNode->child("v").text().as_llong()};
 
         case XLValueType::String:
-        case XLValueType::RichText:
-            if (strcmp(m_cellNode->attribute("t").value(), "s") == 0) {
-                // We need to check if the shared string is rich text.
-                // Accessing XLSharedStrings XML is tricky here, but we can try to look it up.
-                // For now, let's assume if we want RichText, we might have to peek into the XML.
-                // In OpenXLSX, shared strings are managed by XLDocument/XLSharedStrings.
-                // Let's see if we can get the XML node for the shared string.
-
-                // This is a bit of a hack because XLSharedStrings doesn't expose the XML nodes directly easily.
-                // But we can use the existing getString() which only returns plain text.
-                // To TRULY support reading RichText from shared strings, we'd need to modify XLSharedStrings.
-                // For now, if it's a shared string, we return it as a String (plain text).
+        case XLValueType::RichText: {
+            std::string_view typeAttr = m_cellNode->attribute("t").value();
+            if (typeAttr == "s") {
                 return XLCellValue{
                     m_cell->m_sharedStrings.get().getString(static_cast<int32_t>(m_cellNode->child("v").text().as_ullong()))};
             }
-            else if (strcmp(m_cellNode->attribute("t").value(), "str") == 0)
+            else if (typeAttr == "str")
                 return XLCellValue{m_cellNode->child("v").text().get()};
-            else if (strcmp(m_cellNode->attribute("t").value(), "inlineStr") == 0) {
+            else if (typeAttr == "inlineStr") {
                 XMLNode isNode = m_cellNode->child("is");
                 if (!isNode.child("r").empty()) { return XLCellValue{parseRichText(isNode)}; }
                 return XLCellValue{isNode.child("t").text().get()};
             }
             else
                 throw XLInternalError("Unknown string type");
+        }
 
         case XLValueType::Boolean:
             return XLCellValue{m_cellNode->child("v").text().as_bool()};
@@ -626,7 +617,7 @@ XLCellValue XLCellValueProxy::getValue() const
  */
 int32_t XLCellValueProxy::stringIndex() const
 {
-    if (strcmp(m_cellNode->attribute("t").value(), "s") != 0) return -1;    // cell value is not a shared string
+    if (std::string_view(m_cellNode->attribute("t").value()) != "s") return -1;    // cell value is not a shared string
     return static_cast<int32_t>(m_cellNode->child("v").text().as_ullong(
         static_cast<unsigned long long>(-1)));    // return the shared string index stored for this cell
     /**/                                          // if, for whatever reason, the underlying XML has no reference stored, also return -1
@@ -637,6 +628,6 @@ int32_t XLCellValueProxy::stringIndex() const
  */
 bool XLCellValueProxy::setStringIndex(int32_t newIndex)
 {
-    if (newIndex < 0 or strcmp(m_cellNode->attribute("t").value(), "s") != 0) return false;    // cell value is not a shared string
+    if (newIndex < 0 or std::string_view(m_cellNode->attribute("t").value()) != "s") return false;    // cell value is not a shared string
     return m_cellNode->child("v").text().set(newIndex);                                        // set the shared string index directly
 }

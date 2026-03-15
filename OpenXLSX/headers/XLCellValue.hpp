@@ -383,7 +383,7 @@ namespace OpenXLSX
          * @brief Get the value type of the current object, as a string representation
          * @return A std::string representation of the value type.
          */
-        std::string typeAsString() const;
+        const char* typeAsString() const;
 
     private:
         //---------- Private Member Variables ---------- //
@@ -539,7 +539,7 @@ namespace OpenXLSX
          * @brief Get the value type of the current object, as a string representation
          * @return A std::string representation of the value type.
          */
-        std::string typeAsString() const;
+        const char* typeAsString() const;
 
         /**
          * @brief Implicitly convert the XLCellValueProxy object to a XLCellValue object.
