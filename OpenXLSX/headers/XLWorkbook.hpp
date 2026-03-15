@@ -11,6 +11,7 @@
 #include <optional>
 #include <ostream>    // std::basic_ostream
 #include <string>
+#include <string_view>
 #include <vector>
 
 // ===== OpenXLSX Includes ===== //
@@ -19,16 +20,12 @@
 
 namespace OpenXLSX
 {
-    // class XLSharedStrings;
-
     class XLSheet;
-
     class XLWorksheet;
-
     class XLChartsheet;
 
     /**
-     * @brief
+     * @brief Enumeration of the different types of sheets.
      */
     enum class XLSheetType { Worksheet, Chartsheet, Dialogsheet, Macrosheet };
 
@@ -42,10 +39,10 @@ namespace OpenXLSX
         explicit XLDefinedName(const XMLNode& node);
 
         std::string name() const;
-        void        setName(const std::string& name);
+        void        setName(std::string_view name);
 
         std::string refersTo() const;
-        void        setRefersTo(const std::string& formula);
+        void        setRefersTo(std::string_view formula);
 
         std::optional<uint32_t> localSheetId() const;
         void                    setLocalSheetId(uint32_t id);
@@ -54,7 +51,7 @@ namespace OpenXLSX
         void setHidden(bool hidden);
 
         std::string comment() const;
-        void        setComment(const std::string& comment);
+        void        setComment(std::string_view comment);
 
         bool valid() const { return !m_node.empty(); }
 
@@ -71,11 +68,11 @@ namespace OpenXLSX
         XLDefinedNames() = default;
         explicit XLDefinedNames(const XMLNode& node);
 
-        XLDefinedName append(const std::string& name, const std::string& formula, std::optional<uint32_t> localSheetId = std::nullopt);
-        void          remove(const std::string& name, std::optional<uint32_t> localSheetId = std::nullopt);
-        XLDefinedName get(const std::string& name, std::optional<uint32_t> localSheetId = std::nullopt) const;
+        XLDefinedName append(std::string_view name, std::string_view formula, std::optional<uint32_t> localSheetId = std::nullopt);
+        void          remove(std::string_view name, std::optional<uint32_t> localSheetId = std::nullopt);
+        XLDefinedName get(std::string_view name, std::optional<uint32_t> localSheetId = std::nullopt) const;
         std::vector<XLDefinedName> all() const;
-        bool                       exists(const std::string& name, std::optional<uint32_t> localSheetId = std::nullopt) const;
+        bool                       exists(std::string_view name, std::optional<uint32_t> localSheetId = std::nullopt) const;
         size_t                     count() const;
 
     private:
@@ -107,36 +104,27 @@ namespace OpenXLSX
         /**
          * @brief Copy Constructor.
          * @param other The XLWorkbook object to be copied.
-         * @note The copy constructor has been explicitly defaulted.
          */
         XLWorkbook(const XLWorkbook& other) = default;
 
         /**
          * @brief Move constructor.
          * @param other The XLWorkbook to be moved.
-         * @note The move constructor has been explicitly defaulted.
          */
         XLWorkbook(XLWorkbook&& other) = default;
 
         /**
          * @brief Destructor
-         * @note Default destructor specified
          */
         ~XLWorkbook();
 
         /**
          * @brief Copy assignment operator.
-         * @param other The XLWorkbook object to be assigned to the current.
-         * @return A reference to *this
-         * @note The copy assignment operator has been explicitly deleted, as XLWorkbook objects should not be copied.
          */
         XLWorkbook& operator=(const XLWorkbook& other) = default;
 
         /**
          * @brief Move assignment operator.
-         * @param other The XLWorkbook to be move assigned.
-         * @return A reference to *this
-         * @note The move assignment operator has been explicitly deleted, as XLWorkbook objects should not be moved.
          */
         XLWorkbook& operator=(XLWorkbook&& other) = default;
 
@@ -153,14 +141,14 @@ namespace OpenXLSX
          * @param sheetName The name of the desired sheet.
          * @return A pointer to an XLAbstractSheet with the sheet at the index.
          */
-        XLSheet sheet(const std::string& sheetName);
+        XLSheet sheet(std::string_view sheetName);
 
         /**
          * @brief Get the worksheet with the given name.
          * @param sheetName The name of the desired worksheet.
          * @return
          */
-        XLWorksheet worksheet(const std::string& sheetName);
+        XLWorksheet worksheet(std::string_view sheetName);
 
         /**
          * @brief Get the worksheet at the given index.
@@ -174,7 +162,7 @@ namespace OpenXLSX
          * @param sheetName The name of the desired chartsheet.
          * @return
          */
-        XLChartsheet chartsheet(const std::string& sheetName);
+        XLChartsheet chartsheet(std::string_view sheetName);
 
         /**
          * @brief Get the chartsheet at the given index.
@@ -193,217 +181,186 @@ namespace OpenXLSX
          * @brief Delete sheet (worksheet or chartsheet) from the workbook.
          * @param sheetName Name of the sheet to delete.
          * @throws XLException An exception will be thrown if trying to delete the last worksheet in the workbook
-         * @warning A workbook must contain at least one worksheet. Trying to delete the last worksheet from the
-         * workbook will trow an exception.
          */
-        void deleteSheet(const std::string& sheetName);
+        void deleteSheet(std::string_view sheetName);
 
         /**
-         * @brief
-         * @param sheetName
+         * @brief Add a new worksheet.
+         * @param sheetName The name of the new worksheet.
          */
-        void addWorksheet(const std::string& sheetName);
+        void addWorksheet(std::string_view sheetName);
 
         /**
-         * @brief
-         * @param existingName
-         * @param newName
+         * @brief Clone an existing sheet.
+         * @param existingName The name of the sheet to clone.
+         * @param newName The name of the new cloned sheet.
          */
-        void cloneSheet(const std::string& existingName, const std::string& newName);
+        void cloneSheet(std::string_view existingName, std::string_view newName);
 
         /**
-         * @brief
-         * @param sheetName
-         * @param index The index (1-based) where the sheet shall be moved to
+         * @brief Move a sheet to a new index.
+         * @param sheetName The name of the sheet to move.
+         * @param index The index (1-based) where the sheet shall be moved to.
          */
-        void setSheetIndex(const std::string& sheetName, unsigned int index);
+        void setSheetIndex(std::string_view sheetName, unsigned int index);
 
         /**
-         * @brief
-         * @param sheetName
-         * @return The index (1-based) of the sheet with sheetName
+         * @brief Get the index of a sheet.
+         * @param sheetName The name of the sheet.
+         * @return The 1-based index of the sheet.
          */
-        unsigned int indexOfSheet(const std::string& sheetName) const;
+        unsigned int indexOfSheet(std::string_view sheetName) const;
 
         /**
-         * @brief
-         * @param sheetName
-         * @return
+         * @brief Get the type of a sheet.
+         * @param sheetName The name of the sheet.
+         * @return The type of the sheet.
          */
-        XLSheetType typeOfSheet(const std::string& sheetName) const;
+        XLSheetType typeOfSheet(std::string_view sheetName) const;
 
         /**
-         * @brief
-         * @param index The index (1-based) at which the desired sheet is located.
-         * @return
+         * @brief Get the type of a sheet at a given index.
+         * @param index The 1-based index.
+         * @return The type of the sheet.
          */
         XLSheetType typeOfSheet(unsigned int index) const;
 
         /**
-         * @brief
-         * @return
+         * @brief Get the total number of sheets in the workbook.
          */
         unsigned int sheetCount() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Get the total number of worksheets in the workbook.
          */
         unsigned int worksheetCount() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Get the total number of chartsheets in the workbook.
          */
         unsigned int chartsheetCount() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Get a list of all sheet names.
          */
         std::vector<std::string> sheetNames() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Get a list of all worksheet names.
          */
         std::vector<std::string> worksheetNames() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Get a list of all chartsheet names.
          */
         std::vector<std::string> chartsheetNames() const;
 
         /**
-         * @brief
-         * @param sheetName
-         * @return
+         * @brief Check if a sheet exists.
          */
-        bool sheetExists(const std::string& sheetName) const;
+        bool sheetExists(std::string_view sheetName) const;
 
         /**
-         * @brief
-         * @param sheetName
-         * @return
+         * @brief Check if a worksheet exists.
          */
-        bool worksheetExists(const std::string& sheetName) const;
+        bool worksheetExists(std::string_view sheetName) const;
 
         /**
-         * @brief
-         * @param sheetName
-         * @return
+         * @brief Check if a chartsheet exists.
          */
-        bool chartsheetExists(const std::string& sheetName) const;
+        bool chartsheetExists(std::string_view sheetName) const;
 
         /**
-         * @brief
-         * @param oldName
-         * @param newName
+         * @brief Update references to a sheet after renaming.
          */
-        void updateSheetReferences(const std::string& oldName, const std::string& newName);
+        void updateSheetReferences(std::string_view oldName, std::string_view newName);
 
-        // /**
-        //  * @brief
-        //  * @return
-        //  */
-        // XLSharedStrings sharedStrings();
-        //
-        // /**
-        //  * @brief
-        //  * @return
-        //  */
-        // bool hasSharedStrings() const;
-        //
         /**
-         * @brief
+         * @brief Delete all named ranges.
          */
         void deleteNamedRanges();
 
         /**
-         * @brief set a flag to force full calculation upon loading the file in Excel
+         * @brief Set a flag to force full calculation upon loading the file in Excel.
          */
         void setFullCalculationOnLoad();
 
         /**
-         * @brief print the XML contents of the workbook.xml using the underlying XMLNode print function
+         * @brief Protect the workbook.
+         * @param lockStructure If true, the structure of the workbook is locked.
+         * @param lockWindows If true, the windows of the workbook are locked.
+         * @param password The password to protect the workbook with.
+         */
+        void protect(bool lockStructure, bool lockWindows, std::string_view password = "");
+
+        /**
+         * @brief Unprotect the workbook.
+         */
+        void unprotect();
+
+        /**
+         * @brief Check if the workbook is protected.
+         */
+        bool isProtected() const;
+
+        /**
+         * @brief Print the XML contents of the workbook.xml.
          */
         void print(std::basic_ostream<char>& ostr) const;
 
     private:    // ---------- Private Member Functions ---------- //
         /**
-         * @brief
-         * @return
+         * @brief Create a new internal sheet ID.
          */
         uint16_t createInternalSheetID();
 
         /**
-         * @brief
-         * @param sheetName
-         * @return
+         * @brief Get the relationship ID for a sheet name.
          */
-        std::string sheetID(const std::string& sheetName);
+        std::string sheetID(std::string_view sheetName);
 
         /**
-         * @brief
-         * @param sheetID
-         * @return
+         * @brief Get the name for a relationship ID.
          */
-        std::string sheetName(const std::string& sheetID) const;
+        std::string sheetName(std::string_view sheetID) const;
 
         /**
-         * @brief
-         * @param sheetID
-         * @return
+         * @brief Get the visibility state for a relationship ID.
          */
-        std::string sheetVisibility(const std::string& sheetID) const;
+        std::string sheetVisibility(std::string_view sheetID) const;
 
         /**
-         * @brief
-         * @param sheetName
-         * @param internalID
+         * @brief Prepare sheet metadata in workbook.xml.
          */
-        void prepareSheetMetadata(const std::string& sheetName, uint16_t internalID);
+        void prepareSheetMetadata(std::string_view sheetName, uint16_t internalID);
 
         /**
-         * @brief
-         * @param sheetRID
-         * @param newName
+         * @brief Set the name for a relationship ID.
          */
-        void setSheetName(const std::string& sheetRID, const std::string& newName);
+        void setSheetName(std::string_view sheetRID, std::string_view newName);
 
         /**
-         * @brief
-         * @param sheetRID
-         * @param state
+         * @brief Set the visibility state for a relationship ID.
          */
-        void setSheetVisibility(const std::string& sheetRID, const std::string& state);
+        void setSheetVisibility(std::string_view sheetRID, std::string_view state);
 
         /**
-         * @brief
-         * @param sheetRID
-         * @return
+         * @brief Check if a sheet is the active tab.
          */
-        bool sheetIsActive(const std::string& sheetRID) const;
+        bool sheetIsActive(std::string_view sheetRID) const;
 
         /**
-         * @brief
-         * @param sheetRID
-         * @return true if sheed with sheedRID could be set to active (or was already active), otherwise false
+         * @brief Set a sheet as the active tab.
          */
-        bool setSheetActive(const std::string& sheetRID);
+        bool setSheetActive(std::string_view sheetRID);
 
         /**
-         * @brief Check whether attribute string state matches a value that is considered not visible
-         * @param state
-         * @return true if state does not match a value that is considered not visible (hidden, veryHidden), otherwise false
+         * @brief Helper to check if a state string means visible.
          */
-        bool isVisibleState(std::string const& state) const;
+        bool isVisibleState(std::string_view state) const;
 
         /**
-         * @brief Check whether sheetNode is not empty, and in case it has an attribute "state", that the state does not reflect hidden-ness
-         * @param sheetNode
-         * @return true if sheetNode can be considered visible (and could be activated)
+         * @brief Helper to check if a sheet node is visible.
          */
         bool isVisible(XMLNode const& sheetNode) const;
     };
