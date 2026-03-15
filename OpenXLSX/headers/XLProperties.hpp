@@ -9,290 +9,291 @@
 
 // ===== External Includes ===== //
 #include <string>
+#include <string_view>
+#include <vector>
 
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
 #include "XLXmlFile.hpp"
+#include "XLDateTime.hpp"
 
 namespace OpenXLSX
 {
     /**
-     * @brief
+     * @brief The XLProperties class represents the core properties of the document (docProps/core.xml).
      */
     class OPENXLSX_EXPORT XLProperties : public XLXmlFile
     {
     private:
         /**
          * @brief constructor helper function: create core.xml content from template
-         * @param workbook
          */
         void createFromTemplate();
 
-        //----------------------------------------------------------------------------------------------------------------------
-        //           Public Member Functions
-        //----------------------------------------------------------------------------------------------------------------------
-
     public:
         /**
-         * @brief
+         * @brief Default constructor.
          */
         XLProperties() = default;
 
         /**
-         * @brief
-         * @param xmlData
+         * @brief Constructor that binds to existing XML data.
+         * @param xmlData Pointer to the XML data.
          */
         explicit XLProperties(XLXmlData* xmlData);
 
         /**
-         * @brief
-         * @param other
+         * @brief Copy constructor.
          */
         XLProperties(const XLProperties& other) = default;
 
         /**
-         * @brief
-         * @param other
+         * @brief Move constructor.
          */
         XLProperties(XLProperties&& other) noexcept = default;
 
         /**
-         * @brief
+         * @brief Destructor.
          */
         ~XLProperties();
 
         /**
-         * @brief
-         * @param other
-         * @return
+         * @brief Copy assignment operator.
          */
         XLProperties& operator=(const XLProperties& other) = default;
 
         /**
-         * @brief
-         * @param other
-         * @return
+         * @brief Move assignment operator.
          */
-        XLProperties& operator=(XLProperties&& other) = default;
+        XLProperties& operator=(XLProperties&& other) noexcept = default;
 
         /**
-         * @brief
-         * @param name
-         * @param value
-         * @return
+         * @brief Set a property by name.
+         * @param name The name of the property (including namespace prefix, e.g., "dc:title").
+         * @param value The value to set.
          */
-        void setProperty(const std::string& name, const std::string& value);
+        void setProperty(std::string_view name, std::string_view value);
 
         /**
-         * @brief
-         * @param name
-         * @param value
-         * @return
+         * @brief Set a numeric property.
+         * @param name The name of the property.
+         * @param value The integer value.
          */
-        void setProperty(const std::string& name, int value);
+        void setProperty(std::string_view name, int value);
 
         /**
-         * @brief
-         * @param name
-         * @param value
-         * @return
+         * @brief Set a numeric property.
+         * @param name The name of the property.
+         * @param value The double value.
          */
-        void setProperty(const std::string& name, double value);
+        void setProperty(std::string_view name, double value);
 
         /**
-         * @brief
-         * @param name
-         * @return
+         * @brief Get a property value as a string.
+         * @param name The name of the property.
+         * @return The property value.
          */
-        std::string property(const std::string& name) const;
+        std::string property(std::string_view name) const;
 
         /**
-         * @brief
-         * @param name
+         * @brief Delete a property.
+         * @param name The name of the property.
          */
-        void deleteProperty(const std::string& name);
+        void deleteProperty(std::string_view name);
 
-        //----------------------------------------------------------------------------------------------------------------------
-        //           Protected Member Functions
-        //----------------------------------------------------------------------------------------------------------------------
+        // Standard Core Properties
+        std::string title() const;
+        void setTitle(std::string_view title);
+
+        std::string subject() const;
+        void setSubject(std::string_view subject);
+
+        std::string creator() const;
+        void setCreator(std::string_view creator);
+
+        std::string keywords() const;
+        void setKeywords(std::string_view keywords);
+
+        std::string description() const;
+        void setDescription(std::string_view description);
+
+        std::string lastModifiedBy() const;
+        void setLastModifiedBy(std::string_view author);
+
+        std::string revision() const;
+        void setRevision(std::string_view revision);
+
+        std::string lastPrinted() const;
+        void setLastPrinted(std::string_view date);
+
+        XLDateTime created() const;
+        void setCreated(const XLDateTime& date);
+
+        XLDateTime modified() const;
+        void setModified(const XLDateTime& date);
+
+        std::string category() const;
+        void setCategory(std::string_view category);
+
+        std::string contentStatus() const;
+        void setContentStatus(std::string_view status);
     };
 
     /**
-     * @brief This class is a specialization of the XLAbstractXMLFile, with the purpose of the representing the
-     * document app properties in the app.xml file (docProps folder) in the .xlsx package.
+     * @brief The XLAppProperties class represents the extended/application properties (docProps/app.xml).
      */
     class OPENXLSX_EXPORT XLAppProperties : public XLXmlFile
     {
     private:
         /**
          * @brief constructor helper function: create app.xml content from template
-         * @param workbook
+         * @param workbookXml The workbook XML document.
          */
         void createFromTemplate(XMLDocument const& workbookXml);
 
-        //--------------------------------------------------------------------------------------------------------------
-        //           Public Member Functions
-        //--------------------------------------------------------------------------------------------------------------
-
     public:
         /**
-         * @brief
+         * @brief Default constructor.
          */
         XLAppProperties() = default;
 
         /**
-         * @brief enable XLAppProperties to re-create a worksheet list in docProps/app.xml <TitlesOfParts> element from workbookXml
-         * @param xmlData
-         * @param workbook
+         * @brief Constructor for creating from existing data and workbook.
+         * @param xmlData Pointer to the XML data.
+         * @param workbookXml The workbook XML document.
          */
         explicit XLAppProperties(XLXmlData* xmlData, XMLDocument const& workbookXml);
 
         /**
-         * @brief
-         * @param xmlData
+         * @brief Constructor for existing XML data.
+         * @param xmlData Pointer to the XML data.
          */
         explicit XLAppProperties(XLXmlData* xmlData);
 
         /**
-         * @brief
-         * @param other
+         * @brief Copy constructor.
          */
         XLAppProperties(const XLAppProperties& other) = default;
 
         /**
-         * @brief
-         * @param other
+         * @brief Move constructor.
          */
         XLAppProperties(XLAppProperties&& other) noexcept = default;
 
         /**
-         * @brief
+         * @brief Destructor.
          */
         ~XLAppProperties();
 
         /**
-         * @brief
-         * @param other
-         * @return
+         * @brief Copy assignment operator.
          */
         XLAppProperties& operator=(const XLAppProperties& other) = default;
 
         /**
-         * @brief
-         * @param other
-         * @return
+         * @brief Move assignment operator.
          */
         XLAppProperties& operator=(XLAppProperties&& other) noexcept = default;
 
         /**
-         * @brief update the "HeadingPairs" entry for "Worksheets" *and* the "TitlesOfParts" vector size
-         * @param increment change the sheet count by this (negative = decrement)
-         * @throws XLInternalError when sheet count would become < 1
+         * @brief Increment or decrement the worksheet count in HeadingPairs and TitlesOfParts.
+         * @param increment The change in count.
          */
         void incrementSheetCount(int16_t increment);
 
         /**
-         * @brief initialize <TitlesOfParts> to contain all and only entries from workbookSheetNames & ensure HeadingPairs entry for
-         * Worksheets has the correct count
-         * @param workbookSheetNames the vector of sheet names as returned by XLWorkbook::sheetNames()
-         * @throws XLInternalError thrown by the underlying sheetNames call upon failure
+         * @brief Align the sheet names in TitlesOfParts with the actual workbook sheet names.
+         * @param workbookSheetNames Vector of sheet names.
          */
-        void alignWorksheets(std::vector<std::string> const& workbookSheetNames);
+        void alignWorksheets(const std::vector<std::string>& workbookSheetNames);
 
         /**
-         * @brief
-         * @param title
-         * @return
+         * @brief Add a sheet name to TitlesOfParts.
+         * @param title The sheet name.
          */
-        void addSheetName(const std::string& title);
+        void addSheetName(std::string_view title);
 
         /**
-         * @brief
-         * @param title
+         * @brief Delete a sheet name from TitlesOfParts.
+         * @param title The sheet name.
          */
-        void deleteSheetName(const std::string& title);
+        void deleteSheetName(std::string_view title);
 
         /**
-         * @brief
-         * @param oldTitle
-         * @param newTitle
+         * @brief Update a sheet name in TitlesOfParts.
+         * @param oldTitle The old name.
+         * @param newTitle The new name.
          */
-        void setSheetName(const std::string& oldTitle, const std::string& newTitle);
+        void setSheetName(std::string_view oldTitle, std::string_view newTitle);
 
         /**
-         * @brief
-         * @param name
-         * @param value
+         * @brief Add a HeadingPair (e.g., "Worksheets").
+         * @param name The name of the pair.
+         * @param value The value.
          */
-        void addHeadingPair(const std::string& name, int value);
+        void addHeadingPair(std::string_view name, int value);
 
         /**
-         * @brief
-         * @param name
+         * @brief Delete a HeadingPair.
+         * @param name The name of the pair.
          */
-        void deleteHeadingPair(const std::string& name);
+        void deleteHeadingPair(std::string_view name);
 
         /**
-         * @brief
-         * @param name
-         * @param newValue
+         * @brief Update a HeadingPair value.
+         * @param name The name of the pair.
+         * @param newValue The new value.
          */
-        void setHeadingPair(const std::string& name, int newValue);
+        void setHeadingPair(std::string_view name, int newValue);
 
         /**
-         * @brief
-         * @param name
-         * @param value
-         * @return
+         * @brief Set a generic property in app.xml.
+         * @param name The property name.
+         * @param value The value.
          */
-        void setProperty(const std::string& name, const std::string& value);
+        void setProperty(std::string_view name, std::string_view value);
 
         /**
-         * @brief
-         * @param name
-         * @return
+         * @brief Get a property value from app.xml.
+         * @param name The property name.
+         * @return The property value.
          */
-        std::string property(const std::string& name) const;
+        std::string property(std::string_view name) const;
 
         /**
-         * @brief
-         * @param name
+         * @brief Delete a property from app.xml.
+         * @param name The property name.
          */
-        void deleteProperty(const std::string& name);
+        void deleteProperty(std::string_view name);
 
         /**
-         * @brief
-         * @param sheetName
-         * @return
+         * @brief Append a sheet name.
+         * @param sheetName The name to append.
          */
-        void appendSheetName(const std::string& sheetName);
+        void appendSheetName(std::string_view sheetName);
 
         /**
-         * @brief
-         * @param sheetName
-         * @return
+         * @brief Prepend a sheet name.
+         * @param sheetName The name to prepend.
          */
-        void prependSheetName(const std::string& sheetName);
+        void prependSheetName(std::string_view sheetName);
 
         /**
-         * @brief
-         * @param sheetName
-         * @param index
-         * @return
+         * @brief Insert a sheet name at a specific index.
+         * @param sheetName The name to insert.
+         * @param index The 1-based index.
          */
-        void insertSheetName(const std::string& sheetName, unsigned int index);
+        void insertSheetName(std::string_view sheetName, unsigned int index);
     };
 
     /**
-     * @brief The XLCustomProperties class encapsulates the functionality for reading and writing
-     * custom document properties in docProps/custom.xml. Custom properties allow users to attach
-     * arbitrary metadata to the workbook, which can be seen in Excel's file properties.
+     * @brief The XLCustomProperties class represents custom user-defined properties (docProps/custom.xml).
      */
     class OPENXLSX_EXPORT XLCustomProperties : public XLXmlFile
     {
     private:
         /**
-         * @brief Initialize a new custom.xml file with the required namespaces if it doesn't exist.
+         * @brief Initialize from template.
          */
         void createFromTemplate();
 
@@ -303,8 +304,8 @@ namespace OpenXLSX
         XLCustomProperties() = default;
 
         /**
-         * @brief Constructor that binds to existing XML data. If the XML is empty, it initializes it from template.
-         * @param xmlData Pointer to the XML data managed by the parent document.
+         * @brief Constructor for existing XML data.
+         * @param xmlData Pointer to the XML data.
          */
         explicit XLCustomProperties(XLXmlData* xmlData);
 
@@ -334,54 +335,59 @@ namespace OpenXLSX
         XLCustomProperties& operator=(XLCustomProperties&& other) noexcept = default;
 
         /**
-         * @brief Set a string custom property. If a property with the same name exists, it will be updated.
-         * We use vt:lpwstr for strings to ensure compatibility with most Excel versions and support for Unicode.
-         * @param name The name of the property.
-         * @param value The string value.
+         * @brief Set a string custom property (vt:lpwstr).
+         * @param name The property name.
+         * @param value The value.
          */
-        void setProperty(const std::string& name, const std::string& value);
+        void setProperty(std::string_view name, std::string_view value);
 
         /**
-         * @brief Overload for string literals to prevent unwanted implicit conversion to bool.
-         * @param name The name of the property.
-         * @param value The string literal value.
+         * @brief Overload for string literals.
+         * @param name The property name.
+         * @param value The literal value.
          */
-        void setProperty(const std::string& name, const char* value);
+        void setProperty(std::string_view name, const char* value);
 
         /**
-         * @brief Set an integer custom property using vt:i4 (32-bit signed integer).
-         * @param name The name of the property.
-         * @param value The integer value.
+         * @brief Set an integer custom property (vt:i4).
+         * @param name The property name.
+         * @param value The value.
          */
-        void setProperty(const std::string& name, int value);
+        void setProperty(std::string_view name, int value);
 
         /**
-         * @brief Set a double custom property using vt:r8 (64-bit floating point).
-         * @param name The name of the property.
-         * @param value The double value.
+         * @brief Set a double custom property (vt:r8).
+         * @param name The property name.
+         * @param value The value.
          */
-        void setProperty(const std::string& name, double value);
+        void setProperty(std::string_view name, double value);
 
         /**
-         * @brief Set a boolean custom property using vt:bool.
-         * @param name The name of the property.
-         * @param value The boolean value.
+         * @brief Set a boolean custom property (vt:bool).
+         * @param name The property name.
+         * @param value The value.
          */
-        void setProperty(const std::string& name, bool value);
+        void setProperty(std::string_view name, bool value);
 
         /**
-         * @brief Retrieve the value of a custom property as a string, regardless of its underlying XML type.
-         * Returns an empty string if the property is not found.
-         * @param name The name of the property to find.
-         * @return The property value as a string.
+         * @brief Set a date/time custom property (vt:filetime).
+         * @param name The property name.
+         * @param value The XLDateTime value.
          */
-        std::string property(const std::string& name) const;
+        void setProperty(std::string_view name, const XLDateTime& value);
 
         /**
-         * @brief Remove a custom property by name. Does nothing if the property doesn't exist.
-         * @param name The name of the property to delete.
+         * @brief Get a custom property value as a string.
+         * @param name The property name.
+         * @return The value as string.
          */
-        void deleteProperty(const std::string& name);
+        std::string property(std::string_view name) const;
+
+        /**
+         * @brief Delete a custom property.
+         * @param name The property name.
+         */
+        void deleteProperty(std::string_view name);
     };
 
 }    // namespace OpenXLSX
