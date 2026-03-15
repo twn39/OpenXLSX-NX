@@ -8,7 +8,34 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLDateTime Tests", "[XLFormula]")
+namespace
+{
+    // Hack to access protected member without inheritance (since XLDocument is final)
+    template<typename Tag, typename Tag::type M>
+    struct Rob
+    {
+        friend typename Tag::type get_impl(Tag) { return M; }
+    };
+
+    struct XLDocument_extractXmlFromArchive
+    {
+        typedef std::string (XLDocument::*type)(const std::string&);
+    };
+
+    template struct Rob<XLDocument_extractXmlFromArchive, &XLDocument::extractXmlFromArchive>;
+
+    // Prototype declaration for the friend function
+    std::string (XLDocument::*get_impl(XLDocument_extractXmlFromArchive))(const std::string&);
+
+    // Function to call the protected member
+    std::string getRawXml(XLDocument& doc, const std::string& path)
+    {
+        static auto fn = get_impl(XLDocument_extractXmlFromArchive());
+        return (doc.*fn)(path);
+    }
+}    // namespace
+
+TEST_CASE("XLDateTime Tests", "[XLDateTime]")
 {
     SECTION("Default construction")
     {
@@ -223,5 +250,71 @@ TEST_CASE("XLDateTime Tests", "[XLFormula]")
         REQUIRE(result.tm_hour == 20);
         REQUIRE(result.tm_min == 49);
         REQUIRE(result.tm_sec == 5);
+    }
+
+    SECTION("String Parsing and Formatting")
+    {
+        // Parsing
+        XLDateTime dt = XLDateTime::fromString("2023-10-27 14:30:00");
+        auto       tm = dt.tm();
+        REQUIRE(tm.tm_year == 123); // 2023 - 1900
+        REQUIRE(tm.tm_mon == 9);    // October (0-indexed)
+        REQUIRE(tm.tm_mday == 27);
+        REQUIRE(tm.tm_hour == 14);
+        REQUIRE(tm.tm_min == 30);
+        REQUIRE(tm.tm_sec == 0);
+
+        // Formatting
+        REQUIRE(dt.toString() == "2023-10-27 14:30:00");
+        REQUIRE(dt.toString("%Y/%m/%d") == "2023/10/27");
+
+        // Error handling
+        REQUIRE_THROWS(XLDateTime::fromString("invalid-date"));
+    }
+
+    SECTION("Chrono Support")
+    {
+        auto now = std::chrono::system_clock::now();
+        XLDateTime dt(now);
+        
+        // Convert back to chrono
+        auto back = dt.chrono();
+        
+        // Check difference (should be less than 1 second due to Excel precision)
+        auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - back).count();
+        REQUIRE(std::abs(diff) <= 1);
+
+        XLDateTime dtNow = XLDateTime::now();
+        REQUIRE(dtNow.serial() > 45000); // Current dates are > 45000
+    }
+
+    SECTION("Cell Integration")
+    {
+        XLDocument doc;
+        doc.create("./DateTimeCellTest.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        XLDateTime dt = XLDateTime::fromString("2023-10-27 14:30:00");
+        wks.cell("A1").value() = dt;
+
+        doc.save();
+        doc.close();
+
+        XLDocument doc2;
+        doc2.open("./DateTimeCellTest.xlsx");
+        auto wks2 = doc2.workbook().worksheet("Sheet1");
+        
+        // Excel stores dates as doubles
+        double serial = wks2.cell("A1").value().get<double>();
+        XLDateTime dt2(serial);
+        
+        REQUIRE(dt2.toString() == "2023-10-27 14:30:00");
+
+        // Verify XML structure
+        std::string sheetXml = getRawXml(doc2, "xl/worksheets/sheet1.xml");
+        // Excel date for 2023-10-27 14:30:00 is approximately 45226.604167
+        REQUIRE(sheetXml.find("<v>45226.604166666664</v>") != std::string::npos);
+
+        doc2.close();
     }
 }

@@ -53,7 +53,9 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 #endif    // _MSC_VER
 
 // ===== External Includes ===== //
+#include <chrono>
 #include <ctime>
+#include <string>
 
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
@@ -87,6 +89,33 @@ namespace OpenXLSX
          * @param unixtime A time_t number.
          */
         explicit XLDateTime(time_t unixtime);
+
+        /**
+         * @brief Constructor taking a std::chrono::system_clock::time_point as an argument.
+         * @param timepoint A chrono time_point.
+         */
+        explicit XLDateTime(const std::chrono::system_clock::time_point& timepoint);
+
+        /**
+         * @brief Get the current time as an XLDateTime object.
+         * @return An XLDateTime object representing the current time.
+         */
+        static XLDateTime now();
+
+        /**
+         * @brief Create an XLDateTime object from a string.
+         * @param dateString The string representation of the date/time.
+         * @param format The format string (default: ISO 8601 "%Y-%m-%d %H:%M:%S").
+         * @return An XLDateTime object.
+         */
+        static XLDateTime fromString(const std::string& dateString, const std::string& format = "%Y-%m-%d %H:%M:%S");
+
+        /**
+         * @brief Convert the XLDateTime object to a string.
+         * @param format The format string (default: ISO 8601 "%Y-%m-%d %H:%M:%S").
+         * @return A string representation of the date/time.
+         */
+        std::string toString(const std::string& format = "%Y-%m-%d %H:%M:%S") const;
 
         /**
          * @brief Copy constructor.
@@ -148,6 +177,12 @@ namespace OpenXLSX
          * @return std::tm object.
          */
         operator std::tm() const;    // NOLINT
+
+        /**
+         * @brief Conversion to std::chrono::system_clock::time_point.
+         * @return A chrono time_point object.
+         */
+        std::chrono::system_clock::time_point chrono() const;
 
         /**
          * @brief Get the date/time in the form of an Excel date/time serial number.

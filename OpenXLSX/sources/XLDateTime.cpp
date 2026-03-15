@@ -7,6 +7,8 @@
 
 #include <cmath>
 #include <cstdint>    // int32_t
+#include <iomanip>
+#include <sstream>
 
 namespace
 {
@@ -131,6 +133,41 @@ namespace OpenXLSX
     }
 
     /**
+     * @details
+     */
+    XLDateTime::XLDateTime(const std::chrono::system_clock::time_point& timepoint)
+        : XLDateTime(std::chrono::system_clock::to_time_t(timepoint))
+    {}
+
+    /**
+     * @details
+     */
+    XLDateTime XLDateTime::now() { return XLDateTime(std::chrono::system_clock::now()); }
+
+    /**
+     * @details
+     */
+    XLDateTime XLDateTime::fromString(const std::string& dateString, const std::string& format)
+    {
+        std::tm            tm  = {};
+        std::istringstream ss(dateString);
+        ss >> std::get_time(&tm, format.c_str());
+        if (ss.fail()) throw XLDateTimeError("Failed to parse date string: " + dateString);
+        return XLDateTime(tm);
+    }
+
+    /**
+     * @details
+     */
+    std::string XLDateTime::toString(const std::string& format) const
+    {
+        std::tm           timepoint = tm();
+        std::ostringstream ss;
+        ss << std::put_time(&timepoint, format.c_str());
+        return ss.str();
+    }
+
+    /**
      * @details Copy constructor. Default implementation.
      */
     XLDateTime::XLDateTime(const XLDateTime& other) = default;
@@ -179,6 +216,16 @@ namespace OpenXLSX
      * @details
      */
     XLDateTime::operator std::tm() const { return tm(); }
+
+    /**
+     * @details
+     */
+    std::chrono::system_clock::time_point XLDateTime::chrono() const
+    {
+        // 25569 days between 1/1/1970 and 30/12/1899
+        time_t unixtime = static_cast<time_t>((m_serial - 25569) * 86400);
+        return std::chrono::system_clock::from_time_t(unixtime);
+    }
 
     /**
      * @details Get the time point as an Excel date/time serial number.
