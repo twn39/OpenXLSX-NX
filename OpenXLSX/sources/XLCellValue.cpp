@@ -266,7 +266,6 @@ XLValueType XLCellValueProxy::type() const
 
     // ===== If the cell is of type "s", the cell contains a shared string.
     if (not m_cellNode->attribute("t").empty() and strcmp(m_cellNode->attribute("t").value(), "s") == 0) {
-        int32_t index = static_cast<int32_t>(m_cellNode->child("v").text().as_ullong());
         // For now, we don't have an easy way to check if a shared string is rich text without looking at XLSharedStrings.
         // But XLCellValueProxy doesn't have direct access to the XML of shared strings easily here.
         // Actually, let's keep it as String for now, and getValue() will decide.

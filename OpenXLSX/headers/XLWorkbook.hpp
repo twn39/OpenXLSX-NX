@@ -53,7 +53,9 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 #endif    // _MSC_VER
 
 // ===== External Includes ===== //
+#include <optional>
 #include <ostream>    // std::basic_ostream
+#include <string>
 #include <vector>
 
 // ===== OpenXLSX Includes ===== //
