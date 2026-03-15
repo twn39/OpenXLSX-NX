@@ -44,6 +44,7 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
  */
 
 // ===== External Includes ===== //
+#include <gsl/gsl>
 #include <pugixml.hpp>
 
 // ===== OpenXLSX Includes ===== //
@@ -68,33 +69,53 @@ XLXmlFile::XLXmlFile(XLXmlData* xmlData) : m_xmlData(xmlData) {}
  * input xml file may mess up the parsing.
  */
 void XLXmlFile::setXmlData(const std::string& xmlData)    // NOLINT
-{ m_xmlData->setRawData(xmlData); }
+{
+    Expects(m_xmlData != nullptr);
+    m_xmlData->setRawData(xmlData);
+}
 
 /**
  * @details This method retrieves the underlying XML data as a std::string.
  */
-std::string XLXmlFile::xmlData(XLXmlSavingDeclaration savingDeclaration) const { return m_xmlData->getRawData(savingDeclaration); }
+std::string XLXmlFile::xmlData(XLXmlSavingDeclaration savingDeclaration) const
+{
+    Expects(m_xmlData != nullptr);
+    return m_xmlData->getRawData(savingDeclaration);
+}
 
 /**
  * @details
  */
-const XLDocument& XLXmlFile::parentDoc() const { return *m_xmlData->getParentDoc(); }
+const XLDocument& XLXmlFile::parentDoc() const
+{
+    Expects(m_xmlData != nullptr);
+    return *m_xmlData->getParentDoc();
+}
 
 /**
  * @details
  */
-XLDocument& XLXmlFile::parentDoc() { return *m_xmlData->getParentDoc(); }
+XLDocument& XLXmlFile::parentDoc()
+{
+    Expects(m_xmlData != nullptr);
+    return *m_xmlData->getParentDoc();
+}
 
 /**
  * @details
  */
-std::string XLXmlFile::relationshipID() const { return m_xmlData->getXmlID(); }
+std::string XLXmlFile::relationshipID() const
+{
+    Expects(m_xmlData != nullptr);
+    return m_xmlData->getXmlID();
+}
 
 /**
  * @details This method returns a pointer to the underlying XMLDocument resource.
  */
 XMLDocument& XLXmlFile::xmlDocument()
 {
+    Expects(m_xmlData != nullptr);
     return const_cast<XMLDocument&>(static_cast<const XLXmlFile*>(this)->xmlDocument());    // NOLINT
     // return *m_xmlData->getXmlDocument();    // <- why not this easy version?
 }
@@ -102,7 +123,11 @@ XMLDocument& XLXmlFile::xmlDocument()
 /**
  * @details This method returns a pointer to the underlying XMLDocument resource as const.
  */
-const XMLDocument& XLXmlFile::xmlDocument() const { return *m_xmlData->getXmlDocument(); }
+const XMLDocument& XLXmlFile::xmlDocument() const
+{
+    Expects(m_xmlData != nullptr);
+    return *m_xmlData->getXmlDocument();
+}
 
 /**
  * @details provide access to the underlying XLXmlData::getXmlPath() function

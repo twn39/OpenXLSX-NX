@@ -52,6 +52,9 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 #    pragma warning(disable : 4275)
 #endif    // _MSC_VER
 
+// ===== External Includes ===== //
+#include <gsl/gsl>
+
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
 #include "XLXmlParser.hpp"

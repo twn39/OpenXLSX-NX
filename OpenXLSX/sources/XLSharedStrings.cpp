@@ -45,6 +45,7 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 
 // ===== External Includes ===== //
 #include <algorithm>
+#include <gsl/gsl>
 #include <pugixml.hpp>
 
 // ===== OpenXLSX Includes ===== //
@@ -104,6 +105,7 @@ XLSharedStrings::~XLSharedStrings() = default;
  */
 int32_t XLSharedStrings::getStringIndex(const std::string& str) const
 {
+    Expects(m_stringIndex != nullptr || m_stringCache != nullptr);
     // Use O(1) hash lookup if available
     if (m_stringIndex) {
         auto it = m_stringIndex->find(str);
@@ -130,6 +132,7 @@ bool XLSharedStrings::stringExists(const std::string& str) const
  */
 const char* XLSharedStrings::getString(int32_t index) const
 {
+    Expects(m_stringCache != nullptr);
     if (index < 0 or static_cast<size_t>(index) >= m_stringCache->size()) {    // 2024-04-30: added range check
         using namespace std::literals::string_literals;
         throw XLInternalError("XLSharedStrings::"s + __func__ + ": index "s + std::to_string(index) + " is out of range"s);
@@ -143,6 +146,7 @@ const char* XLSharedStrings::getString(int32_t index) const
  */
 int32_t XLSharedStrings::appendString(const std::string& str) const
 {
+    Expects(m_stringCache != nullptr);
     size_t stringCacheSize = m_stringCache->size();    // 2024-05-31: analogous with already added range check in getString
     if (stringCacheSize >= XLMaxSharedStrings) {       // 2024-05-31: added range check
         using namespace std::literals::string_literals;
@@ -190,6 +194,7 @@ void XLSharedStrings::print(std::basic_ostream<char>& ostr) const { xmlDocument(
  */
 void XLSharedStrings::clearString(int32_t index) const    // 2024-04-30: whitespace support
 {
+    Expects(m_stringCache != nullptr);
     if (index < 0 or static_cast<size_t>(index) >= m_stringCache->size()) {    // 2024-04-30: added range check
         using namespace std::literals::string_literals;
         throw XLInternalError("XLSharedStrings::"s + __func__ + ": index "s + std::to_string(index) + " is out of range"s);
@@ -223,6 +228,7 @@ void XLSharedStrings::clearString(int32_t index) const    // 2024-04-30: whitesp
  */
 int32_t XLSharedStrings::rewriteXmlFromCache()
 {
+    Expects(m_stringCache != nullptr);
     int32_t writtenStrings = 0;
     xmlDocument().document_element().remove_children();    // clear all existing XML
     for (std::string& s : *m_stringCache) {

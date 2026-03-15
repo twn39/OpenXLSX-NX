@@ -45,6 +45,7 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 // ===== External Includes ===== //
 #include <algorithm>
 #include <filesystem>
+#include <gsl/gsl>
 #if defined(_WIN32)
 #    include <random>
 #endif
@@ -1701,20 +1702,20 @@ namespace OpenXLSX
     }
 
     /**
-     * @details create a hex string from data - this function does the
+     * @details create a hex string from data
      */
-    std::string BinaryAsHexString(const void* data, const size_t size)
+    std::string BinaryAsHexString(gsl::span<const std::byte> data)
     {
-        // ===== Allocate memory for string assembly - each byte takes two hex digits = 2 characters in string
-        std::string strAssemble(size * 2,
-                                0);    // zero-initialize (alternative would be to default-construct a string and .reserve(size * 2);
+        if (data.empty()) return "";
 
-        const uint8_t* dataBytePtr = reinterpret_cast<const uint8_t*>(data);
+        // ===== Allocate memory for string assembly - each byte takes two hex digits = 2 characters in string
+        std::string strAssemble(data.size() * 2, 0);
+
         // ===== assemble a string of hex digits
-        for (size_t pos = 0; pos < size * 2; ++pos) {
-            int valueByte     = dataBytePtr[pos / 2];
-            int valueHalfByte = (valueByte & (pos & 1 ? 0x0f : 0xf0)) >> (pos & 1 ? 0 : 4);
-            strAssemble[pos]  = hexDigit(static_cast<unsigned int>(valueHalfByte));    // convert each half-byte into a hex digit
+        for (size_t pos = 0; pos < data.size() * 2; ++pos) {
+            auto valueByte     = static_cast<uint8_t>(data[pos / 2]);
+            int  valueHalfByte = (valueByte & (pos & 1 ? 0x0f : 0xf0)) >> (pos & 1 ? 0 : 4);
+            strAssemble[pos]   = hexDigit(static_cast<unsigned int>(valueHalfByte));    // convert each half-byte into a hex digit
         }
         return strAssemble;
     }
@@ -1747,7 +1748,7 @@ namespace OpenXLSX
         uint8_t  hashData[2];
         hashData[0] = pw >> 8;      // MSB first
         hashData[1] = pw & 0xff;    // LSB second
-        return BinaryAsHexString(hashData, 2);
+        return BinaryAsHexString(gsl::make_span(reinterpret_cast<const std::byte*>(hashData), 2));
     }
 
     /**

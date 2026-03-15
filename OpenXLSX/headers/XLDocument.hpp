@@ -54,6 +54,7 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 
 // ===== External Includes ===== //
 #include <algorithm>    // std::find_if
+#include <gsl/gsl>
 #include <list>
 #include <map>
 #include <string>
@@ -542,13 +543,11 @@ namespace OpenXLSX
     //----------------------------------------------------------------------------------------------------------------------
 
     /**
-     * @brief Get a hexadecimal representation of size bytes, starting at data
-     * @param data A pointer to the data bytes to format
-     * @param size The amount of data bytes to format
+     * @brief Get a hexadecimal representation of bytes in a span
+     * @param data A span of bytes to format
      * @return A string with the base-16 representation of the data bytes
-     * @note 2024-08-18 BUGFIX: replaced char array with std::string, as ISO C++ standard does not permit variable size arrays
      */
-    OPENXLSX_EXPORT std::string BinaryAsHexString(const void* data, const size_t size);
+    OPENXLSX_EXPORT std::string BinaryAsHexString(gsl::span<const std::byte> data);
 
     /**
      * @brief Calculate the two-byte XLSX password hash for password

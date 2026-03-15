@@ -46,6 +46,7 @@ YM      M9  MM    MM MM       MM    MM   d'  `MM.    MM            MM   d'  `MM.
 // ===== External Includes ===== //
 #include <cstdint>    // uint32_t
 #include <cstring>    // strlen
+#include <gsl/gsl>
 #include <memory>     // std::make_unique
 #include <pugixml.hpp>
 #include <random>       // std::mt19937, std::random_device
@@ -294,7 +295,7 @@ namespace
     std::string GetNewRelsIDString(XMLNode relationshipsNode)
     {
         uint64_t newId = GetNewRelsID(relationshipsNode);
-        if (RandomIDs) return "R" + BinaryAsHexString(&newId, sizeof(newId));
+        if (RandomIDs) return "R" + BinaryAsHexString(gsl::make_span(reinterpret_cast<const std::byte*>(&newId), sizeof(newId)));
         return "rId" + std::to_string(newId);
     }
 }    // anonymous namespace

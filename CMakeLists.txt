@@ -23,6 +23,10 @@ include(FetchContent)
 FetchContent_Declare(fast_float GIT_REPOSITORY https://github.com/fastfloat/fast_float.git GIT_TAG v8.2.3)
 FetchContent_MakeAvailable(fast_float)
 
+# Set up GSL (Microsoft Guidelines Support Library)
+FetchContent_Declare(GSL GIT_REPOSITORY https://github.com/microsoft/GSL.git GIT_TAG v4.1.0)
+FetchContent_MakeAvailable(GSL)
+
 # Set up fmt
 FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 12.1.0)
 FetchContent_MakeAvailable(fmt)
@@ -91,7 +95,7 @@ target_include_directories(OpenXLSX
         $<BUILD_INTERFACE:${fmt_SOURCE_DIR}/include>
 )
 
-target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip zlib)
+target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip zlib Microsoft.GSL::GSL)
 target_compile_definitions(OpenXLSX PUBLIC FMT_HEADER_ONLY)
 
 if ("${OPENXLSX_LIBRARY_TYPE}" STREQUAL "STATIC")
