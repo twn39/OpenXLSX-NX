@@ -55,7 +55,7 @@ namespace OpenXLSX
          * @brief
          * @param hexCode
          */
-        explicit XLColor(const std::string& hexCode);
+        explicit XLColor(std::string_view hexCode);
 
         /**
          * @brief
@@ -109,7 +109,7 @@ namespace OpenXLSX
          * @brief
          * @param hexCode
          */
-        void set(const std::string& hexCode);
+        void set(std::string_view hexCode);
 
         /**
          * @brief
