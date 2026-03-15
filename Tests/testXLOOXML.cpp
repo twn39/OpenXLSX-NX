@@ -302,4 +302,55 @@ testTestDoc:    // Wait, I'll just use the doc directly.
         }
         std::filesystem::remove(filename);
     }
+
+    SECTION("Verify Default Styles Generation in styles.xml")
+    {
+        std::string filename = "ooxml_default_styles_test.xlsx";
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto styles = doc.styles();
+            
+            // Create default styles without copying from another template
+            styles.fonts().create();
+            styles.fills().create();
+            styles.borders().create();
+            
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLDocumentTest testDoc;
+            testDoc.open(filename);
+
+            // Verify raw XML content in styles.xml
+            std::string stylesXml = testDoc.getRawXml("xl/styles.xml");
+
+            // 1. Check for Default Font
+            REQUIRE(stylesXml.find("<font>") != std::string::npos);
+            REQUIRE(stylesXml.find("name val=\"Arial\"") != std::string::npos);
+            REQUIRE(stylesXml.find("sz val=\"12\"") != std::string::npos);
+            REQUIRE(stylesXml.find("color rgb=\"ff000000\"") != std::string::npos);
+            REQUIRE(stylesXml.find("family val=\"0\"") != std::string::npos);
+            REQUIRE(stylesXml.find("charset val=\"1\"") != std::string::npos);
+
+            // 2. Check for Default Fill (Pattern none)
+            REQUIRE(stylesXml.find("<fill>") != std::string::npos);
+            REQUIRE(stylesXml.find("patternFill patternType=\"none\"") != std::string::npos);
+
+            // 3. Check for Default Borders (All sides none, with black color)
+            REQUIRE(stylesXml.find("<border>") != std::string::npos);
+            REQUIRE(stylesXml.find("<left style=\"\">") != std::string::npos);
+            REQUIRE(stylesXml.find("<right style=\"\">") != std::string::npos);
+            REQUIRE(stylesXml.find("<top style=\"\">") != std::string::npos);
+            REQUIRE(stylesXml.find("<bottom style=\"\">") != std::string::npos);
+            REQUIRE(stylesXml.find("<diagonal style=\"\">") != std::string::npos);
+            // Verify black colors on border nodes
+            REQUIRE(stylesXml.find("<color rgb=\"ff000000\"") != std::string::npos);
+
+            testDoc.close();
+        }
+        std::filesystem::remove(filename);
+    }
 }
