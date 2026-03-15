@@ -11,7 +11,11 @@ OpenXLSX is a high-performance C++ library for reading, writing, creating, and m
 - **Zero-Dependency Core**: All dependencies (`libzip`, `pugixml`, `fmt`, `fast_float`) are integrated via CMake's `FetchContent` or standard library.
 - **Unicode Support**: Consistent UTF-8 handling across all platforms using C++17 `std::filesystem`.
 - **Comprehensive Image Support**: Insert and read images (PNG/JPEG) with automatic dimension detection and aspect ratio preservation.
-- **Rich Formatting**: Support for styles, fonts, fills, borders, and conditional formatting.
+- **Rich Text & Formatting**: Support for multi-format text segments (`XLRichText`), fonts, fills, borders, and conditional formatting.
+- **AutoFilter & Names**: Set worksheet filters and manage workbook-level named ranges and constants.
+- **Page Setup & Print**: Fine-grained control over margins, orientation, paper size, and print options (gridlines, headings, centering).
+- **Sheet Protection**: Secure worksheets with passwords and granular permission controls.
+- **Enhanced DateTime**: Robust date/time handling with `std::chrono` integration and string parsing/formatting.
 - **Data Validation**: Full CRUD support for cell data validations (drop-down lists, numeric ranges, etc.).
 - **Worksheet Management**: Create, clone, rename, and delete worksheets with validation.
 - **Data Integrity**: Enforces OOXML standards, including strict XML declarations and metadata handling.
@@ -94,6 +98,16 @@ The build system includes platform-specific optimizations for `Release` builds (
 
 <details>
 <summary><b>Detailed Change Log</b></summary>
+
+### 2026-03-15: Feature Expansion & Robustness
+- **Implemented Rich Text**: Added `XLRichText` and `XLRichTextRun` for multi-format text segments within cells, including support for font colors and styles.
+- **AutoFilter Support**: New API to set and manage worksheet filters.
+- **Workbook Defined Names**: Implemented `XLDefinedNames` for managing global and local named ranges.
+- **Page Setup & Print Options**: Added comprehensive control over margins, orientation, paper size, and print-specific settings.
+- **Granular Sheet Protection**: Enhanced protection with granular control over user permissions (sorting, formatting, filtering).
+- **DateTime Overhaul**: Enhanced `XLDateTime` with `std::chrono` support, `fromString`/`toString` methods, and a convenient `now()` function.
+- **Internal OOXML Verification**: Migrated structure verification tests to use internal APIs, removing external dependencies like `unzip` for testing.
+- **Stability Fixes**: Resolved potential segmentation faults in protection property access and fixed symbol conflicts in test builds.
 
 ### 2026-03-14: Dependency Cleanup & Data Integrity
 - **Removed `nowide` Dependency**: Migrated to C++17 `std::filesystem::u8path` for cross-platform UTF-8 path support, reducing the library footprint and simplifying build logic.
