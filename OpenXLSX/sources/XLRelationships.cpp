@@ -219,35 +219,19 @@ namespace
     }
 }    // anonymous namespace
 
-/**
- * @details Constructor. Initializes the member variables for the new XLRelationshipItem object.
- */
 XLRelationshipItem::XLRelationshipItem(const XMLNode& node) : m_relationshipNode(node) {}
 
-/**
- * @details Returns the XLRelationshipType by parsing the Type attribute.
- */
 XLRelationshipType XLRelationshipItem::type() const { return GetRelationshipTypeFromString(m_relationshipNode.attribute("Type").value()); }
 
-/**
- * @details Returns the Target attribute value.
- */
 std::string XLRelationshipItem::target() const { return m_relationshipNode.attribute("Target").value(); }
 
-/**
- * @details Returns the Id attribute value.
- */
 std::string XLRelationshipItem::id() const { return m_relationshipNode.attribute("Id").value(); }
 
-/**
- * @details Returns the emptiness status of the underlying XML node.
- */
 bool XLRelationshipItem::empty() const { return m_relationshipNode.empty(); }
 
 /**
- * @details Creates a XLRelationships object, which will read the XML file with the given path
- *  The pathTo the relationships XML file will be verified & stored in m_path, which is subsequently
- *   used to return all relationship targets as absolute paths within the XLSX archive
+ * @details Creates a XLRelationships object. The pathTo will be verified and stored 
+ * to resolve relationship targets as absolute paths within the XLSX archive.
  */
 XLRelationships::XLRelationships(XLXmlData* xmlData, std::string pathTo) : XLXmlFile(xmlData)
 {
@@ -276,9 +260,6 @@ XLRelationships::XLRelationships(XLXmlData* xmlData, std::string pathTo) : XLXml
 
 XLRelationships::~XLRelationships() = default;
 
-/**
- * @details Returns the XLRelationshipItem with the given ID.
- */
 XLRelationshipItem XLRelationships::relationshipById(std::string_view id) const
 { return XLRelationshipItem(xmlDocument().document_element().find_child_by_attribute("Id", std::string(id).c_str())); }
 
@@ -309,10 +290,6 @@ XLRelationshipItem XLRelationships::relationshipByTarget(std::string_view target
     return XLRelationshipItem();
 }
 
-/**
- * @details Returns a vector of all relationship items. 
- * Rationale: Prefer returning by value for this collection as it's typically small and used for iteration.
- */
 std::vector<XLRelationshipItem> XLRelationships::relationships() const
 {
     std::vector<XLRelationshipItem> result;
@@ -363,18 +340,12 @@ XLRelationshipItem XLRelationships::addRelationship(XLRelationshipType type, std
     return XLRelationshipItem(node);
 }
 
-/**
- * @details Determine if a target path already exists in the relationships.
- */
 bool XLRelationships::targetExists(std::string_view target) const
 {
     constexpr bool DO_NOT_THROW = false;
     return !relationshipByTarget(target, DO_NOT_THROW).empty();
 }
 
-/**
- * @details Determine if a relationship ID already exists.
- */
 bool XLRelationships::idExists(std::string_view id) const
 { return !xmlDocument().document_element().find_child_by_attribute("Id", std::string(id).c_str()).empty(); }
 
