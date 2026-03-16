@@ -52,10 +52,35 @@ namespace OpenXLSX
         explicit XLDateTime(const std::chrono::system_clock::time_point& timepoint);
 
         /**
+         * @brief Default copy constructor
+         */
+        XLDateTime(const XLDateTime& other) = default;
+
+        /**
+         * @brief Default move constructor
+         */
+        XLDateTime(XLDateTime&& other) noexcept = default;
+
+        /**
+         * @brief Default destructor
+         */
+        ~XLDateTime() = default;
+
+        /**
+         * @brief Default copy assignment operator
+         */
+        XLDateTime& operator=(const XLDateTime& other) = default;
+
+        /**
+         * @brief Default move assignment operator
+         */
+        XLDateTime& operator=(XLDateTime&& other) noexcept = default;
+
+        /**
          * @brief Get the current time as an XLDateTime object.
          * @return An XLDateTime object representing the current time.
          */
-        static XLDateTime now();
+        [[nodiscard]] static XLDateTime now();
 
         /**
          * @brief Create an XLDateTime object from a string.
@@ -63,45 +88,14 @@ namespace OpenXLSX
          * @param format The format string (default: ISO 8601 "%Y-%m-%d %H:%M:%S").
          * @return An XLDateTime object.
          */
-        static XLDateTime fromString(const std::string& dateString, const std::string& format = "%Y-%m-%d %H:%M:%S");
+        [[nodiscard]] static XLDateTime fromString(const std::string& dateString, const std::string& format = "%Y-%m-%d %H:%M:%S");
 
         /**
          * @brief Convert the XLDateTime object to a string.
          * @param format The format string (default: ISO 8601 "%Y-%m-%d %H:%M:%S").
          * @return A string representation of the date/time.
          */
-        std::string toString(const std::string& format = "%Y-%m-%d %H:%M:%S") const;
-
-        /**
-         * @brief Copy constructor.
-         * @param other Object to be copied.
-         */
-        XLDateTime(const XLDateTime& other);
-
-        /**
-         * @brief Move constructor.
-         * @param other Object to be moved.
-         */
-        XLDateTime(XLDateTime&& other) noexcept;
-
-        /**
-         * @brief Destructor
-         */
-        ~XLDateTime();
-
-        /**
-         * @brief Copy assignment operator.
-         * @param other Object to be copied.
-         * @return Reference to the copied-to object.
-         */
-        XLDateTime& operator=(const XLDateTime& other);
-
-        /**
-         * @brief Move assignment operator.
-         * @param other Object to be moved.
-         * @return Reference to the moved-to object.
-         */
-        XLDateTime& operator=(XLDateTime&& other) noexcept;
+        [[nodiscard]] std::string toString(const std::string& format = "%Y-%m-%d %H:%M:%S") const;
 
         /**
          * @brief Assignment operator taking an Excel date/time serial number as an argument.
@@ -122,10 +116,9 @@ namespace OpenXLSX
          * @tparam T Type to convert to (any floating point type).
          * @return Excel date/time serial number.
          */
-        template<typename T,
-                 typename = std::enable_if_t<std::is_floating_point_v<T>>>
+        template<typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
         operator T() const    // NOLINT
-        { return serial(); }
+        { return static_cast<T>(serial()); }
 
         /**
          * @brief Implicit conversion to std::tm object.
@@ -137,19 +130,19 @@ namespace OpenXLSX
          * @brief Conversion to std::chrono::system_clock::time_point.
          * @return A chrono time_point object.
          */
-        std::chrono::system_clock::time_point chrono() const;
+        [[nodiscard]] std::chrono::system_clock::time_point chrono() const;
 
         /**
          * @brief Get the date/time in the form of an Excel date/time serial number.
          * @return A double with the serial number.
          */
-        double serial() const;
+        [[nodiscard]] double serial() const;
 
         /**
          * @brief Get the date/time in the form of a std::tm struct.
          * @return A std::tm struct with the time point.
          */
-        std::tm tm() const;
+        [[nodiscard]] std::tm tm() const;
 
     private:
         double m_serial{1.0}; /**<  */
