@@ -8,7 +8,6 @@
 #include "XLRowData.hpp"
 #include "XLUtilities.hpp"
 
-// ========== XLRowDataIterator  ============================================ //
 namespace OpenXLSX
 {
     /**
@@ -162,7 +161,6 @@ namespace OpenXLSX
 
 }    // namespace OpenXLSX
 
-// ========== XLRowDataRange  =============================================== //
 namespace OpenXLSX
 {
     /**
@@ -272,7 +270,6 @@ namespace OpenXLSX
 
 }    // namespace OpenXLSX
 
-// ========== XLRowDataProxy  =============================================== //
 namespace OpenXLSX
 {
     /**

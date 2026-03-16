@@ -27,7 +27,6 @@
 typedef std::variant<std::string, int64_t, double, bool, OpenXLSX::XLRichText>
     XLCellValueType;    // TBD: typedef std::variant< std::string, int64_t, double, bool, struct timestamp > XLCellValueType;
 
-// ========== CLASS AND ENUM TYPE DEFINITIONS ========== //
 namespace OpenXLSX
 {
     //---------- Forward Declarations ----------//
@@ -663,7 +662,6 @@ namespace OpenXLSX
 }    // namespace OpenXLSX
 
 // TODO: Consider comparison operators on fundamental datatypes
-// ========== FRIEND FUNCTION IMPLEMENTATIONS ========== //
 namespace OpenXLSX
 {
     /**

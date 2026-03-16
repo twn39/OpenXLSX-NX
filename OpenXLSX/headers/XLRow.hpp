@@ -11,7 +11,6 @@
 #include "OpenXLSX-Exports.hpp"
 #include "XLRowData.hpp"
 
-// ========== CLASS AND ENUM TYPE DEFINITIONS ========== //
 namespace OpenXLSX
 {
     class XLRowRange;
@@ -471,7 +470,6 @@ namespace OpenXLSX
 
 }    // namespace OpenXLSX
 
-// ========== FRIEND FUNCTION IMPLEMENTATIONS ========== //
 namespace OpenXLSX
 {
     /**

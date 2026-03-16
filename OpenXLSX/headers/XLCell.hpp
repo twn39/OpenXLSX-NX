@@ -19,7 +19,6 @@
 #include "XLSharedStrings.hpp"
 #include "XLStyles.hpp"    // XLStyleIndex
 
-// ========== CLASS AND ENUM TYPE DEFINITIONS ========== //
 namespace OpenXLSX
 {
     // ===== Flags that can be passed to XLCell::clear as parameter keep, flags can be combined with bitwise OR
@@ -271,7 +270,6 @@ namespace OpenXLSX
     };
 }    // namespace OpenXLSX
 
-// ========== FRIEND FUNCTION IMPLEMENTATIONS ========== //
 namespace OpenXLSX
 {
     /**

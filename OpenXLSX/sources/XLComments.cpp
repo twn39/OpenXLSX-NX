@@ -81,7 +81,6 @@ namespace
     }
 }    // namespace
 
-// ========== XLComment Member Functions
 
 /**
  * @details
@@ -165,7 +164,6 @@ bool XLComment::setRichText(const XLRichText& richText)
 bool XLComment::setAuthorId(uint16_t newAuthorId)
 { return appendAndSetAttribute(m_commentNode, "authorId", std::to_string(newAuthorId)).empty() == false; }
 
-// ========== XLComments Member Functions
 
 XLComments::XLComments() : XLXmlFile(nullptr), m_vmlDrawing(std::make_unique<XLVmlDrawing>()) {}
 

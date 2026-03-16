@@ -125,9 +125,7 @@ namespace OpenXLSX
         std::unique_ptr<XMLNode> m_contentNode; /**< */
     };
 
-    // ================================================================================
     // XLContentTypes Class
-    // ================================================================================
 
     /**
      * @brief The purpose of this class is to load, store add and save item in the [Content_Types].xml file.

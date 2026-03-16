@@ -20,7 +20,6 @@ namespace {
     };
 }
 
-// ========== XLTables Member Functions
 
 /**
  * @details The constructor creates an instance of the superclass, XLXmlFile

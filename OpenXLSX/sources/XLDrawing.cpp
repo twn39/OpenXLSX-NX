@@ -124,7 +124,6 @@ namespace OpenXLSX
 
 }    // namespace OpenXLSX
 
-// ========== XLShapeClientData Member Functions
 
 /**
  * @details default constructor
@@ -213,7 +212,6 @@ bool XLShapeClientData::setRow(uint32_t newRow)
 bool XLShapeClientData::setColumn(uint16_t newColumn)
 { return appendAndGetNode(m_clientDataNode, "x:Column", m_nodeOrder, XLForceNamespace).text().set(newColumn); }
 
-// ========== XLShape Member Functions
 /**
  * @details
  */
@@ -373,7 +371,6 @@ bool XLShapeStyle::setVTextAnchor(std::string newVTextAnchor) { return setAttrib
 bool XLShapeStyle::hide() { return setAttribute("visibility", "hidden"); }
 bool XLShapeStyle::show() { return setAttribute("visibility", "visible"); }
 
-// ========== XLShape Member Functions
 XLShape::XLShape() : m_shapeNode() {}
 
 XLShape::XLShape(const XMLNode& node) : m_shapeNode(node) {}
@@ -402,7 +399,6 @@ bool XLShape::setAllowInCell(bool set) { return appendAndSetAttribute(m_shapeNod
 bool XLShape::setStyle(std::string const& newStyle) { return appendAndSetAttribute(m_shapeNode, "style", newStyle).empty() == false; }
 bool XLShape::setStyle(XLShapeStyle const& newStyle) { return setStyle(newStyle.raw()); }
 
-// ========== XLVmlDrawing Member Functions
 
 /**
  * @details The constructor creates an instance of the superclass, XLXmlFile
@@ -641,7 +637,6 @@ XLShape XLVmlDrawing::createShape([[maybe_unused]] const XLShape& shapeTemplate)
  */
 void XLVmlDrawing::print(std::basic_ostream<char>& ostr) const { xmlDocument().document_element().print(ostr); }
 
-// ========== XLDrawing Member Functions
 
 XLDrawing::XLDrawing(XLXmlData* xmlData) : XLXmlFile(xmlData), m_relationships(nullptr)
 {
@@ -782,7 +777,6 @@ XLRelationships& XLDrawing::relationships()
     return *m_relationships;
 }
 
-// ========== XLDrawingItem Member Functions
 
 XLDrawingItem::XLDrawingItem() : m_anchorNode() {}
 
@@ -813,7 +807,6 @@ uint32_t XLDrawingItem::height() const
 std::string XLDrawingItem::relationshipId() const
 { return m_anchorNode.child("xdr:pic").child("xdr:blipFill").child("a:blip").attribute("r:embed").value(); }
 
-// ========== XLDrawing Image Methods
 
 uint32_t XLDrawing::imageCount() const
 {

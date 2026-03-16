@@ -22,7 +22,6 @@
 #include "XLIterator.hpp"
 #include "XLXmlParser.hpp"
 
-// ========== CLASS AND ENUM TYPE DEFINITIONS ========== //
 namespace OpenXLSX
 {
     class XLRow;

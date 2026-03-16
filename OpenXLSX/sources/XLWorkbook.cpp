@@ -37,7 +37,6 @@ namespace
         "extLst"};
 }    // namespace
 
-// ========== XLDefinedName Member Functions
 
 XLDefinedName::XLDefinedName(const XMLNode& node) : m_node(node) {}
 
@@ -77,7 +76,6 @@ void        XLDefinedName::setComment(std::string_view comment)
     attr.set_value(std::string(comment).c_str());
 }
 
-// ========== XLDefinedNames Member Functions
 
 XLDefinedNames::XLDefinedNames(const XMLNode& node) : m_node(node) {}
 
@@ -141,7 +139,6 @@ size_t XLDefinedNames::count() const
     return c;
 }
 
-// ========== XLWorkbook Member Functions
 
 XLWorkbook::XLWorkbook(XLXmlData* xmlData) : XLXmlFile(xmlData) {}
 XLWorkbook::~XLWorkbook() = default;

@@ -168,9 +168,7 @@ namespace OpenXLSX
 
     enum XLReadingOrder : uint32_t { XLReadingOrderContextual = 0, XLReadingOrderLeftToRight = 1, XLReadingOrderRightToLeft = 2 };
 
-    // ================================================================================
     // XLNumberFormats Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of a number format (numFmt) item
@@ -351,9 +349,7 @@ namespace OpenXLSX
         std::vector<XLNumberFormat> m_numberFormats;
     };
 
-    // ================================================================================
     // XLFonts Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of a font item
@@ -610,9 +606,7 @@ namespace OpenXLSX
         std::vector<XLFont>      m_fonts;
     };
 
-    // ================================================================================
     // XLDataBarColor Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of an XLSX Data Bar Color (CT_Color) item
@@ -703,9 +697,7 @@ namespace OpenXLSX
         std::unique_ptr<XMLNode> m_colorNode; /**< An XMLNode object with the color item */
     };
 
-    // ================================================================================
     // XLFills Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of an fill::gradientFill::stop item
@@ -1079,9 +1071,7 @@ namespace OpenXLSX
         std::vector<XLFill>      m_fills;
     };
 
-    // ================================================================================
     // XLBorders Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of a line item
@@ -1383,9 +1373,7 @@ namespace OpenXLSX
         std::vector<XLBorder>    m_borders;
     };
 
-    // ================================================================================
     // XLCellFormats Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of an alignment item
@@ -1806,9 +1794,7 @@ namespace OpenXLSX
         bool                      m_permitXfId{false};
     };
 
-    // ================================================================================
     // XLCellStyles Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of a cell style item
@@ -2015,9 +2001,7 @@ namespace OpenXLSX
         std::vector<XLCellStyle> m_cellStyles;
     };
 
-    // ================================================================================
     // XLDiffCellFormats Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of a differential cell format item
@@ -2191,9 +2175,7 @@ namespace OpenXLSX
         std::vector<XLDiffCellFormat> m_diffCellFormats;
     };
 
-    // ================================================================================
     // XLStyles Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of the styles file (xl/styles.xml) in an Excel document package.

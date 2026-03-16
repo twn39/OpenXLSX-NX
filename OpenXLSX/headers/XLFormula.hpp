@@ -16,7 +16,6 @@
 #include "OpenXLSX-Exports.hpp"
 #include "XLXmlParser.hpp"
 
-// ========== CLASS AND ENUM TYPE DEFINITIONS ========== //
 namespace OpenXLSX
 {
     constexpr bool XLResetValue    = true;
@@ -279,7 +278,6 @@ namespace OpenXLSX
     };
 }    // namespace OpenXLSX
 
-// ========== FRIEND FUNCTION IMPLEMENTATIONS ========== //
 namespace OpenXLSX
 {
     /**

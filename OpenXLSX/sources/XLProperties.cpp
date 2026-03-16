@@ -137,7 +137,6 @@ namespace    // anonymous namespace for module local functions
     }
 }    // anonymous namespace
 
-// ========== XLProperties Member Functions
 
 /**
  * @details
@@ -289,7 +288,6 @@ std::string XLProperties::contentStatus() const { return property("cp:contentSta
 void XLProperties::setContentStatus(std::string_view status) { setProperty("cp:contentStatus", status); }
 
 
-// ========== XLAppProperties Member Functions
 
 /**
  * @details
@@ -631,7 +629,6 @@ void XLAppProperties::insertSheetName(std::string_view sheetName, unsigned int i
 }
 
 
-// ========== XLCustomProperties Member Functions
 
 namespace {
     XMLNode findOrCreateProperty(XMLNode root, std::string_view name) {

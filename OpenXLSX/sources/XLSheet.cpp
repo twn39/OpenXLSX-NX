@@ -330,7 +330,6 @@ namespace OpenXLSX
     }
 }    // namespace OpenXLSX
 
-// ========== XLSheet Member Functions
 
 /**
  * @details The constructor begins by constructing an instance of its superclass, XLAbstractXMLFile. The default
@@ -480,9 +479,7 @@ XLSheet::operator XLChartsheet() const { return this->get<XLChartsheet>(); }
  */
 void XLSheet::print(std::basic_ostream<char>& ostr) const { xmlDocument().document_element().print(ostr); }
 
-// ========== BEGIN <conditionalFormatting> related member function definitions
 
-// ========== XLCfRule member functions
 /**
  * @details Constructor. Initializes an empty XLCfRule object
  */
@@ -627,7 +624,6 @@ std::string XLCfRule::summary() const
                        equalAverage() ? "true" : "false");
 }
 
-// ========== XLCfRules member functions, parent of XLCfRule
 /**
  * @details Constructor. Initializes an empty XLCfRules object
  */
@@ -841,7 +837,6 @@ std::string XLCfRules::summary() const
     return result;
 }
 
-// ========== XLConditionalFormat Member Functions
 /**
  * @details Constructor. Initializes an empty XLConditionalFormat object
  */
@@ -897,7 +892,6 @@ std::string XLConditionalFormat::summary() const
     return fmt::format("sqref is {}, cfRules: {}", sqref(), cfRules().summary());
 }
 
-// ========== XLConditionalFormats member functions, parent of XLConditionalFormat
 /**
  * @details Constructor. Initializes an empty XLConditionalFormats object
  */
@@ -1005,9 +999,7 @@ std::string XLConditionalFormats::summary() const
     }
     return result;
 }
-// ========== END <conditionalFormatting> related member function definitions
 
-// ========== XLWorksheet Member Functions
 
 /**
  * @details The constructor does some slight reconfiguration of the XML file, in order to make parsing easier.

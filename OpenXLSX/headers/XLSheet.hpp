@@ -153,9 +153,7 @@ namespace OpenXLSX
         "pivotSelection",
         "extLst"};    // END: const std::vector< std::string_view > XLSheetViewNodeOrder
 
-    // ================================================================================
     // Converter functions between OpenXLSX class specific enum class types and OOXML values
-    // ================================================================================
     OPENXLSX_EXPORT XLCfType XLCfTypeFromString(std::string const& typeString);
     OPENXLSX_EXPORT std::string  XLCfTypeToString(XLCfType cfType);
     OPENXLSX_EXPORT XLCfOperator XLCfOperatorFromString(std::string const& operatorString);
@@ -368,9 +366,7 @@ namespace OpenXLSX
     private:    // ---------- Private Member Variables ---------- //
     };
 
-    // ================================================================================
     // XLConditionalFormats Class
-    // ================================================================================
 
     /**
      * @brief An encapsulation of a cfRule item
