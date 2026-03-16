@@ -172,6 +172,3 @@ if(OPENXLSX_CREATE_DOCS)
     add_subdirectory(Documentation)
 endif()
 
-add_executable(DebugDemo DebugDemo.cpp)
-target_link_libraries(DebugDemo OpenXLSX)
-
