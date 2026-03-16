@@ -10,21 +10,13 @@
 
 #include "XLUtilities.hpp"
 
-// ========== XLRow  ======================================================== //
 namespace OpenXLSX
 {
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRow::XLRow() : m_rowNode(nullptr), m_sharedStrings(XLSharedStringsDefaulted), m_rowDataProxy(this, m_rowNode.get()) {}
 
     /**
      * @details Constructs a new XLRow object from information in the underlying XML file. A pointer to the corresponding
      * node in the underlying XML file must be provided.
-     * @pre
-     * @post
      */
     XLRow::XLRow(const XMLNode& rowNode, const XLSharedStrings& sharedStrings)
         : m_rowNode(std::make_unique<XMLNode>(rowNode)),
@@ -32,11 +24,6 @@ namespace OpenXLSX
           m_rowDataProxy(this, m_rowNode.get())
     {}
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRow::XLRow(const XLRow& other)
         : m_rowNode(other.m_rowNode ? std::make_unique<XMLNode>(*other.m_rowNode) : nullptr),
           m_sharedStrings(other.m_sharedStrings),
@@ -46,8 +33,6 @@ namespace OpenXLSX
     /**
      * @details Because the m_rowDataProxy variable is tied to an exact XLRow object, the move operation is
      * not a 'pure' move, as a new XLRowDataProxy has to be constructed.
-     * @pre
-     * @post
      */
     XLRow::XLRow(XLRow&& other) noexcept
         : m_rowNode(std::move(other.m_rowNode)),
@@ -55,18 +40,8 @@ namespace OpenXLSX
           m_rowDataProxy(this, m_rowNode.get())
     {}
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRow::~XLRow() = default;
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRow& XLRow::operator=(const XLRow& other)
     {
         if (&other != this) {
@@ -79,8 +54,6 @@ namespace OpenXLSX
     /**
      * @details Because the m_rowDataProxy variable is tied to an exact XLRow object, the move operation is
      * not a 'pure' move, as a new XLRowDataProxy has to be constructed.
-     * @pre
-     * @post
      */
     XLRow& XLRow::operator=(XLRow&& other) noexcept
     {
@@ -92,20 +65,12 @@ namespace OpenXLSX
         return *this;
     }
 
-    /**
-     * @details
-     */
     bool XLRow::empty() const { return (!m_rowNode) or m_rowNode->empty(); }
 
-    /**
-     * @details
-     */
     XLRow::operator bool() const { return m_rowNode and (not m_rowNode->empty()); }
 
     /**
-     * @details Returns the m_height member by getValue.
-     * @pre
-     * @post
+     * @details Retrieves the explicitly assigned height of the row. If no custom height is set, it defaults to 15.0.
      */
     double XLRow::height() const
     {
@@ -113,10 +78,8 @@ namespace OpenXLSX
     }
 
     /**
-     * @details Set the height of the row. This is done by setting the getValue of the 'ht' attribute and setting the
-     * 'customHeight' attribute to true.
-     * @pre
-     * @post
+     * @details Modifies the visual height of the row. The 'customHeight' attribute must be explicitly set to 1, 
+     *          otherwise MS Excel will ignore the 'ht' value and auto-fit the row height based on cell contents.
      */
     void XLRow::setHeight(float height)    // NOLINT
     {
@@ -134,9 +97,8 @@ namespace OpenXLSX
     }
 
     /**
-     * @details Return the m_descent member by getValue.
-     * @pre
-     * @post
+     * @details Retrieves the row's vertical descent value. This is used by Excel's rendering engine 
+     *          to appropriately position text baselines for certain fonts.
      */
     float XLRow::descent() const
     {
@@ -144,9 +106,8 @@ namespace OpenXLSX
     }
 
     /**
-     * @details Set the descent by setting the 'x14ac:dyDescent' attribute in the XML file
-     * @pre
-     * @post
+     * @details Sets the typography descent attribute. This fine-tunes how far characters drop below 
+     *          the text baseline in this specific row, maintaining exact layout fidelity.
      */
     void XLRow::setDescent(float descent)
     {
@@ -158,16 +119,14 @@ namespace OpenXLSX
     }
 
     /**
-     * @details Determine if the row is hidden or not.
-     * @pre
-     * @post
+     * @details Retrieves the row's visibility state. Hidden rows remain in the document and participate in calculations,
+     *          but are not rendered in the spreadsheet UI.
      */
     bool XLRow::isHidden() const { return m_rowNode->attribute("hidden").as_bool(false); }
 
     /**
-     * @details Set the hidden state by setting the 'hidden' attribute to true or false.
-     * @pre
-     * @post
+     * @details Modifies the visual state of the row. Typically used for applying filters or manually hiding 
+     *          rows without deleting their underlying data or breaking formulas.
      */
     void XLRow::setHidden(bool state)    // NOLINT
     {
@@ -179,9 +138,7 @@ namespace OpenXLSX
     }
 
     /**
-     * @details Get the outline level of the row.
-     * @pre
-     * @post
+     * @details Retrieves the row's outline level (0-7), which determines its nesting depth within a hierarchical grouping structure.
      */
     uint8_t XLRow::outlineLevel() const
     {
@@ -189,9 +146,8 @@ namespace OpenXLSX
     }
 
     /**
-     * @details Set the outline level of the row (0-7).
-     * @pre
-     * @post
+     * @details Applies a grouping depth to the row. Values > 7 are capped, as MS Excel only supports up to 8 levels (0-7).
+     *          Setting the level to 0 completely removes the outline grouping attribute.
      */
     void XLRow::setOutlineLevel(uint8_t level)
     {
@@ -207,9 +163,8 @@ namespace OpenXLSX
     }
 
     /**
-     * @details Determine if the row is collapsed or not.
-     * @pre
-     * @post
+     * @details Checks if the row carries the collapsed marker. In Excel, this flag is typically placed on the 
+     *          summary row adjacent to a hidden group to render the '+' expansion UI button.
      */
     bool XLRow::isCollapsed() const
     {
@@ -217,9 +172,8 @@ namespace OpenXLSX
     }
 
     /**
-     * @details Set the collapsed state by setting the 'collapsed' attribute to true or false.
-     * @pre
-     * @post
+     * @details Controls the expansion UI marker ('+' or '-') for grouped rows. This must be set on the summary row
+     *          that remains visible when the corresponding detailed rows are hidden.
      */
     void XLRow::setCollapsed(bool state)
     {
@@ -234,9 +188,6 @@ namespace OpenXLSX
     }
 
     /**
-     * @details
-     * @pre
-     * @post
      * @note 2024-08-18: changed return type of rowNumber to uint32_t
      *       CAUTION: there is no validity check on the underlying XML (nor was there ever one in case a value was inconsistent with
      * OpenXLSX::MAX_ROWS)
@@ -245,8 +196,6 @@ namespace OpenXLSX
 
     /**
      * @details Get the number of cells in the row, by returning the size of the m_cells vector.
-     * @pre
-     * @post
      */
     uint16_t XLRow::cellCount() const
     {
@@ -256,25 +205,10 @@ namespace OpenXLSX
         return extractColumnFromCellRef(node.attribute("r").value());
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowDataProxy& XLRow::values() { return m_rowDataProxy; }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     const XLRowDataProxy& XLRow::values() const { return m_rowDataProxy; }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowDataRange XLRow::cells() const
     {
         const XMLNode node = m_rowNode->last_child_of_type(pugi::node_element);
@@ -283,18 +217,8 @@ namespace OpenXLSX
         return XLRowDataRange(*m_rowNode, 1, extractColumnFromCellRef(node.attribute("r").value()), m_sharedStrings.get());
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowDataRange XLRow::cells(uint16_t cellCount) const { return XLRowDataRange(*m_rowNode, 1, cellCount, m_sharedStrings.get()); }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowDataRange XLRow::cells(uint16_t firstCell, uint16_t lastCell) const
     { return XLRowDataRange(*m_rowNode, firstCell, lastCell, m_sharedStrings.get()); }
 
@@ -389,14 +313,8 @@ namespace OpenXLSX
 
 }    // namespace OpenXLSX
 
-// ========== XLRowIterator  ================================================ //
 namespace OpenXLSX
 {
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator::XLRowIterator(const XLRowRange& rowRange, XLIteratorLocation loc)
         : m_dataNode(std::make_unique<XMLNode>(*rowRange.m_dataNode)),
           m_firstRow(rowRange.m_firstRow),
@@ -416,18 +334,8 @@ namespace OpenXLSX
         }
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator::~XLRowIterator() = default;
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator::XLRowIterator(const XLRowIterator& other)
         : m_dataNode(std::make_unique<XMLNode>(*other.m_dataNode)),
           m_firstRow(other.m_firstRow),
@@ -441,18 +349,8 @@ namespace OpenXLSX
           m_currentRowNumber(other.m_currentRowNumber)
     {}
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator::XLRowIterator(XLRowIterator&& other) noexcept = default;
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator& XLRowIterator::operator=(const XLRowIterator& other)
     {
         if (&other != this) {
@@ -463,11 +361,6 @@ namespace OpenXLSX
         return *this;
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator& XLRowIterator::operator=(XLRowIterator&& other) noexcept = default;
 
     /**
@@ -530,11 +423,6 @@ namespace OpenXLSX
         }
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator& XLRowIterator::operator++()    // 2024-04-29: patched for whitespace
     {
         if (m_endReached) throw XLInputError("XLRowIterator: tried to increment beyond end operator");
@@ -549,11 +437,6 @@ namespace OpenXLSX
         return *this;
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator XLRowIterator::operator++(int)    // NOLINT
     {
         auto oldIter(*this);
@@ -561,33 +444,18 @@ namespace OpenXLSX
         return oldIter;
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRow& XLRowIterator::operator*()
     {
         updateCurrentRow(XLCreateIfMissing);
         return m_currentRow;
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator::pointer XLRowIterator::operator->()
     {
         updateCurrentRow(XLCreateIfMissing);
         return &m_currentRow;
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     bool XLRowIterator::operator==(const XLRowIterator& rhs) const
     {
         if (m_endReached and rhs.m_endReached) return true;    // If both iterators are end iterators
@@ -607,23 +475,10 @@ namespace OpenXLSX
         // and rows that do not exist in both sheets, will be considered equal
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     bool XLRowIterator::operator!=(const XLRowIterator& rhs) const { return !(*this == rhs); }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator::operator bool() const { return false; }
 
-    /**
-     * @details
-     */
     bool XLRowIterator::rowExists()
     {
         // ===== Update m_currentRow once so that rowExists will always test the correct cell (an empty row if current row doesn't exist)
@@ -633,14 +488,8 @@ namespace OpenXLSX
 
 }    // namespace OpenXLSX
 
-// ========== XLRowRange  =================================================== //
 namespace OpenXLSX
 {
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowRange::XLRowRange(const XMLNode& dataNode, uint32_t first, uint32_t last, const XLSharedStrings& sharedStrings)
         : m_dataNode(std::make_unique<XMLNode>(dataNode)),
           m_firstRow(first),
@@ -648,11 +497,6 @@ namespace OpenXLSX
           m_sharedStrings(sharedStrings)
     {}
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowRange::XLRowRange(const XLRowRange& other)
         : m_dataNode(std::make_unique<XMLNode>(*other.m_dataNode)),
           m_firstRow(other.m_firstRow),
@@ -660,25 +504,10 @@ namespace OpenXLSX
           m_sharedStrings(other.m_sharedStrings)
     {}
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowRange::XLRowRange(XLRowRange&& other) noexcept = default;
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowRange::~XLRowRange() = default;
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowRange& XLRowRange::operator=(const XLRowRange& other)
     {
         if (&other != this) {
@@ -689,32 +518,12 @@ namespace OpenXLSX
         return *this;
     }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowRange& XLRowRange::operator=(XLRowRange&& other) noexcept = default;
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     uint32_t XLRowRange::rowCount() const { return m_lastRow - m_firstRow + 1; }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator XLRowRange::begin() { return XLRowIterator(*this, XLIteratorLocation::Begin); }
 
-    /**
-     * @details
-     * @pre
-     * @post
-     */
     XLRowIterator XLRowRange::end() { return XLRowIterator(*this, XLIteratorLocation::End); }
 
 }    // namespace OpenXLSX
