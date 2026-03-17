@@ -131,4 +131,62 @@ TEST_CASE("XLDataValidation Tests", "[XLDataValidation]")
 
         doc2.close();
     }
+
+    SECTION("Data Validation Range Collapsing") {
+        XLDocument doc;
+        doc.create("./testDataValidationCollapsing.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+        auto& validations = wks.dataValidations();
+
+        auto dv = validations.append();
+        dv.addCell("A1");
+        REQUIRE(dv.sqref() == "A1");
+
+        dv.addCell("A2");
+        REQUIRE(dv.sqref() == "A1:A2");
+
+        dv.addCell("B1");
+        dv.addCell("B2");
+        REQUIRE(dv.sqref() == "A1:B2");
+
+        dv.addCell("A4");
+        dv.addCell("A5");
+        REQUIRE(dv.sqref() == "A1:B2 A4:A5");
+
+        dv.addRange("B4:B5");
+        // A1:B2 and A4:B5
+        dv.addRange("A3:B3");
+        // Should bridge them together
+        REQUIRE(dv.sqref() == "A1:B5");
+
+        // Duplicate/contained range
+        dv.addRange("B2:B4");
+        REQUIRE(dv.sqref() == "A1:B5");
+
+        doc.close();
+    }
+
+    SECTION("Data Validation List Limits and Escaping") {
+        XLDocument doc;
+        doc.create("./testDataValidationList.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+        auto& validations = wks.dataValidations();
+
+        auto dv = validations.append();
+        dv.setSqref("A1");
+        
+        // Test escaping
+        dv.setList({"Normal", "Has \"Quotes\"", "End\""});
+        REQUIRE(dv.formula1() == "\"Normal,Has \"\"Quotes\"\",End\"\"\"");
+
+        // Test length limit (255 characters)
+        std::vector<std::string> longList;
+        for (int i = 0; i < 30; ++i) {
+            longList.push_back("1234567890"); 
+        }
+        // Total length will be over 300
+        REQUIRE_THROWS_AS(dv.setList(longList), XLException);
+
+        doc.close();
+    }
 }

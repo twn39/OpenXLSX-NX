@@ -6,6 +6,7 @@
 #include <string_view>
 #include "OpenXLSX-Exports.hpp"
 #include "XLXmlParser.hpp"
+#include "XLCellReference.hpp"
 
 namespace OpenXLSX
 {
@@ -97,6 +98,10 @@ namespace OpenXLSX
 
         // Setters
         void setSqref(std::string_view sqref);
+        void addCell(const XLCellReference& ref);
+        void addCell(const std::string& ref);
+        void addRange(const XLCellReference& topLeft, const XLCellReference& bottomRight);
+        void addRange(const std::string& range);
         void setType(XLDataValidationType type);
         void setOperator(XLDataValidationOperator op);
         void setAllowBlank(bool allow);

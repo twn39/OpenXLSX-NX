@@ -1,4 +1,5 @@
 #include "XLDataValidation.hpp"
+#include "XLException.hpp"
 #include <algorithm>
 #include <sstream>
 #include <vector>
@@ -177,6 +178,131 @@ namespace OpenXLSX
         m_node.remove_attribute("sqref");
         m_node.append_attribute("sqref") = std::string(sqref).c_str();
         reorderAttributes(m_node);
+    }
+
+    namespace {
+        struct XLDataValidationRange {
+            uint32_t firstRow;
+            uint32_t lastRow;
+            uint16_t firstCol;
+            uint16_t lastCol;
+
+            bool canMergeWith(const XLDataValidationRange& other) const {
+                if (firstRow == other.firstRow && lastRow == other.lastRow) {
+                    if (lastCol + 1 >= other.firstCol && firstCol <= other.lastCol + 1) return true;
+                }
+                if (firstCol == other.firstCol && lastCol == other.lastCol) {
+                    if (lastRow + 1 >= other.firstRow && firstRow <= other.lastRow + 1) return true;
+                }
+                if (firstRow >= other.firstRow && lastRow <= other.lastRow &&
+                    firstCol >= other.firstCol && lastCol <= other.lastCol) return true;
+                if (other.firstRow >= firstRow && other.lastRow <= lastRow &&
+                    other.firstCol >= firstCol && other.lastCol <= lastCol) return true;
+                return false;
+            }
+
+            void mergeWith(const XLDataValidationRange& other) {
+                firstRow = std::min(firstRow, other.firstRow);
+                lastRow = std::max(lastRow, other.lastRow);
+                firstCol = std::min(firstCol, other.firstCol);
+                lastCol = std::max(lastCol, other.lastCol);
+            }
+            
+            std::string toString() const {
+                if (firstRow == lastRow && firstCol == lastCol) {
+                    return XLCellReference(firstRow, firstCol).address();
+                }
+                return XLCellReference(firstRow, firstCol).address() + ":" + XLCellReference(lastRow, lastCol).address();
+            }
+        };
+
+        void collapseRanges(std::vector<XLDataValidationRange>& ranges) {
+            bool merged = true;
+            while (merged) {
+                merged = false;
+                for (size_t i = 0; i < ranges.size(); ++i) {
+                    for (size_t j = i + 1; j < ranges.size(); ++j) {
+                        if (ranges[i].canMergeWith(ranges[j])) {
+                            ranges[i].mergeWith(ranges[j]);
+                            ranges.erase(ranges.begin() + j);
+                            merged = true;
+                            break;
+                        }
+                    }
+                    if (merged) break;
+                }
+            }
+        }
+
+        std::vector<XLDataValidationRange> parseSqrefToRanges(std::string_view sqref) {
+            std::vector<XLDataValidationRange> result;
+            std::string sqrefStr(sqref);
+            if (sqrefStr.empty()) return result;
+            
+            std::stringstream ss(sqrefStr);
+            std::string token;
+            while (std::getline(ss, token, ' ')) {
+                if (token.empty()) continue;
+                auto colonPos = token.find(':');
+                if (colonPos != std::string::npos) {
+                    XLCellReference topLeft(token.substr(0, colonPos));
+                    XLCellReference bottomRight(token.substr(colonPos + 1));
+                    result.push_back({
+                        std::min(topLeft.row(), bottomRight.row()),
+                        std::max(topLeft.row(), bottomRight.row()),
+                        std::min(topLeft.column(), bottomRight.column()),
+                        std::max(topLeft.column(), bottomRight.column())
+                    });
+                } else {
+                    XLCellReference ref(token);
+                    result.push_back({ref.row(), ref.row(), ref.column(), ref.column()});
+                }
+            }
+            return result;
+        }
+    }
+
+    void XLDataValidation::addCell(const XLCellReference& ref)
+    {
+        addRange(ref, ref);
+    }
+
+    void XLDataValidation::addCell(const std::string& ref)
+    {
+        addCell(XLCellReference(ref));
+    }
+
+    void XLDataValidation::addRange(const XLCellReference& topLeft, const XLCellReference& bottomRight)
+    {
+        std::string currentSqref = sqref();
+        auto ranges = parseSqrefToRanges(currentSqref);
+        
+        uint32_t minRow = std::min(topLeft.row(), bottomRight.row());
+        uint32_t maxRow = std::max(topLeft.row(), bottomRight.row());
+        uint16_t minCol = std::min(topLeft.column(), bottomRight.column());
+        uint16_t maxCol = std::max(topLeft.column(), bottomRight.column());
+        
+        ranges.push_back({minRow, maxRow, minCol, maxCol});
+        collapseRanges(ranges);
+        
+        std::string newSqref;
+        for (size_t i = 0; i < ranges.size(); ++i) {
+            if (i > 0) newSqref += " ";
+            newSqref += ranges[i].toString();
+        }
+        setSqref(newSqref);
+    }
+
+    void XLDataValidation::addRange(const std::string& range)
+    {
+        auto colonPos = range.find(':');
+        if (colonPos != std::string::npos) {
+            XLCellReference topLeft(range.substr(0, colonPos));
+            XLCellReference bottomRight(range.substr(colonPos + 1));
+            addRange(topLeft, bottomRight);
+        } else {
+            addCell(range);
+        }
     }
 
     void XLDataValidation::setType(XLDataValidationType type)
@@ -446,23 +572,29 @@ namespace OpenXLSX
             return;
         }
 
-        // Calculate total length to avoid multiple allocations
-        size_t total_len = 0;
-        for (const auto& item : items) {
-            total_len += item.size() + 1; // +1 for comma
-        }
-
         std::string list;
-        list.reserve(total_len);
-
         for (const auto& item : items) {
             if (!list.empty()) list += ",";
-            list += item;
+            
+            // Escape double quotes inside items: " becomes ""
+            std::string escapedItem = item;
+            size_t pos = 0;
+            while ((pos = escapedItem.find("\"", pos)) != std::string::npos) {
+                escapedItem.replace(pos, 1, "\"\"");
+                pos += 2;
+            }
+            list += escapedItem;
         }
         
         // Excel expects the list to be double quoted if it's literal items
-        setFormula1("\"" + list + "\"");
+        std::string formula = "\"" + list + "\"";
 
+        // Check the 255 characters limit for Data Validation List (literal)
+        if (formula.length() > 255) {
+            throw XLException("XLDataValidation::setList: The list length exceeds the 255 character limit. Consider using a cell range reference instead.");
+        }
+
+        setFormula1(formula);
         reorderAttributes(m_node);
     }
 
