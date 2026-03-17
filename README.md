@@ -12,11 +12,11 @@ OpenXLSX is a high-performance C++ library for reading, writing, creating, and m
 - **Unicode Support**: Consistent UTF-8 handling across all platforms using C++17 `std::filesystem`.
 - **Comprehensive Image Support**: Insert and read images (PNG/JPEG) with automatic dimension detection and aspect ratio preservation.
 - **Rich Text & Formatting**: Support for multi-format text segments (`XLRichText`), fonts, fills, borders, and conditional formatting.
+- **Advanced Data Validation**: Enterprise-grade data validation API with smart range collapsing, complex region subtraction, cross-sheet reference safety, and ergonomic configuration objects (`XLDataValidationConfig`).
 - **AutoFilter & Names**: Set worksheet filters and manage workbook-level named ranges and constants.
 - **Page Setup & Print**: Fine-grained control over margins, orientation, paper size, and print options (gridlines, headings, centering).
 - **Sheet Protection**: Secure worksheets with passwords and granular permission controls.
 - **Enhanced DateTime**: Robust date/time handling with `std::chrono` integration and string parsing/formatting.
-- **Data Validation**: Full CRUD support for cell data validations (drop-down lists, numeric ranges, etc.).
 - **Worksheet Management**: Create, clone, rename, and delete worksheets with validation.
 - **Data Integrity**: Enforces OOXML standards, including strict XML declarations and metadata handling.
 - **Modern Testing**: Integrated with **Catch2 v3.13.0** for robust verification.
