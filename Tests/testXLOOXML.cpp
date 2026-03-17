@@ -341,11 +341,11 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
             // 3. Check for Default Borders (All sides none, with black color)
             REQUIRE(stylesXml.find("<border>") != std::string::npos);
-            REQUIRE(stylesXml.find("<left style=\"\">") != std::string::npos);
-            REQUIRE(stylesXml.find("<right style=\"\">") != std::string::npos);
-            REQUIRE(stylesXml.find("<top style=\"\">") != std::string::npos);
-            REQUIRE(stylesXml.find("<bottom style=\"\">") != std::string::npos);
-            REQUIRE(stylesXml.find("<diagonal style=\"\">") != std::string::npos);
+            REQUIRE(stylesXml.find("<left>") != std::string::npos);
+            REQUIRE(stylesXml.find("<right>") != std::string::npos);
+            REQUIRE(stylesXml.find("<top>") != std::string::npos);
+            REQUIRE(stylesXml.find("<bottom>") != std::string::npos);
+            REQUIRE(stylesXml.find("<diagonal>") != std::string::npos);
             // Verify black colors on border nodes
             REQUIRE(stylesXml.find("<color rgb=\"ff000000\"") != std::string::npos);
 
