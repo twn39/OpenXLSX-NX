@@ -301,4 +301,55 @@ TEST_CASE("XLDataValidation Tests", "[XLDataValidation]")
 
         doc2.close();
     }
+
+    SECTION("Data Validation Config and Ergonomics") {
+        XLDocument doc;
+        doc.create("./testDataValidationConfig.xlsx", XLForceOverwrite);
+        auto wks1 = doc.workbook().worksheet("Sheet1");
+        doc.workbook().addWorksheet("Sheet2");
+        auto wks2 = doc.workbook().worksheet("Sheet2");
+
+        // Create a generic config
+        XLDataValidationConfig rule;
+        rule.type = XLDataValidationType::List;
+        rule.operator_ = XLDataValidationOperator::Between;
+        rule.allowBlank = true;
+        rule.showDropDown = true;
+        rule.showInputMessage = true;
+        rule.promptTitle = "Select Option";
+        rule.prompt = "Please select from list";
+        rule.formula1 = "\"A,B,C\"";
+
+        // Apply it to Sheet1
+        wks1.dataValidations().addValidation(rule, "A1:A10");
+
+        // Apply it to Sheet2
+        wks2.dataValidations().addValidation(rule, "B1:B10");
+
+        // Verify Sheet1
+        auto dv1 = wks1.dataValidations().begin();
+        REQUIRE(dv1->type() == XLDataValidationType::List);
+        REQUIRE(dv1->promptTitle() == "Select Option");
+        REQUIRE(dv1->formula1() == "\"A,B,C\"");
+        REQUIRE(dv1->sqref() == "A1:A10");
+
+        // Verify Sheet2
+        auto dv2 = wks2.dataValidations().begin();
+        REQUIRE(dv2->type() == XLDataValidationType::List);
+        REQUIRE(dv2->promptTitle() == "Select Option");
+        REQUIRE(dv2->formula1() == "\"A,B,C\"");
+        REQUIRE(dv2->sqref() == "B1:B10");
+
+        // Test extracting config from existing validation
+        XLDataValidationConfig extractedRule = dv1->config();
+        REQUIRE(extractedRule.prompt == "Please select from list");
+        extractedRule.prompt = "Modified prompt";
+
+        // Apply modified rule
+        auto dv3 = wks2.dataValidations().addValidation(extractedRule, "C1:C10");
+        REQUIRE(dv3.prompt() == "Modified prompt");
+        REQUIRE(dv3.sqref() == "C1:C10");
+
+        doc.close();
+    }
 }

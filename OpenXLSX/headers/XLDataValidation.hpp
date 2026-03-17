@@ -68,6 +68,32 @@ namespace OpenXLSX
         HalfHangul
     };
 
+    class XLDataValidation;
+
+    /**
+     * @brief
+     */
+    struct OPENXLSX_EXPORT XLDataValidationConfig
+    {
+        XLDataValidationType type = XLDataValidationType::None;
+        XLDataValidationOperator operator_ = XLDataValidationOperator::Between;
+        bool allowBlank = true;
+        bool showDropDown = false;
+        bool showInputMessage = false;
+        bool showErrorMessage = false;
+        XLIMEMode imeMode = XLIMEMode::NoControl;
+        XLDataValidationErrorStyle errorStyle = XLDataValidationErrorStyle::Stop;
+        std::string promptTitle;
+        std::string prompt;
+        std::string errorTitle;
+        std::string error;
+        std::string formula1;
+        std::string formula2;
+
+        XLDataValidationConfig() = default;
+        explicit XLDataValidationConfig(const XLDataValidation& dv);
+    };
+
     /**
      * @brief
      */
@@ -78,6 +104,10 @@ namespace OpenXLSX
         explicit XLDataValidation(const XMLNode& node) : m_node(node) {}
 
         [[nodiscard]] bool empty() const { return !m_node; }
+
+        // Config API
+        [[nodiscard]] XLDataValidationConfig config() const;
+        void applyConfig(const XLDataValidationConfig& config);
 
         // Getters
         [[nodiscard]] std::string sqref() const;
@@ -188,6 +218,7 @@ namespace OpenXLSX
         }
         [[nodiscard]] size_t count() const;
         XLDataValidation append();
+        XLDataValidation addValidation(const XLDataValidationConfig& config, std::string_view sqref);
         [[nodiscard]] XLDataValidation at(size_t index);
         [[nodiscard]] XLDataValidation at(std::string_view sqref);
         void clear();

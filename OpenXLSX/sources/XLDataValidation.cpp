@@ -49,6 +49,52 @@ namespace OpenXLSX
         }
     }
 
+    XLDataValidationConfig::XLDataValidationConfig(const XLDataValidation& dv)
+    {
+        type = dv.type();
+        operator_ = dv.operator_();
+        allowBlank = dv.allowBlank();
+        showDropDown = dv.showDropDown();
+        showInputMessage = dv.showInputMessage();
+        showErrorMessage = dv.showErrorMessage();
+        imeMode = dv.imeMode();
+        errorStyle = dv.errorStyle();
+        promptTitle = dv.promptTitle();
+        prompt = dv.prompt();
+        errorTitle = dv.errorTitle();
+        error = dv.error();
+        formula1 = dv.formula1();
+        formula2 = dv.formula2();
+    }
+
+    XLDataValidationConfig XLDataValidation::config() const
+    {
+        return XLDataValidationConfig(*this);
+    }
+
+    void XLDataValidation::applyConfig(const XLDataValidationConfig& config)
+    {
+        setType(config.type);
+        setOperator(config.operator_);
+        setAllowBlank(config.allowBlank);
+        setShowDropDown(config.showDropDown);
+        setShowInputMessage(config.showInputMessage);
+        setShowErrorMessage(config.showErrorMessage);
+        if (config.imeMode != XLIMEMode::NoControl) {
+            setIMEMode(config.imeMode);
+        }
+        if (!config.errorTitle.empty() || !config.error.empty()) {
+            setError(config.errorTitle, config.error, config.errorStyle);
+        } else if (config.errorStyle != XLDataValidationErrorStyle::Stop) {
+            setError("", "", config.errorStyle); // At least set the style if customized
+        }
+        if (!config.promptTitle.empty() || !config.prompt.empty()) {
+            setPrompt(config.promptTitle, config.prompt);
+        }
+        setFormula1(config.formula1);
+        setFormula2(config.formula2);
+    }
+
     std::string XLDataValidation::sqref() const
     {
         if (!m_node) return "";
@@ -760,6 +806,14 @@ namespace OpenXLSX
         dvNode.append_attribute("count") = static_cast<unsigned int>(currentCount);
 
         return XLDataValidation(node);
+    }
+
+    XLDataValidation XLDataValidations::addValidation(const XLDataValidationConfig& config, std::string_view sqref)
+    {
+        auto dv = append();
+        dv.setSqref(sqref);
+        dv.applyConfig(config);
+        return dv;
     }
 
     XLDataValidation XLDataValidations::at(size_t index)
