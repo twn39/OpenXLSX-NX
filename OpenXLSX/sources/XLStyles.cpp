@@ -1471,8 +1471,13 @@ bool XLBorder::setLine(XLLineType lineType, XLLineStyle lineStyle, XLColor lineC
     XMLNode lineNode = appendAndGetNode(*m_borderNode, XLLineTypeToString(lineType), m_nodeOrder);    // generate line node if not present
     // 2024-12-19: non-existing lines are added using an ordered insert to address issue #304
     bool success = (lineNode.empty() == false);
-    if (success)
-        success = (appendAndSetAttribute(lineNode, "style", XLLineStyleToString(lineStyle)).empty() == false);    // set style attribute
+    if (success) {
+        const char* styleStr = XLLineStyleToString(lineStyle);
+        if (styleStr && *styleStr)
+            success = (appendAndSetAttribute(lineNode, "style", styleStr).empty() == false);    // set style attribute
+        else
+            lineNode.remove_attribute("style");
+    }
     XMLNode colorNode{};                                                                                          // empty node
     if (success) colorNode = appendAndGetNode(lineNode, "color");    // generate color node if not present
     XLDataBarColor colorObject{colorNode};

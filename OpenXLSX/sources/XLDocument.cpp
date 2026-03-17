@@ -71,7 +71,7 @@ namespace
     // xl/worksheets/sheet1.xml
     constexpr std::string_view templateSheet =
         R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">
     <dimension ref="A1"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews>
     <sheetFormatPr defaultRowHeight="15"/><sheetData/><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>
 </worksheet>)";
@@ -191,10 +191,10 @@ void XLDocument::open(std::string_view fileName)
     m_wbkRelationships = XLRelationships(getXmlData(workbookRelsFilename), workbookRelsFilename);
 
     // ===== Create xl/styles.xml if missing
-    if (!m_archive.hasEntry("xl/styles.xml")) execCommand(XLCommand(XLCommandType::AddStyles));
+    if (m_contentTypes.contentItem("/xl/styles.xml").path().empty()) execCommand(XLCommand(XLCommandType::AddStyles));
 
     // ===== Create xl/sharedStrings.xml from scratch if missing
-    if (!m_archive.hasEntry("xl/sharedStrings.xml")) execCommand(XLCommand(XLCommandType::AddSharedStrings));
+    if (m_contentTypes.contentItem("/xl/sharedStrings.xml").path().empty()) execCommand(XLCommand(XLCommandType::AddSharedStrings));
 
     // ===== Add remaining spreadsheet elements to the vector of XLXmlData objects.
     for (auto& item : m_contentTypes.getContentItems()) {
