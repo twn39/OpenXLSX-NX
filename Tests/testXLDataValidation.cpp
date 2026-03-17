@@ -247,24 +247,24 @@ TEST_CASE("XLDataValidation Tests", "[XLDataValidation]")
         // Total length will be over 300
         REQUIRE_THROWS_AS(dv.setList(longList), XLException);
 
-        // Test Dropdown Reference with special characters
+        // Test Dropdown Reference with special characters and absolute references (best practice)
         auto dvRef = validations.append();
         dvRef.setSqref("B1");
-        dvRef.setReferenceDropList("Data Sheet", "A1:A10");
+        dvRef.setReferenceDropList("Data Sheet", "$A$1:$A$10");
         // Should be correctly escaped and prefixed
-        REQUIRE(dvRef.formula1() == "='Data Sheet'!A1:A10");
+        REQUIRE(dvRef.formula1() == "='Data Sheet'!$A$1:$A$10");
 
         // Test Dropdown Reference with single quotes in sheet name
         auto dvRef2 = validations.append();
         dvRef2.setSqref("C1");
-        dvRef2.setReferenceDropList("Jane's Data", "B1:B10");
-        REQUIRE(dvRef2.formula1() == "='Jane''s Data'!B1:B10");
+        dvRef2.setReferenceDropList("Jane's Data", "$B$1:$B$10");
+        REQUIRE(dvRef2.formula1() == "='Jane''s Data'!$B$1:$B$10");
 
         // Test Dropdown Reference same sheet (no sheet name)
         auto dvRef3 = validations.append();
         dvRef3.setSqref("D1");
-        dvRef3.setReferenceDropList("", "Z1:Z100");
-        REQUIRE(dvRef3.formula1() == "=Z1:Z100");
+        dvRef3.setReferenceDropList("", "$Z$1:$Z$100");
+        REQUIRE(dvRef3.formula1() == "=$Z$1:$Z$100");
 
         doc.close();
     }
