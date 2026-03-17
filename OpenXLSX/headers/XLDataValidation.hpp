@@ -102,6 +102,10 @@ namespace OpenXLSX
         void addCell(const std::string& ref);
         void addRange(const XLCellReference& topLeft, const XLCellReference& bottomRight);
         void addRange(const std::string& range);
+        void removeCell(const XLCellReference& ref);
+        void removeCell(const std::string& ref);
+        void removeRange(const XLCellReference& topLeft, const XLCellReference& bottomRight);
+        void removeRange(const std::string& range);
         void setType(XLDataValidationType type);
         void setOperator(XLDataValidationOperator op);
         void setAllowBlank(bool allow);
@@ -134,15 +138,73 @@ namespace OpenXLSX
     class OPENXLSX_EXPORT XLDataValidations
     {
     public:
+        // Iterator class for XLDataValidations
+        class Iterator
+        {
+        public:
+            using iterator_category = std::forward_iterator_tag;
+            using value_type = XLDataValidation;
+            using difference_type = std::ptrdiff_t;
+            using pointer = XLDataValidation*;
+            using reference = XLDataValidation&;
+
+            Iterator() : m_node(nullptr) {}
+            explicit Iterator(XMLNode node) : m_node(node) {}
+
+            value_type operator*() const { return XLDataValidation(m_node); }
+            
+            class Proxy {
+                value_type m_val;
+            public:
+                explicit Proxy(value_type val) : m_val(val) {}
+                value_type* operator->() { return &m_val; }
+            };
+            
+            Proxy operator->() const { return Proxy(XLDataValidation(m_node)); }
+
+            Iterator& operator++() {
+                if (m_node) m_node = m_node.next_sibling("dataValidation");
+                return *this;
+            }
+            Iterator operator++(int) {
+                Iterator tmp = *this;
+                ++(*this);
+                return tmp;
+            }
+            bool operator==(const Iterator& other) const { return m_node == other.m_node; }
+            bool operator!=(const Iterator& other) const { return m_node != other.m_node; }
+
+        private:
+            XMLNode m_node;
+        };
+
         XLDataValidations() : m_sheetNode(nullptr) {}
         explicit XLDataValidations(const XMLNode& node) : m_sheetNode(node) {}
 
-        [[nodiscard]] bool empty() const { return !m_sheetNode; }
+        [[nodiscard]] bool empty() const { 
+            if (!m_sheetNode) return true;
+            return !m_sheetNode.child("dataValidations");
+        }
         [[nodiscard]] size_t count() const;
         XLDataValidation append();
         [[nodiscard]] XLDataValidation at(size_t index);
         [[nodiscard]] XLDataValidation at(std::string_view sqref);
         void clear();
+
+        // Priority 1/4 New Properties: Precise Deletion and Iterators
+        void remove(size_t index);
+        void remove(std::string_view sqref);
+
+        [[nodiscard]] Iterator begin() const {
+            if (!m_sheetNode) return Iterator();
+            auto dvNode = m_sheetNode.child("dataValidations");
+            if (!dvNode) return Iterator();
+            return Iterator(dvNode.child("dataValidation"));
+        }
+        
+        [[nodiscard]] Iterator end() const {
+            return Iterator();
+        }
 
     private:
         mutable XMLNode m_sheetNode;

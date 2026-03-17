@@ -305,6 +305,92 @@ namespace OpenXLSX
         }
     }
 
+    namespace {
+        void subtractRange(std::vector<XLDataValidationRange>& ranges, const XLDataValidationRange& toRemove) {
+            std::vector<XLDataValidationRange> newRanges;
+            for (const auto& r : ranges) {
+                // If r and toRemove do not overlap, keep r
+                if (r.lastRow < toRemove.firstRow || r.firstRow > toRemove.lastRow ||
+                    r.lastCol < toRemove.firstCol || r.firstCol > toRemove.lastCol) {
+                    newRanges.push_back(r);
+                    continue;
+                }
+
+                // They overlap. Split r into up to 4 new non-overlapping rectangles.
+                // Top part
+                if (r.firstRow < toRemove.firstRow) {
+                    newRanges.push_back({r.firstRow, toRemove.firstRow - 1, r.firstCol, r.lastCol});
+                }
+                // Bottom part
+                if (r.lastRow > toRemove.lastRow) {
+                    newRanges.push_back({toRemove.lastRow + 1, r.lastRow, r.firstCol, r.lastCol});
+                }
+                // Left part (constrained vertically by toRemove)
+                if (r.firstCol < toRemove.firstCol) {
+                    newRanges.push_back({
+                        std::max(r.firstRow, toRemove.firstRow),
+                        std::min(r.lastRow, toRemove.lastRow),
+                        r.firstCol,
+                        static_cast<uint16_t>(toRemove.firstCol - 1)
+                    });
+                }
+                // Right part (constrained vertically by toRemove)
+                if (r.lastCol > toRemove.lastCol) {
+                    newRanges.push_back({
+                        std::max(r.firstRow, toRemove.firstRow),
+                        std::min(r.lastRow, toRemove.lastRow),
+                        static_cast<uint16_t>(toRemove.lastCol + 1),
+                        r.lastCol
+                    });
+                }
+            }
+            ranges = newRanges;
+        }
+    }
+
+    void XLDataValidation::removeCell(const XLCellReference& ref)
+    {
+        removeRange(ref, ref);
+    }
+
+    void XLDataValidation::removeCell(const std::string& ref)
+    {
+        removeCell(XLCellReference(ref));
+    }
+
+    void XLDataValidation::removeRange(const XLCellReference& topLeft, const XLCellReference& bottomRight)
+    {
+        std::string currentSqref = sqref();
+        auto ranges = parseSqrefToRanges(currentSqref);
+        
+        uint32_t minRow = std::min(topLeft.row(), bottomRight.row());
+        uint32_t maxRow = std::max(topLeft.row(), bottomRight.row());
+        uint16_t minCol = std::min(topLeft.column(), bottomRight.column());
+        uint16_t maxCol = std::max(topLeft.column(), bottomRight.column());
+        
+        subtractRange(ranges, {minRow, maxRow, minCol, maxCol});
+        collapseRanges(ranges); // clean up adjacent splits if possible
+        
+        std::string newSqref;
+        for (size_t i = 0; i < ranges.size(); ++i) {
+            if (i > 0) newSqref += " ";
+            newSqref += ranges[i].toString();
+        }
+        setSqref(newSqref);
+    }
+
+    void XLDataValidation::removeRange(const std::string& range)
+    {
+        auto colonPos = range.find(':');
+        if (colonPos != std::string::npos) {
+            XLCellReference topLeft(range.substr(0, colonPos));
+            XLCellReference bottomRight(range.substr(colonPos + 1));
+            removeRange(topLeft, bottomRight);
+        } else {
+            removeCell(range);
+        }
+    }
+
     void XLDataValidation::setType(XLDataValidationType type)
     {
         if (!m_node) return;
@@ -680,6 +766,57 @@ namespace OpenXLSX
     {
         if (!m_sheetNode) return;
         m_sheetNode.remove_child("dataValidations");
+    }
+
+    void XLDataValidations::remove(size_t index)
+    {
+        if (!m_sheetNode) return;
+        auto dvNode = m_sheetNode.child("dataValidations");
+        if (!dvNode) return;
+
+        auto child = dvNode.first_child();
+        size_t current = 0;
+        while (child) {
+            if (current == index) {
+                dvNode.remove_child(child);
+                
+                size_t c = dvNode.attribute("count").as_ullong();
+                if (c > 0) dvNode.attribute("count") = c - 1;
+                
+                if (c - 1 == 0) {
+                    m_sheetNode.remove_child("dataValidations");
+                    // Invalidate m_sheetNode's reference since we removed it? 
+                    // No, m_sheetNode points to <worksheet>, not <dataValidations>.
+                }
+                return;
+            }
+            child = child.next_sibling("dataValidation");
+            current++;
+        }
+    }
+
+    void XLDataValidations::remove(std::string_view sqref)
+    {
+        if (!m_sheetNode) return;
+        auto dvNode = m_sheetNode.child("dataValidations");
+        if (!dvNode) return;
+
+        auto child = dvNode.first_child();
+        while (child) {
+            auto next = child.next_sibling("dataValidation");
+            std::string attrSqref = child.attribute("sqref").value();
+            if (attrSqref == sqref) {
+                dvNode.remove_child(child);
+                
+                size_t c = dvNode.attribute("count").as_ullong();
+                if (c > 0) dvNode.attribute("count") = c - 1;
+            }
+            child = next;
+        }
+
+        if (dvNode.attribute("count").as_ullong() == 0) {
+            m_sheetNode.remove_child("dataValidations");
+        }
     }
 
 } // namespace OpenXLSX

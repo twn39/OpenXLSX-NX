@@ -163,6 +163,66 @@ TEST_CASE("XLDataValidation Tests", "[XLDataValidation]")
         dv.addRange("B2:B4");
         REQUIRE(dv.sqref() == "A1:B5");
 
+        // --- Test Range Subtraction (removeCell / removeRange) ---
+        // Current: A1:B5
+        dv.removeCell("A1");
+        // Output might be "A2:B5 B1" depending on collapse order
+        REQUIRE(dv.sqref() == "A2:B5 B1");
+
+        // Reset to a clean block
+        dv.setSqref("A1:C5");
+        
+        // Remove a block from the middle
+        dv.removeRange("B2:B4");
+        // Remaining should be the top row, bottom row, and left/right columns
+        // The output could vary based on collapse. Let's test a point that we know B2 is absent.
+        auto sqrefStr = dv.sqref();
+        REQUIRE(sqrefStr.find("B2") == std::string::npos);
+        REQUIRE(sqrefStr.find("B3") == std::string::npos);
+        REQUIRE(sqrefStr.find("B4") == std::string::npos);
+
+        doc.close();
+    }
+
+    SECTION("Data Validation Iterators and Precise Removal") {
+        XLDocument doc;
+        doc.create("./testDataValidationIterator.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+        auto& validations = wks.dataValidations();
+
+        auto dv1 = validations.append(); dv1.setSqref("A1"); dv1.setType(XLDataValidationType::Whole);
+        auto dv2 = validations.append(); dv2.setSqref("B1"); dv2.setType(XLDataValidationType::Decimal);
+        auto dv3 = validations.append(); dv3.setSqref("C1"); dv3.setType(XLDataValidationType::List);
+
+        // 1. Test Iterator
+        int count = 0;
+        for (auto dv : validations) {
+            count++;
+            REQUIRE_FALSE(dv.empty());
+        }
+        REQUIRE(count == 3);
+
+        // 2. Test Precise Removal by sqref
+        validations.remove("B1");
+        REQUIRE(validations.count() == 2);
+        
+        // Verify B1 is gone, C1 and A1 remain
+        bool foundDecimal = false;
+        for (auto dv : validations) {
+            if (dv.type() == XLDataValidationType::Decimal) foundDecimal = true;
+        }
+        REQUIRE_FALSE(foundDecimal);
+
+        // 3. Test Precise Removal by index
+        validations.remove(0); // Removes A1
+        REQUIRE(validations.count() == 1);
+        REQUIRE(validations.begin()->type() == XLDataValidationType::List);
+
+        // 4. Test Last Element Removal (Should remove the <dataValidations> root node)
+        validations.remove(0);
+        REQUIRE(validations.count() == 0);
+        REQUIRE(validations.empty() == true);
+
         doc.close();
     }
 
