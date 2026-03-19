@@ -11,10 +11,6 @@ using namespace OpenXLSX;
 
 namespace
 {
-    // module-local utility functions
-    /**
-     * @details TODO: write doxygen headers for functions in this module
-     */
     /**
      * @details Helper function to parse rich text from a comment node.
      */
@@ -80,18 +76,9 @@ namespace
         return result;
     }
 }    // namespace
-
-
-/**
- * @details
- */
 // XLComment::XLComment()
 //  : m_commentNode(std::make_unique<XMLNode>())
 //  {}
-
-/**
- * @details
- */
 XLComment::XLComment(XMLNode node) : m_commentNode(node) {}
 
 /**
@@ -101,18 +88,10 @@ XLComment::XLComment(XMLNode node) : m_commentNode(node) {}
  * header files shall "just work"
  */
 bool XLComment::valid() const { return not m_commentNode.empty(); }
-
-/**
- * @brief Getter functions
- */
 std::string XLComment::ref() const { return m_commentNode.attribute("ref").value(); }
 std::string XLComment::text() const { return getCommentString(m_commentNode); }
 XLRichText  XLComment::richText() const { return parseRichText(m_commentNode); }
 uint16_t    XLComment::authorId() const { return static_cast<uint16_t>(m_commentNode.attribute("authorId").as_uint()); }
-
-/**
- * @brief Setter functions
- */
 bool XLComment::setText(const std::string& newText)
 {
     m_commentNode.remove_child("text");
@@ -203,10 +182,6 @@ bool XLComments::setVmlDrawing(const XLVmlDrawing& vmlDrawing)
     m_vmlDrawing = vmlDrawing;
     return true;
 }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 XMLNode XLComments::authorNode(uint16_t index) const
 {
     XMLNode  auth = m_authors.first_child_of_type(pugi::node_element);
@@ -240,16 +215,8 @@ XMLNode XLComments::commentNode(size_t index) const
     }
     return m_hintNode;    // can be empty XMLNode if index is >= count
 }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 XMLNode XLComments::commentNode(const std::string& cellRef) const
 { return m_commentList.find_child_by_attribute("comment", "ref", cellRef.c_str()); }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 uint16_t XLComments::authorCount() const
 {
     XMLNode  auth  = m_authors.first_child_of_type(pugi::node_element);
@@ -260,10 +227,6 @@ uint16_t XLComments::authorCount() const
     }
     return count;
 }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 std::string XLComments::author(uint16_t index) const
 {
     XMLNode auth = authorNode(index);
@@ -273,10 +236,6 @@ std::string XLComments::author(uint16_t index) const
     }
     return auth.first_child().value();    // author name is stored as a node_pcdata within the author node
 }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 bool XLComments::deleteAuthor(uint16_t index)
 {
     XMLNode auth = authorNode(index);
@@ -315,10 +274,6 @@ uint16_t XLComments::addAuthor(const std::string& authorName)
     auth.prepend_child(pugi::node_pcdata).set_value(authorName.c_str());
     return index;
 }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 size_t XLComments::count() const
 {
     XMLNode comment = m_commentList.first_child_of_type(pugi::node_element);
@@ -330,19 +285,11 @@ size_t XLComments::count() const
     }
     return count;
 }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 uint16_t XLComments::authorId(const std::string& cellRef) const
 {
     XMLNode comment = commentNode(cellRef);
     return static_cast<uint16_t>(comment.attribute("authorId").as_uint());
 }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 bool XLComments::deleteComment(const std::string& cellRef)
 {
     XMLNode comment = commentNode(cellRef);
@@ -371,10 +318,6 @@ bool XLComments::deleteComment(const std::string& cellRef)
 //           subnode rFont -> font name (string)
 //           subnode family -> TBC: font family (int)
 //        subnode t -> regular text like above
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 XLComment   XLComments::get(size_t index) const { return XLComment(commentNode(index)); }
 std::string XLComments::get(const std::string& cellRef) const { return getCommentString(commentNode(cellRef)); }
 
@@ -469,10 +412,6 @@ void XLComments::setupVmlShape(const std::string& cellRef, uint32_t destRow, uin
         path.append_attribute("o:connecttype").set_value("rect");
     }
 }
-
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 bool XLComments::set(std::string const& cellRef, std::string const& commentText, uint16_t authorId_)
 {
     XLCellReference destRef(cellRef);
@@ -536,10 +475,6 @@ bool XLComments::set(std::string const& cellRef, std::string const& commentText,
 
     return true;
 }
-
-/**
- * @details
- */
 bool XLComments::setRichText(std::string const& cellRef, const XLRichText& richText, uint16_t authorId_)
 {
     XLCellReference destRef(cellRef);
@@ -598,10 +533,6 @@ bool XLComments::setRichText(std::string const& cellRef, const XLRichText& richT
 
     return true;
 }
-
-/**
- * @details
- */
 XLShape XLComments::shape(std::string const& cellRef)
 {
     if (!m_vmlDrawing.valid()) throw XLException("XLComments::shape: can not access any shapes when VML Drawing object is invalid");

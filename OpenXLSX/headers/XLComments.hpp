@@ -25,10 +25,7 @@ namespace OpenXLSX
      */
     class OPENXLSX_EXPORT XLComment
     {
-    public:    // ---------- Public Member Functions ---------- //
-        /**
-         * @brief
-         */
+    public:
         XLComment() = delete;    // do not allow default constructor (for now) - could still be constructed with an empty XMLNode
 
         /**
@@ -48,10 +45,6 @@ namespace OpenXLSX
          * @param other Object to be moved.
          */
         XLComment(XLComment&& other) noexcept = default;
-
-        /**
-         * @brief
-         */
         ~XLComment() = default;
 
         /**
@@ -73,18 +66,10 @@ namespace OpenXLSX
          * @return true if comment was constructed on a valid XML node, otherwise false
          */
         bool valid() const;
-
-        /**
-         * @brief Getter functions
-         */
         std::string ref() const;    // the cell reference of the comment
         std::string text() const;
         XLRichText  richText() const;
         uint16_t    authorId() const;
-
-        /**
-         * @brief Setter functions
-         */
         bool setText(const std::string& newText);
         bool setRichText(const XLRichText& richText);
         bool setAuthorId(uint16_t newAuthorId);
@@ -95,7 +80,7 @@ namespace OpenXLSX
         //  */
         // std::string summary() const;
 
-    private:                           // ---------- Private Member Variables ---------- //
+    private:
         mutable XMLNode m_commentNode; /**< An XMLNode object with the comment item */
     };
 
@@ -155,7 +140,7 @@ namespace OpenXLSX
          */
         bool setVmlDrawing(const XLVmlDrawing& vmlDrawing);
 
-    private:    // helper functions with repeating code
+    private:
         XMLNode authorNode(uint16_t index) const;
         XMLNode commentNode(size_t index) const;
         XMLNode commentNode(const std::string& cellRef) const;
