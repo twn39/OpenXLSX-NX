@@ -399,6 +399,22 @@ namespace OpenXLSX
                       uint32_t           height);
 
         /**
+         * @brief Add a chart to the drawing
+         * @param rId the relationship ID of the chart file
+         * @param name the name of the chart
+         * @param row the row where the chart should be placed (0-indexed)
+         * @param col the column where the chart should be placed (0-indexed)
+         * @param width the width of the chart in pixels
+         * @param height the height of the chart in pixels
+         */
+        void addChartAnchor(const std::string& rId,
+                            std::string_view   name,
+                            uint32_t           row,
+                            uint32_t           col,
+                            uint32_t           width,
+                            uint32_t           height);
+
+        /**
          * @brief Add an image to the drawing, automatically maintaining aspect ratio
          * @param rId the relationship ID of the image file
          * @param name the name of the image

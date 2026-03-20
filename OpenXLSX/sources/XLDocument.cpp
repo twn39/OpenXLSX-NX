@@ -16,6 +16,7 @@
 #include "XLSheet.hpp"
 #include "XLStyles.hpp"
 #include "XLUtilities.hpp"
+#include "XLChart.hpp"
 
 using namespace OpenXLSX;
 
@@ -850,6 +851,30 @@ XLDrawing XLDocument::sheetDrawing(uint16_t sheetXmlNo)
     if (xmlData == nullptr) xmlData = &m_data.emplace_back(this, drawingFilename, "", XLContentType::Drawing);
 
     return XLDrawing(xmlData);
+}
+
+XLChart XLDocument::createChart()
+{
+    using namespace std::literals::string_literals;
+
+    // Find a new chart number by looking at existing chart entries
+    uint32_t chartNo = 1;
+    std::string chartFilename = "xl/charts/chart"s + std::to_string(chartNo) + ".xml"s;
+    while (m_archive.hasEntry(chartFilename)) {
+        ++chartNo;
+        chartFilename = "xl/charts/chart"s + std::to_string(chartNo) + ".xml"s;
+    }
+
+    m_archive.addEntry(chartFilename, "");
+    m_contentTypes.addOverride("/" + chartFilename, XLContentType::Chart);
+    
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData*     xmlData      = getXmlData(chartFilename, DO_NOT_THROW);
+    if (xmlData == nullptr) {
+        xmlData = &m_data.emplace_back(this, chartFilename, "", XLContentType::Chart);
+    }
+
+    return XLChart(xmlData);
 }
 
 /**

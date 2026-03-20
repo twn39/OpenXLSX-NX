@@ -231,6 +231,8 @@ namespace OpenXLSX
         XLVmlDrawing    sheetVmlDrawing(uint16_t sheetXmlNo);
         XLComments      sheetComments(uint16_t sheetXmlNo);
         XLTables        sheetTables(uint16_t sheetXmlNo);
+        
+        class XLChart   createChart();
 
         /**
          * @brief Insert image into the archive's media folder. Uses string_view for zero-copy data transfer.

@@ -19,6 +19,7 @@
 #include "XLRelationships.hpp"
 #include "XLConditionalFormatting.hpp"
 #include "XLPageSetup.hpp"
+#include "XLChart.hpp"
 
 namespace OpenXLSX
 {
@@ -245,6 +246,8 @@ namespace OpenXLSX
         void addImage(const std::string& name, const std::string& data, uint32_t row, uint32_t col, uint32_t width, uint32_t height);
         void addScaledImage(const std::string& name, const std::string& data, uint32_t row, uint32_t col, double scalingFactor = 1.0);
         std::vector<XLDrawingItem> images();
+        
+        XLChart addChart(XLChartType type, std::string_view name, uint32_t row, uint32_t col, uint32_t width, uint32_t height);
 
         XLVmlDrawing& vmlDrawing();
         XLComments& comments();

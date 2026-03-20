@@ -875,6 +875,30 @@ void XLWorksheet::addScaledImage(const std::string& name, const std::string& dat
     drw.addScaledImage(imgRel.id(), name, "", data, row, col, scalingFactor);
 }
 
+XLChart XLWorksheet::addChart([[maybe_unused]] XLChartType type, std::string_view name, uint32_t row, uint32_t col, uint32_t width, uint32_t height)
+{
+    // 1. Create Chart File in Document
+    XLChart chart = parentDoc().createChart();
+
+    // 2. Get Drawing for the sheet
+    XLDrawing& drw = drawing();
+    std::string drawingPath     = drw.getXmlPath();
+    std::string chartRelativePath = getPathARelativeToPathB(chart.getXmlPath(), drawingPath);
+
+    // 3. Add Relationship in drawing to the new chart file
+    XLRelationshipItem chartRel;
+    if (!drw.relationships().targetExists(chartRelativePath)) {
+        chartRel = drw.relationships().addRelationship(XLRelationshipType::Chart, chartRelativePath);
+    } else {
+        chartRel = drw.relationships().relationshipByTarget(chartRelativePath);
+    }
+
+    // 4. Add Chart Anchor in Drawing
+    drw.addChartAnchor(chartRel.id(), name, row, col, width, height);
+
+    return chart;
+}
+
 std::vector<XLDrawingItem> XLWorksheet::images()
 {
     std::vector<XLDrawingItem> result;

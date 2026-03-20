@@ -675,6 +675,7 @@ void XLDrawing::initXml()
                         "<xdr:wsDr"
                         " xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\""
                         " xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\""
+                        " xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\""
                         " xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\""
                         ">"
                         "</xdr:wsDr>",
@@ -741,6 +742,64 @@ void XLDrawing::addImage(const std::string& rId,
     XMLNode prstGeom = spPr.append_child("a:prstGeom");
     prstGeom.append_attribute("prst").set_value("rect");
     prstGeom.append_child("a:avLst");
+
+    anchor.append_child("xdr:clientData");
+}
+
+void XLDrawing::addChartAnchor(const std::string& rId,
+                               std::string_view   name,
+                               uint32_t           row,
+                               uint32_t           col,
+                               uint32_t           width,
+                               uint32_t           height)
+{
+    XMLNode rootNode = xmlDocument().document_element();
+
+    // Create oneCellAnchor
+    XMLNode anchor = rootNode.append_child("xdr:oneCellAnchor");
+
+    // From node (top-left)
+    XMLNode from = anchor.append_child("xdr:from");
+    from.append_child("xdr:col").text().set(col);
+    from.append_child("xdr:colOff").text().set(0);
+    from.append_child("xdr:row").text().set(row);
+    from.append_child("xdr:rowOff").text().set(0);
+
+    // Extents (size)
+    const uint64_t emuWidth  = static_cast<uint64_t>(width) * EMU_PER_PIXEL;
+    const uint64_t emuHeight = static_cast<uint64_t>(height) * EMU_PER_PIXEL;
+
+    XMLNode ext = anchor.append_child("xdr:ext");
+    ext.append_attribute("cx").set_value(std::to_string(emuWidth).c_str());
+    ext.append_attribute("cy").set_value(std::to_string(emuHeight).c_str());
+
+    // graphicFrame node
+    XMLNode frame = anchor.append_child("xdr:graphicFrame");
+
+    // nvGraphicFramePr
+    XMLNode nvGraphicFramePr = frame.append_child("xdr:nvGraphicFramePr");
+    XMLNode cNvPr = nvGraphicFramePr.append_child("xdr:cNvPr");
+    auto    childCount = static_cast<size_t>(std::distance(rootNode.children().begin(), rootNode.children().end()));
+    cNvPr.append_attribute("id").set_value(std::to_string(childCount + 1).c_str());
+    cNvPr.append_attribute("name").set_value(std::string(name).c_str());
+    nvGraphicFramePr.append_child("xdr:cNvGraphicFramePr");
+
+    // xfrm
+    XMLNode xfrm = frame.append_child("xdr:xfrm");
+    XMLNode off = xfrm.append_child("a:off");
+    off.append_attribute("x").set_value("0");
+    off.append_attribute("y").set_value("0");
+    XMLNode extXfrm = xfrm.append_child("a:ext");
+    extXfrm.append_attribute("cx").set_value("0");
+    extXfrm.append_attribute("cy").set_value("0");
+
+    // a:graphic
+    XMLNode graphic = frame.append_child("a:graphic");
+    XMLNode graphicData = graphic.append_child("a:graphicData");
+    graphicData.append_attribute("uri").set_value("http://schemas.openxmlformats.org/drawingml/2006/chart");
+    
+    XMLNode chartNode = graphicData.append_child("c:chart");
+    chartNode.append_attribute("r:id").set_value(rId.c_str());
 
     anchor.append_child("xdr:clientData");
 }
