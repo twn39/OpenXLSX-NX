@@ -143,4 +143,46 @@ TEST_CASE("XLComments Tests", "[XLComments]")
 
         doc2.close();
     }
+
+    SECTION("Optimized Comments Overloads, Deduplication and Custom Size")
+    {
+        XLDocument doc;
+        doc.create("./testXLCommentsOptimizations.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        // 1. Author Deduplication Test
+        auto& comments = wks.comments();
+        uint16_t id1 = comments.addAuthor("Dedupe Tester");
+        uint16_t id2 = comments.addAuthor("Dedupe Tester"); // Should return same ID
+        REQUIRE(id1 == id2);
+        REQUIRE(comments.authorCount() == 1);
+
+        // 2. String Author API & Size Dimensions Overload
+        comments.set("A1", "Custom Size Comment", "Dedupe Tester", 5, 8);
+        REQUIRE(comments.authorId("A1") == id1); // should match deduplicated ID
+        REQUIRE(comments.count() == 1);
+        
+        // 3. Visibility toggling via explicit API
+        comments.setVisible("A1", true);
+        REQUIRE(comments.shape("A1").style().visible() == true);
+        comments.setVisible("A1", false);
+        REQUIRE(comments.shape("A1").style().visible() == false);
+
+        doc.save();
+
+        // 4. Verify OOXML VML format
+        std::string vmlXml = getRawXml(doc, "xl/drawings/vmlDrawing1.vml");
+        // We know A1 is column 0, width=5 => right column=5. height=8 => bottom row=8. 
+        // Our anchor logic generates coordinate string like "5,10,0,5,9,10,8,5" or similar (Left,Top,Right,Bottom depends on bounds checks).
+        // Since destCol=1, destRow=1: 
+        // LeftCol = (1-1)+1 = 1. RightCol = (1-1)+1+5 = 6.
+        // TopRow = (1-1)+1 = 1. BottomRow = (1-1)+1+8 = 9.
+        // The expected string contains "1,10,1,5,6,10,9,5"
+        REQUIRE(vmlXml.find("1,10,1,5,6,10,9,5") != std::string::npos);
+        
+        // Verify style visibility
+        REQUIRE(vmlXml.find("visibility:hidden") != std::string::npos);
+
+        doc.close();
+    }
 }

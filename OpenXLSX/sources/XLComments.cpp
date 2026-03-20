@@ -1,5 +1,6 @@
 // ===== External Includes ===== //
 // #include <algorithm>
+#include <gsl/gsl>
 #include <pugixml.hpp>
 
 // ===== OpenXLSX Includes ===== //
@@ -91,7 +92,7 @@ bool XLComment::valid() const { return not m_commentNode.empty(); }
 std::string XLComment::ref() const { return m_commentNode.attribute("ref").value(); }
 std::string XLComment::text() const { return getCommentString(m_commentNode); }
 XLRichText  XLComment::richText() const { return parseRichText(m_commentNode); }
-uint16_t    XLComment::authorId() const { return static_cast<uint16_t>(m_commentNode.attribute("authorId").as_uint()); }
+uint16_t    XLComment::authorId() const { return gsl::narrow_cast<uint16_t>(m_commentNode.attribute("authorId").as_uint()); }
 bool XLComment::setText(const std::string& newText)
 {
     m_commentNode.remove_child("text");
@@ -216,7 +217,20 @@ XMLNode XLComments::commentNode(size_t index) const
     return m_hintNode;    // can be empty XMLNode if index is >= count
 }
 XMLNode XLComments::commentNode(const std::string& cellRef) const
-{ return m_commentList.find_child_by_attribute("comment", "ref", cellRef.c_str()); }
+{
+    if (m_commentMap.empty() && not m_commentList.first_child().empty()) {
+        XMLNode comment = m_commentList.first_child_of_type(pugi::node_element);
+        while (not comment.empty()) {
+            m_commentMap[comment.attribute("ref").value()] = comment;
+            comment = comment.next_sibling_of_type(pugi::node_element);
+        }
+    }
+    auto it = m_commentMap.find(cellRef);
+    if (it != m_commentMap.end()) {
+        return it->second;
+    }
+    return XMLNode();
+}
 uint16_t XLComments::authorCount() const
 {
     XMLNode  auth  = m_authors.first_child_of_type(pugi::node_element);
@@ -258,18 +272,24 @@ uint16_t XLComments::addAuthor(const std::string& authorName)
 {
     XMLNode  auth  = m_authors.first_child_of_type(pugi::node_element);
     uint16_t index = 0;
-    while (not auth.next_sibling_of_type(pugi::node_element).empty()) {
-        ++index;
+    XMLNode  lastAuth;
+
+    while (not auth.empty()) {
+        if (std::string(auth.first_child().value()) == authorName) {
+            return index;
+        }
+        lastAuth = auth;
         auth = auth.next_sibling_of_type(pugi::node_element);
+        ++index;
     }
-    if (auth.empty()) {                                                    // if this is the first entry
+
+    if (lastAuth.empty()) {                                                // if this is the first entry
         auth = m_authors.prepend_child("author");                          // insert new node
         m_authors.prepend_child(pugi::node_pcdata).set_value("\n\t\t");    // prefix first author with second level indentation
     }
-    else {                                                                   // found the last author node at index
-        auth = m_authors.insert_child_after("author", auth);                 // append a new author
-        copyLeadingWhitespaces(m_authors, auth.previous_sibling(), auth);    // copy whitespaces prefix from previous author
-        ++index;                                                             // increment index
+    else {                                                                   // found the last author node
+        auth = m_authors.insert_child_after("author", lastAuth);             // append a new author
+        copyLeadingWhitespaces(m_authors, lastAuth, auth);                   // copy whitespaces prefix from previous author
     }
     auth.prepend_child(pugi::node_pcdata).set_value(authorName.c_str());
     return index;
@@ -288,7 +308,7 @@ size_t XLComments::count() const
 uint16_t XLComments::authorId(const std::string& cellRef) const
 {
     XMLNode comment = commentNode(cellRef);
-    return static_cast<uint16_t>(comment.attribute("authorId").as_uint());
+    return gsl::narrow_cast<uint16_t>(comment.attribute("authorId").as_uint());
 }
 bool XLComments::deleteComment(const std::string& cellRef)
 {
@@ -299,6 +319,7 @@ bool XLComments::deleteComment(const std::string& cellRef)
         m_commentList.remove_child(comment);
         m_hintNode  = XMLNode{};    // reset hint after modification of comment list
         m_hintIndex = 0;
+        m_commentMap.erase(cellRef);
     }
     // ===== Delete the shape associated with the comment.
     OpenXLSX::ignore(m_vmlDrawing.deleteShape(cellRef));    // disregard if deleteShape fails
@@ -308,7 +329,7 @@ bool XLComments::deleteComment(const std::string& cellRef)
 XLComment   XLComments::get(size_t index) const { return XLComment(commentNode(index)); }
 std::string XLComments::get(const std::string& cellRef) const { return getCommentString(commentNode(cellRef)); }
 
-void XLComments::setupVmlShape(const std::string& cellRef, uint32_t destRow, uint16_t destCol, bool newCommentCreated)
+void XLComments::setupVmlShape(const std::string& cellRef, uint32_t destRow, uint16_t destCol, bool newCommentCreated, uint16_t widthCols, uint16_t heightRows)
 {
     if (!m_vmlDrawing.valid()) return;
 
@@ -339,9 +360,7 @@ void XLComments::setupVmlShape(const std::string& cellRef, uint32_t destRow, uin
 
     {
         constexpr const uint16_t leftColOffset = 1;
-        constexpr const uint16_t widthCols     = 4;    // Increased from 2
         constexpr const uint16_t topRowOffset  = 1;
-        constexpr const uint16_t heightRows    = 6;    // Increased from 2
 
         uint16_t anchorLeftCol, anchorRightCol;
         if (OpenXLSX::MAX_COLS - destCol > leftColOffset + widthCols) {
@@ -399,7 +418,7 @@ void XLComments::setupVmlShape(const std::string& cellRef, uint32_t destRow, uin
         path.append_attribute("o:connecttype").set_value("rect");
     }
 }
-bool XLComments::set(std::string const& cellRef, std::string const& commentText, uint16_t authorId_)
+bool XLComments::set(std::string const& cellRef, std::string const& commentText, uint16_t authorId_, uint16_t widthCols, uint16_t heightRows)
 {
     XLCellReference destRef(cellRef);
     uint32_t        destRow           = destRef.row();
@@ -407,38 +426,44 @@ bool XLComments::set(std::string const& cellRef, std::string const& commentText,
     bool            newCommentCreated = false;    // if false, try to find an existing shape before creating one
 
     using namespace std::literals::string_literals;
-    XMLNode comment = m_commentList.first_child_of_type(pugi::node_element);
-    while (not comment.empty()) {
-        if (comment.name() == "comment"s) {    // safeguard against rogue nodes
-            XLCellReference ref(comment.attribute("ref").value());
-            if (ref.row() > destRow or (ref.row() == destRow and ref.column() >= destCol))    // abort when node or a node behind it is found
-                break;
-        }
-        comment = comment.next_sibling_of_type(pugi::node_element);
-    }
-    if (comment.empty()) {    // no comments yet or this will be the last comment
-        comment = m_commentList.last_child_of_type(pugi::node_element);
-        if (comment.empty()) {                                                                    // if this is the only comment so far
-            comment = m_commentList.prepend_child("comment");                                     // prepend new comment
-            m_commentList.insert_child_before(pugi::node_pcdata, comment).set_value("\n\t\t");    // insert double indent before comment
-        }
-        else {
-            comment = m_commentList.insert_child_after("comment", comment);    // insert new comment at end of list
-            copyLeadingWhitespaces(m_commentList,
-                                   comment.previous_sibling(),
-                                   comment);    // and copy whitespaces prefix from previous comment
-        }
-        newCommentCreated = true;
+    XMLNode comment = commentNode(cellRef);
+    if (not comment.empty()) {
+        comment.remove_children();
     }
     else {
-        XLCellReference ref(comment.attribute("ref").value());
-        if (ref.row() != destRow or ref.column() != destCol) {                         // if node has to be inserted *before* this one
-            comment = m_commentList.insert_child_before("comment", comment);           // insert new comment
-            copyLeadingWhitespaces(m_commentList, comment, comment.next_sibling());    // and copy whitespaces prefix from next node
+        comment = m_commentList.first_child_of_type(pugi::node_element);
+        while (not comment.empty()) {
+            if (comment.name() == "comment"s) {    // safeguard against rogue nodes
+                XLCellReference ref(comment.attribute("ref").value());
+                if (ref.row() > destRow or (ref.row() == destRow and ref.column() >= destCol))    // abort when node or a node behind it is found
+                    break;
+            }
+            comment = comment.next_sibling_of_type(pugi::node_element);
+        }
+        if (comment.empty()) {    // no comments yet or this will be the last comment
+            comment = m_commentList.last_child_of_type(pugi::node_element);
+            if (comment.empty()) {                                                                    // if this is the only comment so far
+                comment = m_commentList.prepend_child("comment");                                     // prepend new comment
+                m_commentList.insert_child_before(pugi::node_pcdata, comment).set_value("\n\t\t");    // insert double indent before comment
+            }
+            else {
+                comment = m_commentList.insert_child_after("comment", comment);    // insert new comment at end of list
+                copyLeadingWhitespaces(m_commentList,
+                                       comment.previous_sibling(),
+                                       comment);    // and copy whitespaces prefix from previous comment
+            }
             newCommentCreated = true;
         }
-        else                              // node exists / was found
-            comment.remove_children();    // clear node content
+        else {
+            XLCellReference ref(comment.attribute("ref").value());
+            if (ref.row() != destRow or ref.column() != destCol) {                         // if node has to be inserted *before* this one
+                comment = m_commentList.insert_child_before("comment", comment);           // insert new comment
+                copyLeadingWhitespaces(m_commentList, comment, comment.next_sibling());    // and copy whitespaces prefix from next node
+                newCommentCreated = true;
+            }
+            else                              // node exists / was found
+                comment.remove_children();    // clear node content
+        }
     }
 
     // ===== If the list of nodes was modified, re-set m_hintNode that is used to access nodes by index
@@ -446,6 +471,8 @@ bool XLComments::set(std::string const& cellRef, std::string const& commentText,
         m_hintNode  = XMLNode{};    // reset hint after modification of comment list
         m_hintIndex = 0;
     }
+
+    m_commentMap[cellRef] = comment; // update cache
 
     // now that we have a valid comment node: update attributes and content
     if (comment.attribute("ref").empty())                                        // if ref has to be created
@@ -458,11 +485,11 @@ bool XLComments::set(std::string const& cellRef, std::string const& commentText,
     if (!m_vmlDrawing.valid()) {
         throw XLException("XLComments::set: can not set (format) any comments when VML Drawing object is invalid");
     }
-    setupVmlShape(cellRef, destRow, destCol, newCommentCreated);
+    setupVmlShape(cellRef, destRow, destCol, newCommentCreated, widthCols, heightRows);
 
     return true;
 }
-bool XLComments::setRichText(std::string const& cellRef, const XLRichText& richText, uint16_t authorId_)
+bool XLComments::setRichText(std::string const& cellRef, const XLRichText& richText, uint16_t authorId_, uint16_t widthCols, uint16_t heightRows)
 {
     XLCellReference destRef(cellRef);
     uint32_t        destRow           = destRef.row();
@@ -470,42 +497,51 @@ bool XLComments::setRichText(std::string const& cellRef, const XLRichText& richT
     bool            newCommentCreated = false;
 
     using namespace std::literals::string_literals;
-    XMLNode comment = m_commentList.first_child_of_type(pugi::node_element);
-    while (not comment.empty()) {
-        if (comment.name() == "comment"s) {
-            XLCellReference ref(comment.attribute("ref").value());
-            if (ref.row() > destRow or (ref.row() == destRow and ref.column() >= destCol)) break;
-        }
-        comment = comment.next_sibling_of_type(pugi::node_element);
-    }
 
-    if (comment.empty()) {
-        comment = m_commentList.last_child_of_type(pugi::node_element);
-        if (comment.empty()) {
-            comment = m_commentList.prepend_child("comment");
-            m_commentList.insert_child_before(pugi::node_pcdata, comment).set_value("\n\t\t");
-        }
-        else {
-            comment = m_commentList.insert_child_after("comment", comment);
-            copyLeadingWhitespaces(m_commentList, comment.previous_sibling(), comment);
-        }
-        newCommentCreated = true;
+    XMLNode comment = commentNode(cellRef);
+    if (not comment.empty()) {
+        comment.remove_children();
     }
     else {
-        XLCellReference ref(comment.attribute("ref").value());
-        if (ref.row() != destRow or ref.column() != destCol) {
-            comment = m_commentList.insert_child_before("comment", comment);
-            copyLeadingWhitespaces(m_commentList, comment, comment.next_sibling());
+        comment = m_commentList.first_child_of_type(pugi::node_element);
+        while (not comment.empty()) {
+            if (comment.name() == "comment"s) {
+                XLCellReference ref(comment.attribute("ref").value());
+                if (ref.row() > destRow or (ref.row() == destRow and ref.column() >= destCol)) break;
+            }
+            comment = comment.next_sibling_of_type(pugi::node_element);
+        }
+
+        if (comment.empty()) {
+            comment = m_commentList.last_child_of_type(pugi::node_element);
+            if (comment.empty()) {
+                comment = m_commentList.prepend_child("comment");
+                m_commentList.insert_child_before(pugi::node_pcdata, comment).set_value("\n\t\t");
+            }
+            else {
+                comment = m_commentList.insert_child_after("comment", comment);
+                copyLeadingWhitespaces(m_commentList, comment.previous_sibling(), comment);
+            }
             newCommentCreated = true;
         }
-        else
-            comment.remove_children();
+        else {
+            XLCellReference ref(comment.attribute("ref").value());
+            if (ref.row() != destRow or ref.column() != destCol) {
+                comment = m_commentList.insert_child_before("comment", comment);
+                copyLeadingWhitespaces(m_commentList, comment, comment.next_sibling());
+                newCommentCreated = true;
+            }
+            else
+                comment.remove_children();
+        }
     }
 
     if (newCommentCreated) {
         m_hintNode  = XMLNode{};
         m_hintIndex = 0;
     }
+
+    m_commentMap[cellRef] = comment; // update cache
 
     if (comment.attribute("ref").empty()) comment.append_attribute("ref").set_value(destRef.address().c_str());
     appendAndSetAttribute(comment, "authorId", std::to_string(authorId_));
@@ -516,7 +552,7 @@ bool XLComments::setRichText(std::string const& cellRef, const XLRichText& richT
     if (!m_vmlDrawing.valid()) {
         throw XLException("XLComments::setRichText: can not set (format) any comments when VML Drawing object is invalid");
     }
-    setupVmlShape(cellRef, destRow, destCol, newCommentCreated);
+    setupVmlShape(cellRef, destRow, destCol, newCommentCreated, widthCols, heightRows);
 
     return true;
 }
@@ -530,6 +566,27 @@ XLShape XLComments::shape(std::string const& cellRef)
         throw XLException("XLComments::shape: not found for cell "s + cellRef + " - was XLComment::set invoked first?"s);
     }
     return XLShape(shape);
+}
+
+bool XLComments::setVisible(std::string const& cellRef, bool visible)
+{
+    XLShape s = shape(cellRef);
+    if (visible)
+        return s.style().show();
+    else
+        return s.style().hide();
+}
+
+bool XLComments::set(std::string const& cellRef, std::string const& commentText, std::string const& authorName, uint16_t widthCols, uint16_t heightRows)
+{
+    uint16_t id = addAuthor(authorName);
+    return set(cellRef, commentText, id, widthCols, heightRows);
+}
+
+bool XLComments::setRichText(std::string const& cellRef, const XLRichText& richText, std::string const& authorName, uint16_t widthCols, uint16_t heightRows)
+{
+    uint16_t id = addAuthor(authorName);
+    return setRichText(cellRef, richText, id, widthCols, heightRows);
 }
 
 /**
