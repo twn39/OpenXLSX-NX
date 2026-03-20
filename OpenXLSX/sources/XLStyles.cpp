@@ -281,7 +281,7 @@ namespace    // anonymous namespace for module local functions
         }
     }
 
-    void copyXMLNode(XMLNode& destination, XMLNode& source)
+    void copyXMLNode(XMLNode& destination, const XMLNode& source)
     {
         if (not source.empty()) {
             // ===== Copy all XML child nodes
@@ -292,11 +292,12 @@ namespace    // anonymous namespace for module local functions
         }
     }
 
-    void wrapNode(XMLNode parentNode, XMLNode& node, std::string const& prefix)
+    void wrapNode(XMLNode parentNode, const XMLNode& node, std::string const& prefix)
     {
         if (not node.empty() and prefix.length() > 0) {
             parentNode.insert_child_before(pugi::node_pcdata, node).set_value(prefix.c_str());    // insert prefix before node opening tag
-            node.append_child(pugi::node_pcdata).set_value(prefix.c_str());    // insert prefix before node closing tag (within node)
+            XMLNode n = node;
+            n.append_child(pugi::node_pcdata).set_value(prefix.c_str());    // insert prefix before node closing tag (within node)
         }
     }
 
@@ -2206,77 +2207,114 @@ XLStyleIndex XLCellStyles::create(XLCellStyle copyFrom, std::string styleEntries
     return index;
 }
 
-/**
- * @details Constructor. Initializes an empty XLDiffCellFormat object
- */
-XLDiffCellFormat::XLDiffCellFormat() : m_diffCellFormatNode(std::make_unique<XMLNode>()) {}
+// ===== XLDxf, formerly XLDiffCellFormat
 
 /**
- * @details Constructor. Initializes the member variables for the new XLDiffCellFormat object.
+ * @details Default constructor. Initializes an empty XLDxf object with a temporary XML document.
  */
-XLDiffCellFormat::XLDiffCellFormat(const XMLNode& node) : m_diffCellFormatNode(std::make_unique<XMLNode>(node)) {}
-
-XLDiffCellFormat::~XLDiffCellFormat() = default;
-
-XLDiffCellFormat::XLDiffCellFormat(const XLDiffCellFormat& other)
-    : m_diffCellFormatNode(std::make_unique<XMLNode>(*other.m_diffCellFormatNode))
-{}
-
-XLDiffCellFormat& XLDiffCellFormat::operator=(const XLDiffCellFormat& other)
+XLDxf::XLDxf() : m_xmlDocument(std::make_unique<XMLDocument>())
 {
-    if (&other != this) *m_diffCellFormatNode = *other.m_diffCellFormatNode;
+    m_dxfNode = m_xmlDocument->append_child("dxf");
+}
+
+/**
+ * @details Constructor. Initializes the member variables for the new XLDxf object.
+ */
+XLDxf::XLDxf(const XMLNode& node) : m_dxfNode(node) {}
+
+XLDxf::~XLDxf() = default;
+
+XLDxf::XLDxf(const XLDxf& other) : m_dxfNode(other.m_dxfNode)
+{
+    if (other.m_xmlDocument) {
+        m_xmlDocument = std::make_unique<XMLDocument>();
+        m_xmlDocument->reset(*other.m_xmlDocument);
+        m_dxfNode = m_xmlDocument->document_element();
+    }
+}
+
+XLDxf::XLDxf(XLDxf&& other) noexcept : m_xmlDocument(std::move(other.m_xmlDocument)), m_dxfNode(other.m_dxfNode) {}
+
+XLDxf& XLDxf::operator=(const XLDxf& other)
+{
+    if (&other != this) {
+        m_dxfNode = other.m_dxfNode;
+        if (other.m_xmlDocument) {
+            m_xmlDocument = std::make_unique<XMLDocument>();
+            m_xmlDocument->reset(*other.m_xmlDocument);
+            m_dxfNode = m_xmlDocument->document_element();
+        }
+        else {
+            m_xmlDocument.reset();
+        }
+    }
+    return *this;
+}
+
+XLDxf& XLDxf::operator=(XLDxf&& other) noexcept
+{
+    if (&other != this) {
+        m_xmlDocument = std::move(other.m_xmlDocument);
+        m_dxfNode     = other.m_dxfNode;
+    }
     return *this;
 }
 
 /**
  * @details Returns the differential cell format empty status
  */
-bool XLDiffCellFormat::empty() const { return m_diffCellFormatNode->empty(); }
+bool XLDxf::empty() const { return m_dxfNode.empty(); }
 
 /**
  * @details Getter functions
  */
-XLFont XLDiffCellFormat::font() const
+XLFont XLDxf::font() const
 {
-    XMLNode fontNode = appendAndGetNode(*m_diffCellFormatNode, "font");
+    XMLNode fontNode = appendAndGetNode(m_dxfNode, "font");
     if (fontNode.empty()) return XLFont{};
     return XLFont(fontNode);
 }
-XLNumberFormat XLDiffCellFormat::numFmt() const
+XLNumberFormat XLDxf::numFmt() const
 {
-    XMLNode numFmtNode = appendAndGetNode(*m_diffCellFormatNode, "numFmt");
+    XMLNode numFmtNode = appendAndGetNode(m_dxfNode, "numFmt");
     if (numFmtNode.empty()) return XLNumberFormat{};
     return XLNumberFormat(numFmtNode);
 }
-XLFill XLDiffCellFormat::fill() const
+XLFill XLDxf::fill() const
 {
-    XMLNode fillNode = appendAndGetNode(*m_diffCellFormatNode, "fill");
+    XMLNode fillNode = appendAndGetNode(m_dxfNode, "fill");
     if (fillNode.empty()) return XLFill{};
     return XLFill(fillNode);
 }
-XLAlignment XLDiffCellFormat::alignment() const
+XLAlignment XLDxf::alignment() const
 {
-    XMLNode alignmentNode = appendAndGetNode(*m_diffCellFormatNode, "alignment");
+    XMLNode alignmentNode = appendAndGetNode(m_dxfNode, "alignment");
     if (alignmentNode.empty()) return XLAlignment{};
     return XLAlignment(alignmentNode);
 }
-XLBorder XLDiffCellFormat::border() const
+XLBorder XLDxf::border() const
 {
-    XMLNode borderNode = appendAndGetNode(*m_diffCellFormatNode, "border");
+    XMLNode borderNode = appendAndGetNode(m_dxfNode, "border");
     if (borderNode.empty()) return XLBorder{};
     return XLBorder(borderNode);
 }
 
-/**
- * @details Setter functions
- */
-// bool XLDiffCellFormat::setName         (std::string newName)      { return appendAndSetAttribute(*m_diffCellFormatNode, "name",
-// newName).empty() == false; }
+bool XLDxf::hasFont() const { return !m_dxfNode.child("font").empty(); }
+bool XLDxf::hasNumFmt() const { return !m_dxfNode.child("numFmt").empty(); }
+bool XLDxf::hasFill() const { return !m_dxfNode.child("fill").empty(); }
+bool XLDxf::hasAlignment() const { return !m_dxfNode.child("alignment").empty(); }
+bool XLDxf::hasBorder() const { return !m_dxfNode.child("border").empty(); }
+
+void XLDxf::clearFont() { m_dxfNode.remove_child("font"); }
+void XLDxf::clearNumFmt() { m_dxfNode.remove_child("numFmt"); }
+void XLDxf::clearFill() { m_dxfNode.remove_child("fill"); }
+void XLDxf::clearAlignment() { m_dxfNode.remove_child("alignment"); }
+void XLDxf::clearBorder() { m_dxfNode.remove_child("border"); }
 
 /**
  * @brief Unsupported setter function
  */
-bool XLDiffCellFormat::setExtLst(XLUnsupportedElement const& newExtLst)
+bool XLDxf::setExtLst(XLUnsupportedElement const& newExtLst)
 {
     OpenXLSX::ignore(newExtLst);
     return false;
@@ -2285,59 +2323,72 @@ bool XLDiffCellFormat::setExtLst(XLUnsupportedElement const& newExtLst)
 /**
  * @details assemble a string summary about the differential cell format
  */
-std::string XLDiffCellFormat::summary() const
+std::string XLDxf::summary() const
 {
-    return "";    // TODO: write this
+    return fmt::format("DXF containing: font={}, fill={}, border={}, alignment={}, numFmt={}",
+                       hasFont() ? "yes" : "no",
+                       hasFill() ? "yes" : "no",
+                       hasBorder() ? "yes" : "no",
+                       hasAlignment() ? "yes" : "no",
+                       hasNumFmt() ? "yes" : "no");
 }
 
-// ===== XLDiffCellFormats, parent of XLDiffCellFormat
+// ===== XLDxfs, parent of XLDxf
 
 /**
- * @details Constructor. Initializes an empty XLCellStyles object
+ * @details Constructor. Initializes an empty XLDxfs object
  */
-XLDiffCellFormats::XLDiffCellFormats() : m_diffCellFormatsNode(std::make_unique<XMLNode>()) {}
+XLDxfs::XLDxfs() : m_dxfsNode(XMLNode()) {}
 
 /**
- * @details Constructor. Initializes the member variables for the new XLCellStyles object.
+ * @details Constructor. Initializes the member variables for the new XLDxfs object.
  */
-XLDiffCellFormats::XLDiffCellFormats(const XMLNode& diffCellFormats) : m_diffCellFormatsNode(std::make_unique<XMLNode>(diffCellFormats))
+XLDxfs::XLDxfs(const XMLNode& dxfs) : m_dxfsNode(dxfs)
 {
-    // initialize XLCellStyles entries and m_cellStyles here
-    XMLNode node = m_diffCellFormatsNode->first_child_of_type(pugi::node_element);
+    XMLNode node = m_dxfsNode.first_child_of_type(pugi::node_element);
     while (not node.empty()) {
         std::string nodeName = node.name();
         if (nodeName == "dxf")
-            m_diffCellFormats.push_back(XLDiffCellFormat(node));
+            m_dxfs.push_back(XLDxf(node));
         else
-            std::cerr << "WARNING: XLDiffCellFormats constructor: unknown subnode " << nodeName << std::endl;
+            std::cerr << "WARNING: XLDxfs constructor: unknown subnode " << nodeName << std::endl;
         node = node.next_sibling_of_type(pugi::node_element);
     }
 }
 
-XLDiffCellFormats::~XLDiffCellFormats()
+XLDxfs::~XLDxfs()
 {
-    m_diffCellFormats.clear();    // delete vector with all children
+    m_dxfs.clear();    // delete vector with all children
 }
 
-XLDiffCellFormats::XLDiffCellFormats(const XLDiffCellFormats& other)
-    : m_diffCellFormatsNode(std::make_unique<XMLNode>(*other.m_diffCellFormatsNode)),
-      m_diffCellFormats(other.m_diffCellFormats)
+XLDxfs::XLDxfs(const XLDxfs& other)
+    : m_dxfsNode(other.m_dxfsNode),
+      m_dxfs(other.m_dxfs)
 {}
 
-XLDiffCellFormats::XLDiffCellFormats(XLDiffCellFormats&& other)
-    : m_diffCellFormatsNode(std::move(other.m_diffCellFormatsNode)),
-      m_diffCellFormats(std::move(other.m_diffCellFormats))
+XLDxfs::XLDxfs(XLDxfs&& other)
+    : m_dxfsNode(std::move(other.m_dxfsNode)),
+      m_dxfs(std::move(other.m_dxfs))
 {}
 
 /**
  * @details Copy assignment operator
  */
-XLDiffCellFormats& XLDiffCellFormats::operator=(const XLDiffCellFormats& other)
+XLDxfs& XLDxfs::operator=(const XLDxfs& other)
 {
     if (&other != this) {
-        *m_diffCellFormatsNode = *other.m_diffCellFormatsNode;
-        m_diffCellFormats.clear();
-        m_diffCellFormats = other.m_diffCellFormats;
+        m_dxfsNode = other.m_dxfsNode;
+        m_dxfs.clear();
+        m_dxfs = other.m_dxfs;
+    }
+    return *this;
+}
+
+XLDxfs& XLDxfs::operator=(XLDxfs&& other) noexcept
+{
+    if (&other != this) {
+        m_dxfsNode = std::move(other.m_dxfsNode);
+        m_dxfs     = std::move(other.m_dxfs);
     }
     return *this;
 }
@@ -2345,48 +2396,48 @@ XLDiffCellFormats& XLDiffCellFormats::operator=(const XLDiffCellFormats& other)
 /**
  * @details Returns the amount of differential cell formats held by the class
  */
-size_t XLDiffCellFormats::count() const { return m_diffCellFormats.size(); }
+size_t XLDxfs::count() const { return m_dxfs.size(); }
 
 /**
- * @details fetch XLDiffCellFormat from m_diffCellFormats by index
+ * @details fetch XLDxf from m_dxfs by index
  */
-XLDiffCellFormat XLDiffCellFormats::diffCellFormatByIndex(XLStyleIndex index) const
+XLDxf XLDxfs::dxfByIndex(XLStyleIndex index) const
 {
-    Expects(index < m_diffCellFormats.size());
-    return m_diffCellFormats.at(index);
+    Expects(index < m_dxfs.size());
+    return m_dxfs.at(index);
 }
 
 /**
- * @details append a new XLDiffCellFormat to m_diffCellFormats and m_diffCellFormatsNode, based on copyFrom
+ * @details append a new XLDxf to m_dxfs and m_dxfsNode, based on copyFrom
  */
-XLStyleIndex XLDiffCellFormats::create(XLDiffCellFormat copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLDxfs::create(XLDxf copyFrom, std::string styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the cell style to be created
     XMLNode      newNode{};          // scope declaration
 
     // ===== Append new node prior to final whitespaces, if any
-    XMLNode lastDiffCellFormat = m_diffCellFormatsNode->last_child_of_type(pugi::node_element);
-    if (lastDiffCellFormat.empty())
-        newNode = m_diffCellFormatsNode->prepend_child("dxf");
+    XMLNode lastDxf = m_dxfsNode.last_child_of_type(pugi::node_element);
+    if (lastDxf.empty())
+        newNode = m_dxfsNode.prepend_child("dxf");
     else
-        newNode = m_diffCellFormatsNode->insert_child_after("dxf", lastDiffCellFormat);
+        newNode = m_dxfsNode.insert_child_after("dxf", lastDxf);
     if (newNode.empty()) {
         using namespace std::literals::string_literals;
-        throw XLException("XLDiffCellFormats::"s + __func__ + ": failed to append a new dxf node"s);
+        throw XLException("XLDxfs::"s + __func__ + ": failed to append a new dxf node"s);
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
-        m_diffCellFormatsNode->insert_child_before(pugi::node_pcdata, newNode)
+        m_dxfsNode.insert_child_before(pugi::node_pcdata, newNode)
             .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
 
-    XLDiffCellFormat newDiffCellFormat(newNode);
-    if (copyFrom.m_diffCellFormatNode->empty()) {    // if no template is given
+    XLDxf newDxf(newNode);
+    if (copyFrom.node().empty()) {    // if no template is given
         // no-op: differential cell format entries have NO default values
     }
     else
-        copyXMLNode(newNode, *copyFrom.m_diffCellFormatNode);    // will use copyFrom as template, does nothing if copyFrom is empty
+        copyXMLNode(newNode, copyFrom.node());    // will use copyFrom as template, does nothing if copyFrom is empty
 
-    m_diffCellFormats.push_back(newDiffCellFormat);
-    appendAndSetAttribute(*m_diffCellFormatsNode, "count", std::to_string(m_diffCellFormats.size()));    // update array count in XML
+    m_dxfs.push_back(newDxf);
+    appendAndSetAttribute(m_dxfsNode, "count", std::to_string(m_dxfs.size()));    // update array count in XML
     return index;
 }
 
@@ -2446,7 +2497,7 @@ XLStyles::XLStyles(XLXmlData* xmlData, bool suppressWarnings, std::string styles
                 break;
             case XLStylesDiffCellFormats:
                 // std::cout << "found XLStylesDiffCellFormats, node name is " << node.name() << std::endl;
-                m_diffCellFormats = std::make_unique<XLDiffCellFormats>(node);
+                m_dxfs = std::make_unique<XLDxfs>(node);
                 break;
             case XLStylesColors:
                 [[fallthrough]];
@@ -2467,10 +2518,10 @@ XLStyles::XLStyles(XLXmlData* xmlData, bool suppressWarnings, std::string styles
     }
 
     // ===== Fallbacks: create root style nodes (in reverse order, using prepend_child)
-    if (!m_diffCellFormats) {
+    if (!m_dxfs) {
         node = doc.document_element().prepend_child(XLStylesEntryTypeToString(XLStylesDiffCellFormats));
         wrapNode(doc.document_element(), node, stylesPrefix);
-        m_diffCellFormats = std::make_unique<XLDiffCellFormats>(node);
+        m_dxfs = std::make_unique<XLDxfs>(node);
     }
     if (!m_cellStyles) {
         node = doc.document_element().prepend_child(XLStylesEntryTypeToString(XLStylesCellStyles));
@@ -2534,7 +2585,7 @@ XLStyles::XLStyles(XLStyles&& other) noexcept
       m_cellStyleFormats(std::move(other.m_cellStyleFormats)),
       m_cellFormats(std::move(other.m_cellFormats)),
       m_cellStyles(std::move(other.m_cellStyles)),
-      m_diffCellFormats(std::move(other.m_diffCellFormats))
+      m_dxfs(std::move(other.m_dxfs))
 {}
 
 /**
@@ -2550,7 +2601,7 @@ XLStyles::XLStyles(const XLStyles& other)
       m_cellStyleFormats(std::make_unique<XLCellFormats>(*other.m_cellStyleFormats)),
       m_cellFormats(std::make_unique<XLCellFormats>(*other.m_cellFormats)),
       m_cellStyles(std::make_unique<XLCellStyles>(*other.m_cellStyles)),
-      m_diffCellFormats(std::make_unique<XLDiffCellFormats>(*other.m_diffCellFormats))
+      m_dxfs(std::make_unique<XLDxfs>(*other.m_dxfs))
 {}
 
 /**
@@ -2568,7 +2619,7 @@ XLStyles& XLStyles::operator=(XLStyles&& other) noexcept
         m_cellStyleFormats = std::move(other.m_cellStyleFormats);
         m_cellFormats      = std::move(other.m_cellFormats);
         m_cellStyles       = std::move(other.m_cellStyles);
-        m_diffCellFormats  = std::move(other.m_diffCellFormats);
+        m_dxfs             = std::move(other.m_dxfs);
     }
     return *this;
 }
@@ -2631,4 +2682,9 @@ XLCellStyles& XLStyles::cellStyles() const { return *m_cellStyles; }
 /**
  * @details return a handle to the underlying differential cell formats
  */
-XLDiffCellFormats& XLStyles::diffCellFormats() const { return *m_diffCellFormats; }
+XLDxfs& XLStyles::dxfs() const { return *m_dxfs; }
+
+/**
+ * @details Add a differential cell format (DXF) to the styles and return its index
+ */
+XLStyleIndex XLStyles::addDxf(const XLDxf& dxf) { return m_dxfs->create(dxf); }
