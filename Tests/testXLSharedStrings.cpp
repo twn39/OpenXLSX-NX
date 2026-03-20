@@ -52,3 +52,20 @@ TEST_CASE("XLSharedStrings Tests", "[XLSharedStrings]")
         doc.close();
     }
 }
+
+TEST_CASE("Shared Strings Index Cache Coherency", "[SharedStrings][Bugfix]") {
+    XLDocument doc;
+    doc.create("SharedStrings_Cache_Test.xlsx", XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+    wks.cell("A1").value() = "Hello World";
+    auto ss = doc.sharedStrings();
+    int32_t idx = ss.getStringIndex("Hello World");
+    REQUIRE(idx >= 0);
+    REQUIRE(ss.stringExists("Hello World") == true);
+    ss.clearString(idx);
+    REQUIRE(ss.stringExists("Hello World") == false);
+    REQUIRE(ss.getStringIndex("Hello World") == -1);
+    doc.save();
+    doc.close();
+}
+

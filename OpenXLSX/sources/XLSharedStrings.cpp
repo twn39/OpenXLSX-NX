@@ -155,6 +155,14 @@ void XLSharedStrings::clearString(int32_t index) const    // 2024-04-30: whitesp
         throw XLInternalError("XLSharedStrings::"s + __func__ + ": index "s + std::to_string(index) + " is out of range"s);
     }
 
+    // Keep m_stringIndex in sync to prevent dangling references
+    if (m_stringIndex) {
+        auto oldStr = (*m_stringCache)[static_cast<size_t>(index)];
+        if (!oldStr.empty()) {
+            m_stringIndex->erase(oldStr);
+        }
+    }
+
     (*m_stringCache)[static_cast<size_t>(index)] = "";
     // auto iter            = xmlDocument().document_element().children().begin();
     // std::advance(iter, index);
