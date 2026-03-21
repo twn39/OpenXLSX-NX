@@ -221,14 +221,16 @@ namespace OpenXLSX
         /**
          * @brief Component presence checks, used to avoid unnecessary parsing of absent components in the package.
          */
-        [[nodiscard]] bool hasSheetRelationships(uint16_t sheetXmlNo) const;
+        [[nodiscard]] bool hasSheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false) const;
         [[nodiscard]] bool hasSheetVmlDrawing(uint16_t sheetXmlNo) const;
         [[nodiscard]] bool hasSheetComments(uint16_t sheetXmlNo) const;
         [[nodiscard]] bool hasSheetDrawing(uint16_t sheetXmlNo) const;
         [[nodiscard]] bool hasSheetTables(uint16_t sheetXmlNo) const;
 
-        XLRelationships sheetRelationships(uint16_t sheetXmlNo);
+        XLRelationships sheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false);
         XLDrawing       sheetDrawing(uint16_t sheetXmlNo);
+        XLDrawing       createDrawing();
+        XLDrawing       drawing(std::string_view path);
         XLVmlDrawing    sheetVmlDrawing(uint16_t sheetXmlNo);
         XLComments      sheetComments(uint16_t sheetXmlNo);
         XLTables        sheetTables(uint16_t sheetXmlNo);

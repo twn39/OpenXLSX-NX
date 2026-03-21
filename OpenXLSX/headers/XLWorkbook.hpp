@@ -188,7 +188,8 @@ namespace OpenXLSX
          * @brief Add a new worksheet.
          * @param sheetName The name of the new worksheet.
          */
-        void addWorksheet(std::string_view sheetName);
+        void     addWorksheet(std::string_view sheetName);
+        void     addChartsheet(std::string_view sheetName);
 
         /**
          * @brief Clone an existing sheet.
@@ -337,7 +338,7 @@ namespace OpenXLSX
         /**
          * @brief Prepare sheet metadata in workbook.xml.
          */
-        void prepareSheetMetadata(std::string_view sheetName, uint16_t internalID);
+        void prepareSheetMetadata(std::string_view sheetName, uint16_t internalID, std::string_view sheetPath = "");
 
         /**
          * @brief Set the name for a relationship ID.

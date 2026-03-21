@@ -466,9 +466,12 @@ XLStyles& XLDocument::styles() { return m_styles; }
 /**
  * @details Probes the archive index for sheet relationships to conditionally access dependencies, avoiding eager and expensive XML allocations for untouched components.
  */
-bool XLDocument::hasSheetRelationships(uint16_t sheetXmlNo) const
+bool XLDocument::hasSheetRelationships(uint16_t sheetXmlNo, bool isChartsheet) const
 {
     using namespace std::literals::string_literals;
+    if (isChartsheet) {
+        return m_archive.hasEntry("xl/chartsheets/_rels/sheet"s + std::to_string(sheetXmlNo) + ".xml.rels"s);
+    }
     return m_archive.hasEntry("xl/worksheets/_rels/sheet"s + std::to_string(sheetXmlNo) + ".xml.rels"s);
 }
 
@@ -511,10 +514,15 @@ bool XLDocument::hasSheetTables(uint16_t sheetXmlNo) const
 /**
  * @details Lazily resolves or bootstraps sheet-level relationships. This is necessary to construct valid linkages before adding interactive or visual elements to a sheet.
  */
-XLRelationships XLDocument::sheetRelationships(uint16_t sheetXmlNo)
+XLRelationships XLDocument::sheetRelationships(uint16_t sheetXmlNo, bool isChartsheet)
 {
     using namespace std::literals::string_literals;
-    std::string relsFilename = "xl/worksheets/_rels/sheet"s + std::to_string(sheetXmlNo) + ".xml.rels"s;
+    std::string relsFilename;
+    if (isChartsheet) {
+        relsFilename = "xl/chartsheets/_rels/sheet"s + std::to_string(sheetXmlNo) + ".xml.rels"s;
+    } else {
+        relsFilename = "xl/worksheets/_rels/sheet"s + std::to_string(sheetXmlNo) + ".xml.rels"s;
+    }
 
     if (!m_archive.hasEntry(relsFilename)) { m_archive.addEntry(relsFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"); }
     constexpr bool DO_NOT_THROW = true;
@@ -561,6 +569,34 @@ XLDrawing XLDocument::sheetDrawing(uint16_t sheetXmlNo)
     if (xmlData == nullptr) xmlData = &m_data.emplace_back(this, drawingFilename, "", XLContentType::Drawing);
 
     return XLDrawing(xmlData);
+}
+
+XLDrawing XLDocument::createDrawing()
+{
+    using namespace std::literals::string_literals;
+
+    uint32_t drawingNo = 1;
+    std::string drawingFilename = "xl/drawings/drawing"s + std::to_string(drawingNo) + ".xml"s;
+    while (m_archive.hasEntry(drawingFilename)) {
+        ++drawingNo;
+        drawingFilename = "xl/drawings/drawing"s + std::to_string(drawingNo) + ".xml"s;
+    }
+
+    m_archive.addEntry(drawingFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+    m_contentTypes.addOverride("/" + drawingFilename, XLContentType::Drawing);
+    
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData*     xmlData      = getXmlData(drawingFilename, DO_NOT_THROW);
+    if (xmlData == nullptr) {
+        xmlData = &m_data.emplace_back(this, drawingFilename, "", XLContentType::Drawing);
+    }
+
+    return XLDrawing(xmlData);
+}
+
+XLDrawing XLDocument::drawing(std::string_view path)
+{
+    return XLDrawing(getXmlData(path));
 }
 
 XLChart XLDocument::createChart(XLChartType type)

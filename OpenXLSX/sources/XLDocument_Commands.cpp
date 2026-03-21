@@ -140,9 +140,26 @@ bool XLDocument::execCommand(const XLCommand& command)
                 /* xmlID     */ m_wbkRelationships.relationshipByTarget(command.getParam<std::string>("sheetPath").substr(4)).id(),
                 /* xmlType   */ XLContentType::Worksheet);
         } break;
-        case XLCommandType::AddChartsheet:
-            // TODO: To be implemented
-            break;
+        case XLCommandType::AddChartsheet: {
+            validateSheetName(command.getParam<std::string>("sheetName"), THROW_ON_INVALID);
+            const std::string emptyChartsheet{
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+                "<chartsheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\""
+                " xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                "<sheetViews>"
+                "<sheetView workbookViewId=\"0\" zoomToFit=\"1\"/>"
+                "</sheetViews>"
+                "</chartsheet>"};
+            m_contentTypes.addOverride(command.getParam<std::string>("sheetPath"), XLContentType::Chartsheet);
+            m_wbkRelationships.addRelationship(XLRelationshipType::Chartsheet, command.getParam<std::string>("sheetPath").substr(4));
+            m_appProperties.appendSheetName(command.getParam<std::string>("sheetName"));
+            m_archive.addEntry(command.getParam<std::string>("sheetPath").substr(1), emptyChartsheet);
+            m_data.emplace_back(
+                /* parentDoc */ this,
+                /* xmlPath   */ command.getParam<std::string>("sheetPath").substr(1),
+                /* xmlID     */ m_wbkRelationships.relationshipByTarget(command.getParam<std::string>("sheetPath").substr(4)).id(),
+                /* xmlType   */ XLContentType::Chartsheet);
+        } break;
         case XLCommandType::DeleteSheet: {
             m_appProperties.deleteSheetName(command.getParam<std::string>("sheetName"));
             std::string sheetPath = m_wbkRelationships.relationshipById(command.getParam<std::string>("sheetID")).target();

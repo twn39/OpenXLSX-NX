@@ -235,11 +235,26 @@ void XLWorkbook::addWorksheet(std::string_view sheetName)
         throw XLInputError(fmt::format("Sheet named \"{}\" already exists.", sheetName));
 
     auto internalID = createInternalSheetID();
+    std::string sheetPath = fmt::format("/xl/worksheets/sheet{}.xml", internalID);
 
     parentDoc().execCommand(XLCommand(XLCommandType::AddWorksheet)
                                 .setParam("sheetName", std::string(sheetName))
-                                .setParam("sheetPath", fmt::format("/xl/worksheets/sheet{}.xml", internalID)));
-    prepareSheetMetadata(sheetName, internalID);
+                                .setParam("sheetPath", sheetPath));
+    prepareSheetMetadata(sheetName, internalID, sheetPath);
+}
+
+void XLWorkbook::addChartsheet(std::string_view sheetName)
+{
+    if (xmlDocument().document_element().child("sheets").find_child_by_attribute("name", std::string(sheetName).c_str()))
+        throw XLInputError(fmt::format("Sheet named \"{}\" already exists.", sheetName));
+
+    auto internalID = createInternalSheetID();
+    std::string sheetPath = fmt::format("/xl/chartsheets/sheet{}.xml", internalID);
+
+    parentDoc().execCommand(XLCommand(XLCommandType::AddChartsheet)
+                                .setParam("sheetName", std::string(sheetName))
+                                .setParam("sheetPath", sheetPath));
+    prepareSheetMetadata(sheetName, internalID, sheetPath);
 }
 
 void XLWorkbook::cloneSheet(std::string_view existingName, std::string_view newName)
@@ -281,15 +296,15 @@ std::string XLWorkbook::sheetVisibility(std::string_view sheetID) const
     return node.attribute("state").value();
 }
 
-void XLWorkbook::prepareSheetMetadata(std::string_view sheetName, uint16_t internalID)
+void XLWorkbook::prepareSheetMetadata(std::string_view sheetName, uint16_t internalID, std::string_view sheetPath)
 {
     auto        node                 = sheetsNode(xmlDocument()).append_child("sheet");
-    std::string sheetPath            = fmt::format("/xl/worksheets/sheet{}.xml", internalID);
+    std::string path                 = sheetPath.empty() ? fmt::format("/xl/worksheets/sheet{}.xml", internalID) : std::string(sheetPath);
     node.append_attribute("name")    = std::string(sheetName).c_str();
     node.append_attribute("sheetId") = internalID;
 
     XLQuery query(XLQueryType::QuerySheetRelsID);
-    query.setParam("sheetPath", sheetPath);
+    query.setParam("sheetPath", path);
     node.append_attribute("r:id") = parentDoc().execQuery(query).result<std::string>().c_str();
 }
 
