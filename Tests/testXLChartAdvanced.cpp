@@ -351,6 +351,56 @@ TEST_CASE("Advanced Chart Visual Elements", "[XLChart][OOXML]")
         std::filesystem::remove(filename);
     }
 
+
+    SECTION("Chart Stacked and Percent Stacked Variants")
+    {
+        std::map<XLChartType, std::string> chartNames = {
+            {XLChartType::BarStacked, "c:barChart"},
+            {XLChartType::BarPercentStacked, "c:barChart"},
+            {XLChartType::LineStacked, "c:lineChart"},
+            {XLChartType::LinePercentStacked, "c:lineChart"},
+            {XLChartType::AreaStacked, "c:areaChart"},
+            {XLChartType::AreaPercentStacked, "c:areaChart"}
+        };
+
+        for (auto const& [enumPos, xmlVal] : chartNames) {
+            {
+                XLDocument doc;
+                doc.create(filename, XLForceOverwrite);
+                auto wks = doc.workbook().worksheet("Sheet1");
+                auto chart = wks.addChart(enumPos, "Chart", 1, 1, 400, 300);
+                chart.addSeries("Sheet1!$B$2:$B$5", "Title", "Sheet1!$A$2:$A$5");
+                
+                doc.save();
+                doc.close();
+            }
+
+            {
+                XLChartAdvTestDoc testDoc;
+                testDoc.open(filename);
+                std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
+
+                // verify base tag exists inside the correct chart type element
+                REQUIRE(chartXml.find("<" + xmlVal + ">") != std::string::npos);
+                
+                // verify grouping is stacked or percentStacked
+                if (enumPos == XLChartType::BarStacked || enumPos == XLChartType::LineStacked || enumPos == XLChartType::AreaStacked) {
+                    REQUIRE(chartXml.find("<c:grouping val=\"stacked\" />") != std::string::npos);
+                } else {
+                    REQUIRE(chartXml.find("<c:grouping val=\"percentStacked\" />") != std::string::npos);
+                }
+
+                // verify overlap is 100 for bar stacked variants
+                if (enumPos == XLChartType::BarStacked || enumPos == XLChartType::BarPercentStacked) {
+                    REQUIRE(chartXml.find("<c:overlap val=\"100\" />") != std::string::npos);
+                }
+                
+                testDoc.close();
+            }
+            std::filesystem::remove(filename);
+        }
+    }
+
     SECTION("Hide Legend Functionality")
     {
         {

@@ -46,8 +46,15 @@ namespace OpenXLSX
             
             switch (type) {
                 case XLChartType::Line:
+                case XLChartType::LineStacked:
+                case XLChartType::LinePercentStacked:
                     chartNode = plotArea.append_child("c:lineChart");
-                    chartNode.append_child("c:grouping").append_attribute("val").set_value("standard");
+                    if (type == XLChartType::LineStacked)
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("stacked");
+                    else if (type == XLChartType::LinePercentStacked)
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("percentStacked");
+                    else
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("standard");
                     break;
                 case XLChartType::Pie:
                     chartNode = plotArea.append_child("c:pieChart");
@@ -60,8 +67,15 @@ namespace OpenXLSX
                     chartNode.append_child("c:varyColors").append_attribute("val").set_value("0");
                     break;
                 case XLChartType::Area:
+                case XLChartType::AreaStacked:
+                case XLChartType::AreaPercentStacked:
                     chartNode = plotArea.append_child("c:areaChart");
-                    chartNode.append_child("c:grouping").append_attribute("val").set_value("standard");
+                    if (type == XLChartType::AreaStacked)
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("stacked");
+                    else if (type == XLChartType::AreaPercentStacked)
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("percentStacked");
+                    else
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("standard");
                     break;
                 case XLChartType::Doughnut:
                     chartNode = plotArea.append_child("c:doughnutChart");
@@ -70,10 +84,22 @@ namespace OpenXLSX
                     hasAxes = false;
                     break;
                 case XLChartType::Bar:
+                case XLChartType::BarStacked:
+                case XLChartType::BarPercentStacked:
                 default:
                     chartNode = plotArea.append_child("c:barChart");
                     chartNode.append_child("c:barDir").append_attribute("val").set_value("col");
-                    chartNode.append_child("c:grouping").append_attribute("val").set_value("clustered");
+                    if (type == XLChartType::BarStacked)
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("stacked");
+                    else if (type == XLChartType::BarPercentStacked)
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("percentStacked");
+                    else
+                        chartNode.append_child("c:grouping").append_attribute("val").set_value("clustered");
+                    
+                    // In stacked charts, overlap must be 100%
+                    if (type == XLChartType::BarStacked || type == XLChartType::BarPercentStacked) {
+                        chartNode.append_child("c:overlap").append_attribute("val").set_value("100");
+                    }
                     break;
             }
 

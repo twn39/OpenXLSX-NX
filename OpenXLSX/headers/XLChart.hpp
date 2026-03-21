@@ -10,10 +10,16 @@ namespace OpenXLSX
 {
     enum class XLChartType {
         Bar,
+        BarStacked,
+        BarPercentStacked,
         Line,
+        LineStacked,
+        LinePercentStacked,
         Pie,
         Scatter,
         Area,
+        AreaStacked,
+        AreaPercentStacked,
         Doughnut
     };
 
