@@ -1,15 +1,14 @@
 // ===== External Includes ===== //
-// #include <algorithm>
-#include <cctype>     // std::isdigit (issue #330)
-#include <cstdint>    // uint64_t
+#include <cctype>
+#include <cstdint>
 #include <pugixml.hpp>
-#include <string>    // std::string
+#include <string>
 
 // ===== OpenXLSX Includes ===== //
-#include "XLDocument.hpp"    // pugi_parse_settings
+#include "XLDocument.hpp"
 #include "XLDrawing.hpp"
 #include "XLRelationships.hpp"
-#include "XLUtilities.hpp"    // OpenXLSX::ignore, appendAndGetNode
+#include "XLUtilities.hpp"
 
 using namespace OpenXLSX;
 
@@ -23,37 +22,23 @@ namespace OpenXLSX
 
     // utility functions
 
-    /**
-     * @brief test if v:shapetype attribute id already exists at begin of file
-     * @param rootNode the parent that holds all v:shapetype nodes to be compared
-     * @param shapeTypeNode the node to check for a duplicate id
-     * @return true if node would be a duplicate (and can be deleted), false if node is unique (so far)
-     */
     bool wouldBeDuplicateShapeType(XMLNode const& rootNode, XMLNode const& shapeTypeNode)
     {
         const std::string id   = shapeTypeNode.attribute("id").value();
         XMLNode           node = rootNode.first_child_of_type(pugi::node_element);
         using namespace std::literals::string_literals;
         while (node != shapeTypeNode &&
-               node.raw_name() == std::string(ShapeTypeNodeName)) {    // do not compare shapeTypeNode with itself, and abort on first non-shapetype node
-            if (node.attribute("id").value() == id) return true;    // found an existing shapetype with the same id
+               node.raw_name() == std::string(ShapeTypeNodeName)) {
+            if (node.attribute("id").value() == id) return true;
             node = node.next_sibling_of_type(pugi::node_element);
         }
         return false;
     }
 
-    /**
-     * @brief move an xml node to a new position within the same root node
-     * @param rootNode the parent that can perform inserts / deletes
-     * @param node the node to move
-     * @param insertAfter the reference for the new location, if insertAfter.empty(): move node to first position in rootNode
-     * @param withWhitespaces if true, move all node_pcdata nodes preceeding node, together with the node
-     * @return the node as inserted at the destination - empty node if insertion can't be performed (rootNode or node are empty)
-     */
     XMLNode moveNode(XMLNode& rootNode, XMLNode& node, XMLNode const& insertAfter, bool withWhitespaces = true)
     {
-        if (rootNode.empty() or node.empty()) return XMLNode{};                        // can't perform move
-        if (node == insertAfter or node == insertAfter.next_sibling()) return node;    // nothing to do
+        if (rootNode.empty() or node.empty()) return XMLNode{};
+        if (node == insertAfter or node == insertAfter.next_sibling()) return node;
 
         XMLNode newNode{};
         if (insertAfter.empty())
@@ -62,11 +47,11 @@ namespace OpenXLSX
             newNode = rootNode.insert_copy_after(node, insertAfter);
 
         if (withWhitespaces) {
-            copyLeadingWhitespaces(rootNode, node, newNode);               // copy leading whitespaces
-            while (node.previous_sibling().type() == pugi::node_pcdata)    // then remove whitespaces that were just copied to newNode
+            copyLeadingWhitespaces(rootNode, node, newNode);
+            while (node.previous_sibling().type() == pugi::node_pcdata)
                 rootNode.remove_child(node.previous_sibling());
         }
-        rootNode.remove_child(node);    // remove node that was just copied to new location
+        rootNode.remove_child(node);
 
         return newNode;
     }
@@ -119,26 +104,17 @@ namespace OpenXLSX
 }    // namespace OpenXLSX
 
 
-/**
- * @details default constructor
- */
 XLShapeClientData::XLShapeClientData() : m_clientDataNode() {}
 
-/**
- * @details XMLNode constructor
- */
 XLShapeClientData::XLShapeClientData(const XMLNode& node) : m_clientDataNode(node) {}
 
-/**
- * @details XLShapeClientData getter functions
- */
 bool elementTextAsBool(XMLNode const& node)
 {
-    if (node.empty()) return false;           // node doesn't exist: false
-    if (node.text().empty()) return true;     // node exists but has no setting: true
-    char c = node.text().get()[0];            // node exists and has a setting:
-    if (c == 't' or c == 'T') return true;    //   check true setting on first letter only
-    return false;                             //   otherwise return false
+    if (node.empty()) return false;
+    if (node.text().empty()) return true;
+    char c = node.text().get()[0];
+    if (c == 't' or c == 'T') return true;
+    return false;
 }
 
 std::string       XLShapeClientData::objectType() const { return appendAndGetAttribute(m_clientDataNode, "ObjectType", "Note").value(); }
@@ -149,34 +125,24 @@ bool              XLShapeClientData::autoFill() const { return elementTextAsBool
 XLShapeTextVAlign XLShapeClientData::textVAlign() const
 {
     return XLShapeTextVAlignFromString(m_clientDataNode.child("x:TextVAlign").text().get());
-    // XMLNode vAlign = m_clientDataNode.child("x:TextVAlign");
-    // if (vAlign.empty()) return XLDefaultShapeTextVAlign;
-    // return XLShapeTextVAlignFromString(vAlign.text().get());
 }
 XLShapeTextHAlign XLShapeClientData::textHAlign() const
 {
     return XLShapeTextHAlignFromString(m_clientDataNode.child("x:TextHAlign").text().get());
-    // XMLNode hAlign = m_clientDataNode.child("x:TextHAlign");
-    // if (hAlign.empty()) return XLDefaultShapeTextHAlign;
-    // return XLShapeTextHAlignFromString(hAlign.text().get());
 }
 uint32_t XLShapeClientData::row() const
 { return appendAndGetNode(m_clientDataNode, "x:Row", m_nodeOrder, XLForceNamespace).text().as_uint(0); }
 uint16_t XLShapeClientData::column() const
 { return static_cast<uint16_t>(appendAndGetNode(m_clientDataNode, "x:Column", m_nodeOrder, XLForceNamespace).text().as_uint(0)); }
 
-/**
- * @details XLShapeClientData setter functions
- */
 bool XLShapeClientData::setObjectType(std::string_view newObjectType)
 { return appendAndSetAttribute(m_clientDataNode, "ObjectType", std::string(newObjectType)).empty() == false; }
+
 bool XLShapeClientData::setMoveWithCells(bool set)
 {
     return appendAndGetNode(m_clientDataNode, "x:MoveWithCells", m_nodeOrder, XLForceNamespace).text().set(set ? "" : "False");
-    // XMLNode moveWithCellsNode = appendAndGetNode(m_clientDataNode, "x:MoveWithCells", m_nodeOrder, XLForceNamespace);
-    // if (moveWithCellsNode.empty()) return false;
-    // return moveWithCellsNode.text().set(set ? "True" : "False");
 }
+
 bool XLShapeClientData::setSizeWithCells(bool set)
 { return appendAndGetNode(m_clientDataNode, "x:SizeWithCells", m_nodeOrder, XLForceNamespace).text().set(set ? "" : "False"); }
 
@@ -206,9 +172,6 @@ bool XLShapeClientData::setRow(uint32_t newRow)
 bool XLShapeClientData::setColumn(uint16_t newColumn)
 { return appendAndGetNode(m_clientDataNode, "x:Column", m_nodeOrder, XLForceNamespace).text().set(newColumn); }
 
-/**
- * @details
- */
 XLShapeStyle::XLShapeStyle() : m_style(""), m_styleAttribute(XMLAttribute())
 {
     setPosition("absolute");
@@ -219,31 +182,17 @@ XLShapeStyle::XLShapeStyle() : m_style(""), m_styleAttribute(XMLAttribute())
     hide();
 }
 
-/**
- * @details
- */
 XLShapeStyle::XLShapeStyle(const std::string& styleAttribute) : m_style(styleAttribute), m_styleAttribute(XMLAttribute()) {}
 
-/**
- * @details
- */
 XLShapeStyle::XLShapeStyle(const XMLAttribute& styleAttribute) : m_style(""), m_styleAttribute(styleAttribute) {}
 
-/**
- * @details find attributeName in m_nodeOrder, then return index
- */
 int16_t XLShapeStyle::attributeOrderIndex(std::string_view attributeName) const
 {
-    // std::string
-    // m_style{"position:absolute;margin-left:100pt;margin-top:0pt;width:50pt;height:50.0pt;mso-wrap-style:none;v-text-anchor:middle;visibility:hidden"};
     auto attributeIterator = std::find(m_nodeOrder.begin(), m_nodeOrder.end(), attributeName);
     if (attributeIterator == m_nodeOrder.end()) return -1;
     return static_cast<int16_t>(attributeIterator - m_nodeOrder.begin());
 }
 
-/**
- * @details
- */
 XLShapeStyleAttribute XLShapeStyle::getAttribute(std::string_view attributeName, std::string_view valIfNotFound) const
 {
     if (attributeOrderIndex(attributeName) == -1) {
@@ -273,14 +222,11 @@ XLShapeStyleAttribute XLShapeStyle::getAttribute(std::string_view attributeName,
         lastPos = pos + 1;
     }
     while (lastPos < m_style.length());
-    if (lastPos >= m_style.length())     // attribute was not found
-        result.value = std::string(valIfNotFound);    // -> return default value
+    if (lastPos >= m_style.length())
+        result.value = std::string(valIfNotFound);
     return result;
 }
 
-/**
- * @details
- */
 bool XLShapeStyle::setAttribute(std::string_view attributeName, std::string_view attributeValue)
 {
     int16_t attrIndex = attributeOrderIndex(attributeName);
@@ -289,7 +235,6 @@ bool XLShapeStyle::setAttribute(std::string_view attributeName, std::string_view
         throw XLInternalError("XLShapeStyle.setAttribute: attribute "s + std::string(attributeName) + " is not defined in class"s);
     }
 
-    // if attribute is linked, re-read m_style each time in case the underlying XML has changed
     if (not m_styleAttribute.empty()) m_style = std::string(m_styleAttribute.value());
 
     size_t lastPos   = 0;
@@ -301,10 +246,10 @@ bool XLShapeStyle::setAttribute(std::string_view attributeName, std::string_view
         if (!attrPair.empty()) {
             size_t  separatorPos  = attrPair.find(':');
             int16_t thisAttrIndex = attributeOrderIndex(attrPair.substr(0, separatorPos));
-            if (thisAttrIndex >= attrIndex) {    // can insert or update
+            if (thisAttrIndex >= attrIndex) {
                 appendPos = (thisAttrIndex == attrIndex
                                  ? pos
-                                 : lastPos);    // if match: append from following attribute, if not found, append from current (insert)
+                                 : lastPos);
                 break;
             }
         }
@@ -314,32 +259,25 @@ bool XLShapeStyle::setAttribute(std::string_view attributeName, std::string_view
             lastPos = pos + 1;
     }
     while (lastPos < m_style.length());
-    if (lastPos >= m_style.length() or appendPos > m_style.length()) {    // if attribute needs to be appended or was found at last position
-        appendPos = m_style.length();    // then nothing remains from m_style to follow (appended) attribute
+    if (lastPos >= m_style.length() or appendPos > m_style.length()) {
+        appendPos = m_style.length();
 
-        // for semi-colon logic, lastPos needs to be capped at string length (so that it can be 0 for empty string)
         if (lastPos > m_style.length()) lastPos = m_style.length();
     }
 
     using namespace std::literals::string_literals;
     m_style = m_style.substr(0, lastPos) +
-              ((lastPos != 0 and appendPos == m_style.length()) ? ";"s : ""s)    // prepend ';' if attribute is appended to non-empty string
-                                                                                /**/
+              ((lastPos != 0 and appendPos == m_style.length()) ? ";"s : ""s)
               + std::string(attributeName) + ":"s +
-              std::string(attributeValue)    // insert attribute:value pair
-                                /**/
+              std::string(attributeValue)
               + (appendPos < m_style.length() ? ";"s : ""s) +
-              m_style.substr(appendPos);    // append ';' if attribute is inserted before other data
+              m_style.substr(appendPos);
 
-    // if attribute is linked, update it with the new style value
     if (not m_styleAttribute.empty()) m_styleAttribute.set_value(m_style.c_str());
 
     return true;
 }
 
-/**
- * @details XLShapeStyle getter functions
- */
 std::string XLShapeStyle::position() const { return getAttribute("position").value; }
 uint16_t    XLShapeStyle::marginLeft() const { return gsl::narrow_cast<uint16_t>(std::stoi(getAttribute("margin-left").value)); }
 uint16_t    XLShapeStyle::marginTop() const { return gsl::narrow_cast<uint16_t>(std::stoi(getAttribute("margin-top").value)); }
@@ -350,9 +288,6 @@ std::string XLShapeStyle::vTextAnchor() const { return getAttribute("v-text-anch
 bool        XLShapeStyle::hidden() const { return ("hidden" == getAttribute("visibility").value); }
 bool        XLShapeStyle::visible() const { return !hidden(); }
 
-/**
- * @details XLShapeStyle setter functions
- */
 bool XLShapeStyle::setPosition(std::string_view newPosition) { return setAttribute("position", newPosition); }
 bool XLShapeStyle::setMarginLeft(uint16_t newMarginLeft)
 { return setAttribute("margin-left", std::to_string(newMarginLeft) + "pt"); }
@@ -369,10 +304,7 @@ XLShape::XLShape() : m_shapeNode() {}
 
 XLShape::XLShape(const XMLNode& node) : m_shapeNode(node) {}
 
-/**
- * @details getter functions: return the shape's attributes
- */
-std::string  XLShape::shapeId() const { return m_shapeNode.attribute("id").value(); }    // const for user, managed by parent
+std::string  XLShape::shapeId() const { return m_shapeNode.attribute("id").value(); }
 std::string  XLShape::fillColor() const { return appendAndGetAttribute(m_shapeNode, "fillcolor", "#ffffc0").value(); }
 bool         XLShape::stroked() const { return appendAndGetAttribute(m_shapeNode, "stroked", "t").as_bool(); }
 std::string  XLShape::type() const { return appendAndGetAttribute(m_shapeNode, "type", "").value(); }
@@ -382,9 +314,6 @@ XLShapeStyle XLShape::style() { return XLShapeStyle(appendAndGetAttribute(m_shap
 XLShapeClientData XLShape::clientData()
 { return XLShapeClientData(appendAndGetNode(m_shapeNode, "x:ClientData", m_nodeOrder, XLForceNamespace)); }
 
-/**
- * @details setter functions: assign the shape's attributes
- */
 bool XLShape::setFillColor(std::string_view newFillColor)
 { return appendAndSetAttribute(m_shapeNode, "fillcolor", std::string(newFillColor)).empty() == false; }
 bool XLShape::setStroked(bool set) { return appendAndSetAttribute(m_shapeNode, "stroked", (set ? "t" : "f")).empty() == false; }
@@ -394,9 +323,6 @@ bool XLShape::setStyle(std::string_view newStyle) { return appendAndSetAttribute
 bool XLShape::setStyle(XLShapeStyle const& newStyle) { return setStyle(newStyle.raw()); }
 
 
-/**
- * @details The constructor creates an instance of the superclass, XLXmlFile
- */
 XLVmlDrawing::XLVmlDrawing(gsl::not_null<XLXmlData*> xmlData) : XLXmlFile(xmlData)
 {
     if (xmlData->getXmlType() != XLContentType::VMLDrawing) throw XLInternalError("XLVmlDrawing constructor: Invalid XML data.");
@@ -481,24 +407,16 @@ XLVmlDrawing::XLVmlDrawing(gsl::not_null<XLXmlData*> xmlData) : XLXmlFile(xmlDat
     appendAndGetAttribute(pathNode, "o:connecttype", "rect");
 }
 
-/**
- * @details get first shape node in document_element
- * @return first shape node, empty node if none found
- */
 XMLNode XLVmlDrawing::firstShapeNode() const
 {
     using namespace std::literals::string_literals;
 
     XMLNode node = xmlDocument().document_element().first_child_of_type(pugi::node_element);
-    while (not node.empty() and node.raw_name() != ShapeNodeName)    // skip non shape nodes
+    while (not node.empty() and node.raw_name() != ShapeNodeName)
         node = node.next_sibling_of_type(pugi::node_element);
     return node;
 }
 
-/**
- * @details get last shape node in document_element
- * @return last shape node, empty node if none found
- */
 XMLNode XLVmlDrawing::lastShapeNode() const
 {
     using namespace std::literals::string_literals;
@@ -508,19 +426,15 @@ XMLNode XLVmlDrawing::lastShapeNode() const
     return node;
 }
 
-/**
- * @details get last shape node at index in document_element
- * @return shape node at index - throws if index is out of bounds
- */
 XMLNode XLVmlDrawing::shapeNode(uint32_t index) const
 {
     using namespace std::literals::string_literals;
 
-    XMLNode node{};    // scope declaration, ensures node.empty() when index >= m_shapeCount
+    XMLNode node{};
     if (index < m_shapeCount) {
         uint16_t i = 0;
         node       = firstShapeNode();
-        while (i != index and not node.empty() and node.raw_name() == ShapeNodeName) {    // follow shape index
+        while (i != index and not node.empty() and node.raw_name() == ShapeNodeName) {
             ++i;
             node = node.next_sibling_of_type(pugi::node_element);
         }
@@ -531,22 +445,19 @@ XMLNode XLVmlDrawing::shapeNode(uint32_t index) const
     return node;
 }
 
-/**
- * @details
- */
 XMLNode XLVmlDrawing::shapeNode(std::string_view cellRef) const
 {
     const XLCellReference destRef{std::string(cellRef)};
-    const uint32_t        destRow = destRef.row() - 1;       // for accessing a shape: x:Row and x:Column are zero-indexed
-    const uint16_t        destCol = destRef.column() - 1;    // ..
+    const uint32_t        destRow = destRef.row() - 1;
+    const uint16_t        destCol = destRef.column() - 1;
 
     XMLNode node = firstShapeNode();
     while (not node.empty()) {
         if ((destRow == node.child("x:ClientData").child("x:Row").text().as_uint()) &&
             (destCol == node.child("x:ClientData").child("x:Column").text().as_uint()))
-            break;    // found shape for cellRef
+            break;
 
-        do {    // locate next shape node
+        do {
             node = node.next_sibling_of_type(pugi::node_element);
         }
         while (not node.empty() and node.name() != ShapeNodeName);
@@ -554,81 +465,62 @@ XMLNode XLVmlDrawing::shapeNode(std::string_view cellRef) const
     return node;
 }
 
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 uint32_t XLVmlDrawing::shapeCount() const { return m_shapeCount; }
 
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 XLShape XLVmlDrawing::shape(uint32_t index) const { return XLShape(shapeNode(index)); }
 
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 bool XLVmlDrawing::deleteShape(uint32_t index)
 {
     XMLNode rootNode = xmlDocument().document_element();
-    XMLNode node     = shapeNode(index);                           // returns a valid node or throws
-    --m_shapeCount;                                                // if shapeNode(index) did not throw: decrement shape count
-    while (node.previous_sibling().type() == pugi::node_pcdata)    // remove leading whitespaces
+    XMLNode node     = shapeNode(index);
+    --m_shapeCount;
+    while (node.previous_sibling().type() == pugi::node_pcdata)
         rootNode.remove_child(node.previous_sibling());
-    rootNode.remove_child(node);    // then remove shape node itself
+    rootNode.remove_child(node);
 
     return true;
 }
 
-/**
- * @details TODO: write doxygen headers for functions in this module
- */
 bool XLVmlDrawing::deleteShape(std::string_view cellRef)
 {
     XMLNode rootNode = xmlDocument().document_element();
     XMLNode node     = shapeNode(cellRef);
-    if (node.empty()) return false;    // nothing found to delete
+    if (node.empty()) return false;
 
-    --m_shapeCount;                                                // if shapeNode(cellRef) returned a non-empty node: decrement shape count
-    while (node.previous_sibling().type() == pugi::node_pcdata)    // remove leading whitespaces
+    --m_shapeCount;
+    while (node.previous_sibling().type() == pugi::node_pcdata)
         rootNode.remove_child(node.previous_sibling());
-    rootNode.remove_child(node);    // then remove shape node itself
+    rootNode.remove_child(node);
 
     return true;
 }
 
-/**
- * @details insert shape and return index
- */
 XLShape XLVmlDrawing::createShape([[maybe_unused]] const XLShape& shapeTemplate)
 {
     XMLNode rootNode = xmlDocument().document_element();
     XMLNode node     = lastShapeNode();
     if (node.empty()) { node = rootNode.last_child_of_type(pugi::node_element); }
-    if (not node.empty()) {    // default case: a previous element node exists
+    if (not node.empty()) {
         node = rootNode.insert_child_after(std::string(ShapeNodeName).c_str(),
                                            node,
-                                           XLForceNamespace);    // insert the node after the last shape node if any
+                                           XLForceNamespace);
         copyLeadingWhitespaces(rootNode,
                                node.previous_sibling(),
-                               node);    // copy whitespaces from node after which this one was just inserted
+                               node);
     }
-    else {                                                                         // else: shouldn't happen - but just in case
-        node = rootNode.prepend_child(std::string(ShapeNodeName).c_str(), XLForceNamespace);    // insert node prior to trailing whitespaces
-        rootNode.prepend_child(pugi::node_pcdata).set_value("\n\t");               // prefix new node with whitespaces
+    else {
+        node = rootNode.prepend_child(std::string(ShapeNodeName).c_str(), XLForceNamespace);
+        rootNode.prepend_child(pugi::node_pcdata).set_value("\n\t");
     }
 
-    // ===== Assign a new shape id & account for it in m_lastAssignedShapeId
     using namespace std::literals::string_literals;
     node.prepend_attribute("id").set_value(("shape_"s + std::to_string(m_lastAssignedShapeId++)).c_str());
     node.append_attribute("type").set_value(("#"s + m_defaultShapeTypeId).c_str());
 
     m_shapeCount++;
-    return XLShape(node);    // return object to manipulate new shape
+    return XLShape(node);
 }
 
-/**
- * @details Print the underlying XML using pugixml::xml_node::print
- */
 void XLVmlDrawing::print(std::basic_ostream<char>& ostr) const { xmlDocument().document_element().print(ostr); }
 
 
