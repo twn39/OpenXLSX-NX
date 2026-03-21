@@ -17,6 +17,7 @@
 #include "XLStyles.hpp"
 #include "XLUtilities.hpp"
 #include "XLChart.hpp"
+#include "XLPivotTable.hpp"
 
 using namespace OpenXLSX;
 #include "XLDocument_Templates.hpp"
@@ -855,3 +856,93 @@ bool XLDocument::hasXmlData(std::string_view path) const
     return std::find_if(m_data.begin(), m_data.end(), [&](const XLXmlData& item) { return item.getXmlPath() == path; }) != m_data.end();
 }
 
+
+
+
+XLPivotTable XLDocument::createPivotTable()
+{
+    using namespace std::literals::string_literals;
+
+    uint32_t num = 1;
+    std::string filename = "xl/pivotTables/pivotTable"s + std::to_string(num) + ".xml"s;
+    while (m_archive.hasEntry(filename)) {
+        ++num;
+        filename = "xl/pivotTables/pivotTable"s + std::to_string(num) + ".xml"s;
+    }
+
+    m_archive.addEntry(filename, std::string(xlPivotTableTemplate));
+    m_contentTypes.addOverride("/" + filename, XLContentType::PivotTable);
+    
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData*     xmlData      = getXmlData(filename, DO_NOT_THROW);
+    if (xmlData == nullptr) {
+        xmlData = &m_data.emplace_back(this, filename, std::string(xlPivotTableTemplate), XLContentType::PivotTable);
+    }
+
+    return XLPivotTable(xmlData);
+}
+
+XLPivotCacheDefinition XLDocument::createPivotCacheDefinition()
+{
+    using namespace std::literals::string_literals;
+
+    uint32_t num = 1;
+    std::string filename = "xl/pivotCache/pivotCacheDefinition"s + std::to_string(num) + ".xml"s;
+    while (m_archive.hasEntry(filename)) {
+        ++num;
+        filename = "xl/pivotCache/pivotCacheDefinition"s + std::to_string(num) + ".xml"s;
+    }
+
+    m_archive.addEntry(filename, std::string(xlPivotCacheDefinitionTemplate));
+    m_contentTypes.addOverride("/" + filename, XLContentType::PivotCacheDefinition);
+    
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData*     xmlData      = getXmlData(filename, DO_NOT_THROW);
+    if (xmlData == nullptr) {
+        xmlData = &m_data.emplace_back(this, filename, std::string(xlPivotCacheDefinitionTemplate), XLContentType::PivotCacheDefinition);
+    }
+
+    return XLPivotCacheDefinition(xmlData);
+}
+
+XLPivotCacheRecords XLDocument::createPivotCacheRecords(std::string_view cacheDefPath)
+{
+    using namespace std::literals::string_literals;
+    
+    std::string defPathStr(cacheDefPath);
+    size_t start = defPathStr.find("Definition") + 10;
+    size_t end = defPathStr.find(".xml");
+    std::string cacheNoStr = defPathStr.substr(start, end - start);
+
+    std::string filename = "xl/pivotCache/pivotCacheRecords"s + cacheNoStr + ".xml"s;
+
+    m_archive.addEntry(filename, std::string(xlPivotCacheRecordsTemplate));
+    m_contentTypes.addOverride("/" + filename, XLContentType::PivotCacheRecords);
+    
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData*     xmlData      = getXmlData(filename, DO_NOT_THROW);
+    if (xmlData == nullptr) {
+        xmlData = &m_data.emplace_back(this, filename, std::string(xlPivotCacheRecordsTemplate), XLContentType::PivotCacheRecords);
+    }
+
+    return XLPivotCacheRecords(xmlData);
+}
+
+
+
+XLRelationships XLDocument::xmlRelationships(std::string_view xmlPath)
+{
+    using namespace std::literals::string_literals;
+    size_t      lastSlash    = xmlPath.find_last_of('/');
+    std::string folder       = std::string(xmlPath.substr(0, lastSlash));
+    std::string filename     = std::string(xmlPath.substr(lastSlash + 1));
+    std::string relsFilename = folder + "/_rels/"s + filename + ".rels"s;
+
+    if (!m_archive.hasEntry(relsFilename)) { m_archive.addEntry(relsFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"); }
+
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData*     xmlData      = getXmlData(relsFilename, DO_NOT_THROW);
+    if (xmlData == nullptr) xmlData = &m_data.emplace_back(this, relsFilename, "", XLContentType::Relationships);
+
+    return XLRelationships(xmlData, relsFilename);
+}

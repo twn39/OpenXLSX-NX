@@ -20,10 +20,11 @@
 #include "XLConditionalFormatting.hpp"
 #include "XLPageSetup.hpp"
 #include "XLChart.hpp"
+#include "XLPivotTable.hpp"
 
 namespace OpenXLSX
 {
-    const std::vector<std::string_view> XLWorksheetNodeOrder = {    // worksheet XML root node required child sequence
+        const std::vector<std::string_view> XLWorksheetNodeOrder = {    // worksheet XML root node required child sequence
         "sheetPr",
         "dimension",
         "sheetViews",
@@ -56,12 +57,15 @@ namespace OpenXLSX
         "drawing",
         "legacyDrawing",
         "legacyDrawingHF",
+        "drawingHF",
         "picture",
         "oleObjects",
         "controls",
         "webPublishItems",
         "tableParts",
-        "extLst"};
+        "pivotTables",
+        "extLst"
+    };
 
     const std::vector<std::string_view> XLSheetViewNodeOrder = {    // worksheet XML <sheetView> child sequence
         "pane",
@@ -250,6 +254,14 @@ namespace OpenXLSX
         std::vector<XLDrawingItem> images();
         
         XLChart addChart(XLChartType type, std::string_view name, uint32_t row, uint32_t col, uint32_t width, uint32_t height);
+
+        /**
+         * @brief Create and add a pivot table to this worksheet.
+         * @param options The configuration options for the pivot table.
+         * @return The created XLPivotTable object.
+         */
+        XLPivotTable addPivotTable(const XLPivotTableOptions& options);
+
 
         XLVmlDrawing& vmlDrawing();
         XLComments& comments();

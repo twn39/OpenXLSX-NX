@@ -49,7 +49,10 @@ namespace OpenXLSX
         Table,
         VMLDrawing,
         Hyperlink,
-        Unknown
+        Unknown,
+        PivotTable,
+        PivotCacheDefinition,
+        PivotCacheRecords
     };
 
     /**

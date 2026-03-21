@@ -82,7 +82,10 @@ namespace OpenXLSX
         Comments,
         Table,
         Hyperlink,
-        Unknown
+        Unknown,
+        PivotTable,
+        PivotCacheDefinition,
+        PivotCacheRecords
     };
 }    //     namespace OpenXLSX
 

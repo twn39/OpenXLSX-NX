@@ -112,6 +112,9 @@ namespace
         if (matches(relationshipDomainOpenXml2006, "/relationships/ctrlProp")) return XLRelationshipType::ControlProperties;
         if (matches(relationshipDomainOpenXml2006CoreProps, "/relationships/metadata/core-properties")) return XLRelationshipType::CoreProperties;
         if (matches(relationshipDomainMicrosoft2006, "/relationships/vbaProject")) return XLRelationshipType::VBAProject;
+        if (matches(relationshipDomainOpenXml2006, "/relationships/pivotTable")) return XLRelationshipType::PivotTable;
+        if (matches(relationshipDomainOpenXml2006, "/relationships/pivotCacheDefinition")) return XLRelationshipType::PivotCacheDefinition;
+        if (matches(relationshipDomainOpenXml2006, "/relationships/pivotCacheRecords")) return XLRelationshipType::PivotCacheRecords;
         if (matches(relationshipDomainMicrosoft2011, "/relationships/chartStyle")) return XLRelationshipType::ChartStyle;
         if (matches(relationshipDomainMicrosoft2011, "/relationships/chartColorStyle")) return XLRelationshipType::ChartColorStyle;
         if (matches(relationshipDomainOpenXml2006, "/relationships/comments")) return XLRelationshipType::Comments;
@@ -166,6 +169,12 @@ namespace OpenXLSX_XLRelationships
                 return "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties";
             case XLRelationshipType::VBAProject:
                 return "http://schemas.microsoft.com/office/2006/relationships/vbaProject";
+            case XLRelationshipType::PivotTable:
+                return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable";
+            case XLRelationshipType::PivotCacheDefinition:
+                return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition";
+            case XLRelationshipType::PivotCacheRecords:
+                return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords";
             case XLRelationshipType::ChartStyle:
                 return "http://schemas.microsoft.com/office/2011/relationships/chartStyle";
             case XLRelationshipType::ChartColorStyle:

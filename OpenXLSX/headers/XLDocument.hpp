@@ -237,6 +237,11 @@ namespace OpenXLSX
         
         class XLChart   createChart(XLChartType type = XLChartType::Bar);
 
+        class XLPivotTable createPivotTable();
+        class XLPivotCacheDefinition createPivotCacheDefinition();
+        class XLPivotCacheRecords createPivotCacheRecords(std::string_view cacheDefPath);
+
+
         /**
          * @brief Insert image into the archive's media folder. Uses string_view for zero-copy data transfer.
          * @param name Filename in the archive.
@@ -251,6 +256,14 @@ namespace OpenXLSX
         [[nodiscard]] std::string getImage(std::string_view path) const;
 
         XLRelationships drawingRelationships(std::string_view drawingPath);
+        /**
+         * @brief Get relationships for an arbitrary XML file (e.g. pivot tables)
+         */
+        XLRelationships xmlRelationships(std::string_view xmlPath);
+        /**
+         * @brief Get workbook relationships
+         */
+        XLRelationships& workbookRelationships() { return m_wbkRelationships; }
 
         /**
          * @brief Access the low-level ZIP archive for advanced package manipulation.

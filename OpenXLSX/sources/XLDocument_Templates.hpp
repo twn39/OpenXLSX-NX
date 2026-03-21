@@ -102,3 +102,25 @@ namespace
 
 } // namespace OpenXLSX
 #endif // OPENXLSX_XLDOCUMENT_TEMPLATES_HPP
+
+
+constexpr std::string_view xlPivotTableTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<pivotTableDefinition xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" name="PivotTable1" cacheId="1" applyNumberFormats="0" applyBorderFormats="0" applyFontFormats="0" applyPatternFormats="0" applyAlignmentFormats="0" applyWidthHeightFormats="1" dataCaption="Values" updatedVersion="8" minRefreshableVersion="3" useAutoFormatting="1" itemPrintTitles="1" createdVersion="8" indent="0" compact="0" compactData="0" multipleFieldFilters="0">
+  <location ref="A1:A2" firstHeaderRow="1" firstDataRow="1" firstDataCol="1"/>
+  <pivotFields count="0"/>
+  <rowFields count="0"/>
+  <rowItems count="0"/>
+  <colItems count="0"/>
+  <pivotTableStyleInfo name="PivotStyleLight16" showRowHeaders="1" showColHeaders="1" showRowStripes="0" showColStripes="0" showLastColumn="1"/>
+</pivotTableDefinition>)";
+
+constexpr std::string_view xlPivotCacheDefinitionTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<pivotCacheDefinition xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" invalid="1" refreshOnLoad="1" recordCount="0">
+  <cacheSource type="worksheet">
+    <worksheetSource ref="A1:A2" sheet="Sheet1"/>
+  </cacheSource>
+  <cacheFields count="0"/>
+</pivotCacheDefinition>)";
+
+constexpr std::string_view xlPivotCacheRecordsTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<pivotCacheRecords xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="0"/>)";
