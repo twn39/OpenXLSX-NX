@@ -29,8 +29,7 @@ typedef std::variant<std::string, int64_t, double, bool, OpenXLSX::XLRichText>
 
 namespace OpenXLSX
 {
-    //---------- Forward Declarations ----------//
-    class XLCellValueProxy;
+class XLCellValueProxy;
     class XLCell;
 
     /**
@@ -79,8 +78,7 @@ namespace OpenXLSX
      */
     class OPENXLSX_EXPORT XLCellValue
     {
-        //---------- Friend Declarations ----------//
-        friend class XLCellValueProxy;    // to allow access to m_value
+friend class XLCellValueProxy;    // to allow access to m_value
 
         // TODO: Consider template functions to compare to ints, floats etc.
         friend bool          operator==(const XLCellValue& lhs, const XLCellValue& rhs);
@@ -93,9 +91,7 @@ namespace OpenXLSX
         friend std::hash<OpenXLSX::XLCellValue>;
 
     public:
-        //---------- Public Member Functions ----------//
-
-        /**
+/**
          * @brief Default constructor
          */
         XLCellValue();
@@ -385,9 +381,7 @@ namespace OpenXLSX
         const char* typeAsString() const;
 
     private:
-        //---------- Private Member Variables ---------- //
-
-        XLCellValueType m_value{std::string("")};   /**< The value contained in the cell. */
+XLCellValueType m_value{std::string("")};   /**< The value contained in the cell. */
         XLValueType     m_type{XLValueType::Empty}; /**< The value type of the cell. */
     };
 
@@ -403,9 +397,7 @@ namespace OpenXLSX
         friend class XLDocument;    // for reindexing shared strings
 
     public:
-        //---------- Public Member Functions ----------//
-
-        /**
+/**
          * @brief Destructor
          */
         ~XLCellValueProxy();
@@ -489,9 +481,9 @@ namespace OpenXLSX
         }
 
         /**
-         * @brief
-         * @tparam T
-         * @param value
+         * @brief Sets the cell value using an automatically deduced type proxy.
+         * @tparam T The deduced type of the assigned value.
+         * @param value The value to assign to the cell.
          */
         template<typename T,
                  typename = std::enable_if_t<
@@ -503,9 +495,7 @@ namespace OpenXLSX
         { *this = value; }
 
         /**
-         * @brief
          * @tparam T
-         * @return
          * @todo Is an explicit conversion operator needed as well?
          */
         template<typename T,
@@ -547,9 +537,9 @@ namespace OpenXLSX
         operator XLCellValue() const;    // NOLINT
 
         /**
-         * @brief
-         * @tparam T
-         * @return
+         * @brief Converts the underlying cell value proxy into the specified type T.
+         * @tparam T The target type to convert the cell value into (e.g., int, double, std::string).
+         * @return The cell value casted to the requested type.
          */
         template<typename T,
                  typename = std::enable_if_t<
@@ -575,9 +565,7 @@ namespace OpenXLSX
         }
 
     private:
-        //---------- Private Member Functions ---------- //
-
-        /**
+/**
          * @brief Constructor
          * @param cell Pointer to the parent XLCell object.
          * @param cellNode Pointer to the corresponding XMLNode object.
@@ -652,10 +640,7 @@ namespace OpenXLSX
          * @return false if newIndex < 0 or value is not already a shared string
          */
         bool setStringIndex(int32_t newIndex);
-
-        //---------- Private Member Variables ---------- //
-
-        XLCell*  m_cell;     /**< Pointer to the owning XLCell object. */
+XLCell*  m_cell;     /**< Pointer to the owning XLCell object. */
         XMLNode* m_cellNode; /**< Pointer to corresponding XML cell node. */
     };
 
@@ -665,58 +650,44 @@ namespace OpenXLSX
 namespace OpenXLSX
 {
     /**
-     * @brief
-     * @param lhs
+         * @param lhs
      * @param rhs
-     * @return
      */
     inline bool operator==(const XLCellValue& lhs, const XLCellValue& rhs) { return lhs.m_value == rhs.m_value; }
 
     /**
-     * @brief
-     * @param lhs
+         * @param lhs
      * @param rhs
-     * @return
      */
     inline bool operator!=(const XLCellValue& lhs, const XLCellValue& rhs) { return lhs.m_value != rhs.m_value; }
 
     /**
-     * @brief
-     * @param lhs
+         * @param lhs
      * @param rhs
-     * @return
      */
     inline bool operator<(const XLCellValue& lhs, const XLCellValue& rhs) { return lhs.m_value < rhs.m_value; }
 
     /**
-     * @brief
-     * @param lhs
+         * @param lhs
      * @param rhs
-     * @return
      */
     inline bool operator>(const XLCellValue& lhs, const XLCellValue& rhs) { return lhs.m_value > rhs.m_value; }
 
     /**
-     * @brief
-     * @param lhs
+         * @param lhs
      * @param rhs
-     * @return
      */
     inline bool operator<=(const XLCellValue& lhs, const XLCellValue& rhs) { return lhs.m_value <= rhs.m_value; }
 
     /**
-     * @brief
-     * @param lhs
+         * @param lhs
      * @param rhs
-     * @return
      */
     inline bool operator>=(const XLCellValue& lhs, const XLCellValue& rhs) { return lhs.m_value >= rhs.m_value; }
 
     /**
-     * @brief
-     * @param os
+         * @param os
      * @param value
-     * @return
      */
     inline std::ostream& operator<<(std::ostream& os, const XLCellValue& value)
     {
