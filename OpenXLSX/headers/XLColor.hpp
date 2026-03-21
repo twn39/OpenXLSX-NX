@@ -17,135 +17,83 @@
 namespace OpenXLSX
 {
     /**
-     * @brief
-     */
+         */
     class OPENXLSX_EXPORT XLColor
     {
-        //----------------------------------------------------------------------------------------------------------------------
-        //           Public Member Functions
-        //----------------------------------------------------------------------------------------------------------------------
-
-        friend bool operator==(const XLColor& lhs, const XLColor& rhs);
+friend bool operator==(const XLColor& lhs, const XLColor& rhs);
         friend bool operator!=(const XLColor& lhs, const XLColor& rhs);
 
     public:
         /**
-         * @brief
+         * @brief Default constructor. Initializes to opaque black (A=255, R=0, G=0, B=0).
          */
         XLColor();
 
         /**
-         * @brief
-         * @param alpha
-         * @param red
-         * @param green
-         * @param blue
+         * @brief Constructs a color with explicit ARGB channels.
          */
         XLColor(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue);
 
         /**
-         * @brief
-         * @param red
-         * @param green
-         * @param blue
+         * @brief Constructs an opaque color with RGB channels.
          */
         XLColor(uint8_t red, uint8_t green, uint8_t blue);
 
         /**
-         * @brief
-         * @param hexCode
+         * @brief Constructs a color from an ARGB or RGB hex string (e.g., "FF0000" or "FFFF0000").
          */
         explicit XLColor(std::string_view hexCode);
 
-        /**
-         * @brief
-         * @param other
-         */
         XLColor(const XLColor& other);
 
-        /**
-         * @brief
-         * @param other
-         */
         XLColor(XLColor&& other) noexcept;
 
-        /**
-         * @brief
-         */
         ~XLColor();
 
-        /**
-         * @brief
-         * @param other
-         * @return
-         */
         XLColor& operator=(const XLColor& other);
 
-        /**
-         * @brief
-         * @param other
-         * @return
-         */
         XLColor& operator=(XLColor&& other) noexcept;
 
         /**
-         * @brief
-         * @param alpha
-         * @param red
-         * @param green
-         * @param blue
+         * @brief Sets explicit ARGB channels.
          */
         void set(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue);
 
         /**
-         * @brief
-         * @param red
-         * @param green
-         * @param blue
+         * @brief Sets RGB channels. Alpha is implicitly set to 255 (opaque).
          */
         void set(uint8_t red = 0, uint8_t green = 0, uint8_t blue = 0);
 
         /**
-         * @brief
-         * @param hexCode
+         * @brief Sets the color from an ARGB or RGB hex string.
          */
         void set(std::string_view hexCode);
 
         /**
-         * @brief
-         * @return
+         * @brief Retrieves the alpha (opacity) channel value.
          */
-        uint8_t alpha() const;
+        [[nodiscard]] uint8_t alpha() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Retrieves the red channel value.
          */
-        uint8_t red() const;
+        [[nodiscard]] uint8_t red() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Retrieves the green channel value.
          */
-        uint8_t green() const;
+        [[nodiscard]] uint8_t green() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Retrieves the blue channel value.
          */
-        uint8_t blue() const;
+        [[nodiscard]] uint8_t blue() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Returns the 8-character ARGB hex string representation used in OOXML (e.g., "FFFF0000").
          */
-        std::string hex() const;
-
-        //----------------------------------------------------------------------------------------------------------------------
-        //           Private Member Variables
-        //----------------------------------------------------------------------------------------------------------------------
-
-    private:
+        [[nodiscard]] std::string hex() const;
+private:
         uint8_t m_alpha{255};
 
         uint8_t m_red{0};
@@ -160,19 +108,13 @@ namespace OpenXLSX
 namespace OpenXLSX
 {
     /**
-     * @brief
-     * @param lhs
-     * @param rhs
-     * @return
+     * @brief Checks if two colors have identical ARGB channels.
      */
     inline bool operator==(const XLColor& lhs, const XLColor& rhs)
     { return lhs.alpha() == rhs.alpha() and lhs.red() == rhs.red() and lhs.green() == rhs.green() and lhs.blue() == rhs.blue(); }
 
     /**
-     * @brief
-     * @param lhs
-     * @param rhs
-     * @return
+     * @brief Checks if two colors differ in any of their ARGB channels.
      */
     inline bool operator!=(const XLColor& lhs, const XLColor& rhs) { return !(lhs == rhs); }
 
