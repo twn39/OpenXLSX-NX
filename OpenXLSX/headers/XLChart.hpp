@@ -12,14 +12,22 @@ namespace OpenXLSX
         Bar,
         BarStacked,
         BarPercentStacked,
+        Bar3D,
+        Bar3DStacked,
+        Bar3DPercentStacked,
         Line,
         LineStacked,
         LinePercentStacked,
+        Line3D,
         Pie,
+        Pie3D,
         Scatter,
         Area,
         AreaStacked,
         AreaPercentStacked,
+        Area3D,
+        Area3DStacked,
+        Area3DPercentStacked,
         Doughnut
     };
 

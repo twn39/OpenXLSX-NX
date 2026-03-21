@@ -402,6 +402,53 @@ TEST_CASE("Advanced Chart Visual Elements", "[XLChart][OOXML]")
         }
     }
 
+
+    SECTION("3D Chart Variants")
+    {
+        std::map<XLChartType, std::string> chartNames = {
+            {XLChartType::Bar3D, "c:bar3DChart"},
+            {XLChartType::Bar3DStacked, "c:bar3DChart"},
+            {XLChartType::Line3D, "c:line3DChart"},
+            {XLChartType::Pie3D, "c:pie3DChart"},
+            {XLChartType::Area3D, "c:area3DChart"}
+        };
+
+        for (auto const& [enumPos, xmlVal] : chartNames) {
+            {
+                XLDocument doc;
+                doc.create(filename, XLForceOverwrite);
+                auto wks = doc.workbook().worksheet("Sheet1");
+                auto chart = wks.addChart(enumPos, "Chart", 1, 1, 400, 300);
+                chart.addSeries("Sheet1!$B$2:$B$5", "Title", "Sheet1!$A$2:$A$5");
+                
+                doc.save();
+                doc.close();
+            }
+
+            {
+                XLChartAdvTestDoc testDoc;
+                testDoc.open(filename);
+                std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
+
+                // verify base tag exists
+                REQUIRE(chartXml.find("<" + xmlVal + ">") != std::string::npos);
+                
+                // verify 3D View properties exist
+                REQUIRE(chartXml.find("<c:view3D>") != std::string::npos);
+                REQUIRE((chartXml.find("<c:rotX val=\"30\"/>") != std::string::npos || chartXml.find("<c:rotX val=\"30\" />") != std::string::npos));
+                REQUIRE((chartXml.find("<c:rotY val=\"30\"/>") != std::string::npos || chartXml.find("<c:rotY val=\"30\" />") != std::string::npos));
+                
+                // strict ordering: view3D MUST come before plotArea
+                size_t view3DPos = chartXml.find("<c:view3D>");
+                size_t plotAreaPos = chartXml.find("<c:plotArea>");
+                REQUIRE(view3DPos < plotAreaPos);
+                
+                testDoc.close();
+            }
+            std::filesystem::remove(filename);
+        }
+    }
+
     SECTION("Hide Legend Functionality")
     {
         {

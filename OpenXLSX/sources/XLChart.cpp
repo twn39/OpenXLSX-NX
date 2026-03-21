@@ -45,22 +45,29 @@ namespace OpenXLSX
             bool hasAxes = true;
             XMLNode chartNode;
             
+            bool is3D = false;
+            
             switch (type) {
                 case XLChartType::Line:
                 case XLChartType::LineStacked:
                 case XLChartType::LinePercentStacked:
-                    chartNode = plotArea.append_child("c:lineChart");
+                case XLChartType::Line3D:
+                    chartNode = plotArea.append_child(type == XLChartType::Line3D ? "c:line3DChart" : "c:lineChart");
                     if (type == XLChartType::LineStacked)
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("stacked");
                     else if (type == XLChartType::LinePercentStacked)
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("percentStacked");
                     else
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("standard");
+                    
+                    if (type == XLChartType::Line3D) is3D = true;
                     break;
                 case XLChartType::Pie:
-                    chartNode = plotArea.append_child("c:pieChart");
+                case XLChartType::Pie3D:
+                    chartNode = plotArea.append_child(type == XLChartType::Pie3D ? "c:pie3DChart" : "c:pieChart");
                     chartNode.append_child("c:varyColors").append_attribute("val").set_value("1");
                     hasAxes = false;
+                    if (type == XLChartType::Pie3D) is3D = true;
                     break;
                 case XLChartType::Scatter:
                     chartNode = plotArea.append_child("c:scatterChart");
@@ -70,13 +77,20 @@ namespace OpenXLSX
                 case XLChartType::Area:
                 case XLChartType::AreaStacked:
                 case XLChartType::AreaPercentStacked:
-                    chartNode = plotArea.append_child("c:areaChart");
-                    if (type == XLChartType::AreaStacked)
+                case XLChartType::Area3D:
+                case XLChartType::Area3DStacked:
+                case XLChartType::Area3DPercentStacked:
+                    chartNode = plotArea.append_child(
+                        (type == XLChartType::Area3D || type == XLChartType::Area3DStacked || type == XLChartType::Area3DPercentStacked) ? "c:area3DChart" : "c:areaChart"
+                    );
+                    if (type == XLChartType::AreaStacked || type == XLChartType::Area3DStacked)
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("stacked");
-                    else if (type == XLChartType::AreaPercentStacked)
+                    else if (type == XLChartType::AreaPercentStacked || type == XLChartType::Area3DPercentStacked)
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("percentStacked");
                     else
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("standard");
+                    
+                    if (type == XLChartType::Area3D || type == XLChartType::Area3DStacked || type == XLChartType::Area3DPercentStacked) is3D = true;
                     break;
                 case XLChartType::Doughnut:
                     chartNode = plotArea.append_child("c:doughnutChart");
@@ -87,21 +101,38 @@ namespace OpenXLSX
                 case XLChartType::Bar:
                 case XLChartType::BarStacked:
                 case XLChartType::BarPercentStacked:
+                case XLChartType::Bar3D:
+                case XLChartType::Bar3DStacked:
+                case XLChartType::Bar3DPercentStacked:
                 default:
-                    chartNode = plotArea.append_child("c:barChart");
+                    chartNode = plotArea.append_child(
+                        (type == XLChartType::Bar3D || type == XLChartType::Bar3DStacked || type == XLChartType::Bar3DPercentStacked) ? "c:bar3DChart" : "c:barChart"
+                    );
                     chartNode.append_child("c:barDir").append_attribute("val").set_value("col");
-                    if (type == XLChartType::BarStacked)
+                    
+                    if (type == XLChartType::BarStacked || type == XLChartType::Bar3DStacked)
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("stacked");
-                    else if (type == XLChartType::BarPercentStacked)
+                    else if (type == XLChartType::BarPercentStacked || type == XLChartType::Bar3DPercentStacked)
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("percentStacked");
                     else
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("clustered");
                     
                     // In stacked charts, overlap must be 100%
-                    if (type == XLChartType::BarStacked || type == XLChartType::BarPercentStacked) {
+                    if (type == XLChartType::BarStacked || type == XLChartType::BarPercentStacked || type == XLChartType::Bar3DStacked || type == XLChartType::Bar3DPercentStacked) {
                         chartNode.append_child("c:overlap").append_attribute("val").set_value("100");
                     }
+                    if (type == XLChartType::Bar3D || type == XLChartType::Bar3DStacked || type == XLChartType::Bar3DPercentStacked) is3D = true;
                     break;
+            }
+
+            if (is3D) {
+                // Must add view3D before plotArea inside chart!
+                // Wait, view3D is a child of c:chart, not plotArea, and must come BEFORE c:plotArea
+                XMLNode chartMainNode = doc.document_element().child("c:chart");
+                XMLNode view3D = chartMainNode.insert_child_before("c:view3D", plotArea);
+                view3D.append_child("c:rotX").append_attribute("val").set_value("30");
+                view3D.append_child("c:rotY").append_attribute("val").set_value("30");
+                view3D.append_child("c:perspective").append_attribute("val").set_value("30");
             }
 
             if (hasAxes) {
