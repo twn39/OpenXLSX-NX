@@ -1,4 +1,13 @@
+
 // ===== External Includes ===== //
+
+#include <vector>
+#include <string_view>
+
+static const std::vector<std::string_view> XLHeaderFooterNodeOrder = {
+    "oddHeader", "oddFooter", "evenHeader", "evenFooter", "firstHeader", "firstFooter"
+};
+
 #include <pugixml.hpp>
 
 // ===== OpenXLSX Includes ===== //
@@ -79,8 +88,83 @@ void     XLPageSetup::setScale(uint32_t value) { appendAndSetAttribute(m_node, "
 uint32_t XLPageSetup::fitToWidth() const { return m_node.attribute("fitToWidth").as_uint(1); }
 void     XLPageSetup::setFitToWidth(uint32_t value) { appendAndSetAttribute(m_node, "fitToWidth", std::to_string(value)); }
 
+
 uint32_t XLPageSetup::fitToHeight() const { return m_node.attribute("fitToHeight").as_uint(1); }
 void     XLPageSetup::setFitToHeight(uint32_t value) { appendAndSetAttribute(m_node, "fitToHeight", std::to_string(value)); }
 
+std::string XLPageSetup::pageOrder() const { return m_node.attribute("pageOrder").value(); }
+void XLPageSetup::setPageOrder(std::string_view value) { appendAndSetAttribute(m_node, "pageOrder", std::string(value)); }
+
+bool XLPageSetup::useFirstPageNumber() const { return m_node.attribute("useFirstPageNumber").as_bool(); }
+void XLPageSetup::setUseFirstPageNumber(bool value) { appendAndSetAttribute(m_node, "useFirstPageNumber", value ? "1" : "0"); }
+
+uint32_t XLPageSetup::firstPageNumber() const { return m_node.attribute("firstPageNumber").as_uint(1); }
+void XLPageSetup::setFirstPageNumber(uint32_t value) { appendAndSetAttribute(m_node, "firstPageNumber", std::to_string(value)); }
+
 bool XLPageSetup::blackAndWhite() const { return m_node.attribute("blackAndWhite").as_bool(); }
 void XLPageSetup::setBlackAndWhite(bool value) { appendAndSetAttribute(m_node, "blackAndWhite", value ? "1" : "0"); }
+
+/**
+ * @details
+ */
+XLHeaderFooter::XLHeaderFooter(const XMLNode& node) : m_node(node) {}
+
+bool XLHeaderFooter::differentFirst() const { return m_node.attribute("differentFirst").as_bool(false); }
+void XLHeaderFooter::setDifferentFirst(bool value) { appendAndSetAttribute(m_node, "differentFirst", value ? "1" : "0"); }
+
+bool XLHeaderFooter::differentOddEven() const { return m_node.attribute("differentOddEven").as_bool(false); }
+void XLHeaderFooter::setDifferentOddEven(bool value) { appendAndSetAttribute(m_node, "differentOddEven", value ? "1" : "0"); }
+
+bool XLHeaderFooter::scaleWithDoc() const { return m_node.attribute("scaleWithDoc").as_bool(true); }
+void XLHeaderFooter::setScaleWithDoc(bool value) { appendAndSetAttribute(m_node, "scaleWithDoc", value ? "1" : "0"); }
+
+bool XLHeaderFooter::alignWithMargins() const { return m_node.attribute("alignWithMargins").as_bool(true); }
+void XLHeaderFooter::setAlignWithMargins(bool value) { appendAndSetAttribute(m_node, "alignWithMargins", value ? "1" : "0"); }
+
+std::string XLHeaderFooter::oddHeader() const { return m_node.child("oddHeader").text().get(); }
+void XLHeaderFooter::setOddHeader(std::string_view value)
+{
+    auto node = m_node.child("oddHeader");
+    if (node.empty()) node = appendAndGetNode(m_node, "oddHeader", XLHeaderFooterNodeOrder);
+    node.text().set(std::string(value).c_str());
+}
+
+std::string XLHeaderFooter::oddFooter() const { return m_node.child("oddFooter").text().get(); }
+void XLHeaderFooter::setOddFooter(std::string_view value)
+{
+    auto node = m_node.child("oddFooter");
+    if (node.empty()) node = appendAndGetNode(m_node, "oddFooter", XLHeaderFooterNodeOrder);
+    node.text().set(std::string(value).c_str());
+}
+
+std::string XLHeaderFooter::evenHeader() const { return m_node.child("evenHeader").text().get(); }
+void XLHeaderFooter::setEvenHeader(std::string_view value)
+{
+    auto node = m_node.child("evenHeader");
+    if (node.empty()) node = appendAndGetNode(m_node, "evenHeader", XLHeaderFooterNodeOrder);
+    node.text().set(std::string(value).c_str());
+}
+
+std::string XLHeaderFooter::evenFooter() const { return m_node.child("evenFooter").text().get(); }
+void XLHeaderFooter::setEvenFooter(std::string_view value)
+{
+    auto node = m_node.child("evenFooter");
+    if (node.empty()) node = appendAndGetNode(m_node, "evenFooter", XLHeaderFooterNodeOrder);
+    node.text().set(std::string(value).c_str());
+}
+
+std::string XLHeaderFooter::firstHeader() const { return m_node.child("firstHeader").text().get(); }
+void XLHeaderFooter::setFirstHeader(std::string_view value)
+{
+    auto node = m_node.child("firstHeader");
+    if (node.empty()) node = appendAndGetNode(m_node, "firstHeader", XLHeaderFooterNodeOrder);
+    node.text().set(std::string(value).c_str());
+}
+
+std::string XLHeaderFooter::firstFooter() const { return m_node.child("firstFooter").text().get(); }
+void XLHeaderFooter::setFirstFooter(std::string_view value)
+{
+    auto node = m_node.child("firstFooter");
+    if (node.empty()) node = appendAndGetNode(m_node, "firstFooter", XLHeaderFooterNodeOrder);
+    node.text().set(std::string(value).c_str());
+}

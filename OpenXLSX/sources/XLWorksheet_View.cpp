@@ -260,3 +260,11 @@ void XLWorksheet::groupColumns(uint16_t colFirst, uint16_t colLast, uint8_t outl
     }
 }
 
+
+XLHeaderFooter XLWorksheet::headerFooter() const
+{
+    XMLNode rootNode = xmlDocument().document_element();
+    XMLNode node     = rootNode.child("headerFooter");
+    if (node.empty()) node = appendAndGetNode(rootNode, "headerFooter", m_nodeOrder);
+    return XLHeaderFooter(node);
+}

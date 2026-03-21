@@ -156,6 +156,8 @@ namespace OpenXLSX
         XLPageMargins pageMargins() const;
         XLPrintOptions printOptions() const;
         XLPageSetup pageSetup() const;
+        XLHeaderFooter headerFooter() const;
+
 
         /**
          * @brief Set the print area for this worksheet.

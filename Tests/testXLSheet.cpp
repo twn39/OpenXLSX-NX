@@ -276,6 +276,32 @@ TEST_CASE("XLSheet Tests", "[XLSheet]")
         REQUIRE(setup.scale() == 85);
         REQUIRE(setup.blackAndWhite() == true);
 
+        setup.setPageOrder("overThenDown");
+        setup.setUseFirstPageNumber(true);
+        setup.setFirstPageNumber(2);
+        
+        REQUIRE(setup.pageOrder() == "overThenDown");
+        REQUIRE(setup.useFirstPageNumber() == true);
+        REQUIRE(setup.firstPageNumber() == 2);
+
+        // Test Header Footer
+        auto hf = wks.headerFooter();
+        hf.setDifferentFirst(true);
+        hf.setDifferentOddEven(true);
+        hf.setAlignWithMargins(false);
+        hf.setOddHeader("&L&D&T&RPage &P of &N");
+        hf.setOddFooter("&CConfidential");
+        hf.setEvenHeader("&R&D");
+        hf.setFirstHeader("&CFirst Page Header");
+
+        REQUIRE(hf.differentFirst() == true);
+        REQUIRE(hf.differentOddEven() == true);
+        REQUIRE(hf.alignWithMargins() == false);
+        REQUIRE(hf.oddHeader() == "&L&D&T&RPage &P of &N");
+        REQUIRE(hf.oddFooter() == "&CConfidential");
+        REQUIRE(hf.evenHeader() == "&R&D");
+        REQUIRE(hf.firstHeader() == "&CFirst Page Header");
+
         doc.save();
         doc.close();
 
@@ -287,6 +313,9 @@ TEST_CASE("XLSheet Tests", "[XLSheet]")
         REQUIRE(wks2.pageMargins().left() == 1.0);
         REQUIRE(wks2.printOptions().gridLines() == true);
         REQUIRE(wks2.pageSetup().orientation() == XLPageOrientation::Landscape);
+
+        REQUIRE(wks2.headerFooter().oddHeader() == "&L&D&T&RPage &P of &N");
+        REQUIRE(wks2.headerFooter().differentFirst() == true);
 
         // Verify XML structure
         std::string sheetXml = getRawXml(doc2, "xl/worksheets/sheet1.xml");
@@ -319,7 +348,79 @@ TEST_CASE("XLSheet Tests", "[XLSheet]")
         REQUIRE(printPos < marginPos);
         REQUIRE(marginPos < setupPos);
 
+        // 5. Check headerFooter
+        REQUIRE(sheetXml.find("<headerFooter") != std::string::npos);
+        REQUIRE(sheetXml.find("differentFirst=\"1\"") != std::string::npos);
+        REQUIRE(sheetXml.find("differentOddEven=\"1\"") != std::string::npos);
+        REQUIRE(sheetXml.find("alignWithMargins=\"0\"") != std::string::npos);
+        REQUIRE(sheetXml.find("<oddHeader>&amp;L&amp;D&amp;T&amp;RPage &amp;P of &amp;N</oddHeader>") != std::string::npos);
+        REQUIRE(sheetXml.find("<oddFooter>&amp;CConfidential</oddFooter>") != std::string::npos);
+        REQUIRE(sheetXml.find("<evenHeader>&amp;R&amp;D</evenHeader>") != std::string::npos);
+        REQUIRE(sheetXml.find("<firstHeader>&amp;CFirst Page Header</firstHeader>") != std::string::npos);
+        
+        size_t hfPos = sheetXml.find("<headerFooter");
+        REQUIRE(setupPos < hfPos);
+
         doc2.close();
+        }
+
+
+        SECTION("XLSheet HeaderFooter OOXML Strict Node Order")
+        {
+            XLDocument doc;
+            doc.create("./testXLSheet_HF_Order.xlsx", XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            // Intentionally set in reverse/random order to trigger the NodeOrder re-arrangement
+            auto hf = wks.headerFooter();
+            hf.setFirstFooter("FirstFooter");
+            hf.setFirstHeader("FirstHeader");
+            hf.setEvenFooter("EvenFooter");
+            hf.setEvenHeader("EvenHeader");
+            hf.setOddFooter("OddFooter");
+            hf.setOddHeader("OddHeader");
+
+            doc.save();
+            doc.close();
+
+            // Re-open and verify functionality
+            XLDocument doc2;
+            doc2.open("./testXLSheet_HF_Order.xlsx");
+            auto wks2 = doc2.workbook().worksheet("Sheet1");
+            auto hf2 = wks2.headerFooter();
+
+            REQUIRE(hf2.oddHeader() == "OddHeader");
+            REQUIRE(hf2.oddFooter() == "OddFooter");
+            REQUIRE(hf2.evenHeader() == "EvenHeader");
+            REQUIRE(hf2.evenFooter() == "EvenFooter");
+            REQUIRE(hf2.firstHeader() == "FirstHeader");
+            REQUIRE(hf2.firstFooter() == "FirstFooter");
+
+            // Verify strict OOXML ordering in XML output
+            std::string sheetXml = getRawXml(doc2, "xl/worksheets/sheet1.xml");
+
+            size_t oddH  = sheetXml.find("<oddHeader>");
+            size_t oddF  = sheetXml.find("<oddFooter>");
+            size_t evenH = sheetXml.find("<evenHeader>");
+            size_t evenF = sheetXml.find("<evenFooter>");
+            size_t firstH= sheetXml.find("<firstHeader>");
+            size_t firstF= sheetXml.find("<firstFooter>");
+
+            REQUIRE(oddH != std::string::npos);
+            REQUIRE(oddF != std::string::npos);
+            REQUIRE(evenH != std::string::npos);
+            REQUIRE(evenF != std::string::npos);
+            REQUIRE(firstH != std::string::npos);
+            REQUIRE(firstF != std::string::npos);
+
+            // Strict OOXML sequence requirement: oddHeader, oddFooter, evenHeader, evenFooter, firstHeader, firstFooter
+            REQUIRE(oddH < oddF);
+            REQUIRE(oddF < evenH);
+            REQUIRE(evenH < evenF);
+            REQUIRE(evenF < firstH);
+            REQUIRE(firstH < firstF);
+            
+            doc2.close();
         }
 
         SECTION("XLSheet Protection")
