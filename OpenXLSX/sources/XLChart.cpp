@@ -32,6 +32,7 @@ namespace OpenXLSX
     <c:legend>
       <c:legendPos val="r"/>
       <c:layout/>
+      <c:overlay val="0"/>
     </c:legend>
     <c:plotVisOnly val="1"/>
     <c:dispBlanksAs val="gap"/>

@@ -104,6 +104,7 @@ TEST_CASE("Advanced Chart Visual Elements", "[XLChart][OOXML]")
 
                 std::string expectedStr = "<c:legendPos val=\"" + xmlVal + "\"";
                 REQUIRE(chartXml.find(expectedStr) != std::string::npos);
+                REQUIRE(chartXml.find("<c:overlay val=\"0\" />") != std::string::npos);
                 
                 testDoc.close();
             }
