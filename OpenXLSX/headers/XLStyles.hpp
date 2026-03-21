@@ -238,7 +238,7 @@ namespace OpenXLSX
          * @return true for success, false for failure
          */
         bool setNumberFormatId(uint32_t newNumberFormatId);
-        bool setFormatCode(std::string newFormatCode);
+        bool setFormatCode(std::string_view newFormatCode);
 
         /**
          * @brief Return a string summary of the number format
@@ -338,7 +338,7 @@ namespace OpenXLSX
          * @param formatCode The explicit format code string
          * @return The unique number format ID (numFmtId)
          */
-        uint32_t createNumberFormat(const std::string& formatCode);
+        uint32_t createNumberFormat(std::string_view formatCode);
 
         /**
          * @brief Append a new XLNumberFormat, based on copyFrom, and return its index in numFmts node
@@ -350,7 +350,7 @@ namespace OpenXLSX
          * @todo: TBD implement a "getFreeNumberFormatId()" method that skips reserved identifiers and iterates over m_numberFormats to
          * avoid all existing number format Ids.
          */
-        XLStyleIndex create(XLNumberFormat copyFrom = XLNumberFormat{}, std::string styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+        XLStyleIndex create(XLNumberFormat copyFrom = XLNumberFormat{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
     private:                                             // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode>    m_numberFormatsNode; /**< An XMLNode object with the number formats item */
@@ -507,7 +507,7 @@ namespace OpenXLSX
          * @param value that shall be set
          * @return true for success, false for failure
          */
-        bool setFontName(std::string newName);
+        bool setFontName(std::string_view newName);
         bool setFontCharset(size_t newCharset);
         bool setFontFamily(size_t newFamily);
         bool setFontSize(size_t newSize);
@@ -607,7 +607,7 @@ namespace OpenXLSX
          * @param styleEntriesPrefix Prefix the newly created cell style XMLNode with this pugi::node_pcdata text
          * @returns The index of the new style as used by operator[]
          */
-        XLStyleIndex create(XLFont copyFrom = XLFont{}, std::string styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+        XLStyleIndex create(XLFont copyFrom = XLFont{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
     private:                                  // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode> m_fontsNode; /**< An XMLNode object with the fonts item */
@@ -855,7 +855,7 @@ namespace OpenXLSX
          * @param stopEntriesPrefix Prefix the newly created stop XMLNode with this pugi::node_pcdata text
          * @returns The index of the new style as used by operator[]
          */
-        XLStyleIndex create(XLGradientStop copyFrom = XLGradientStop{}, std::string styleEntriesPrefix = "");
+        XLStyleIndex create(XLGradientStop copyFrom = XLGradientStop{}, std::string_view styleEntriesPrefix = "");
 
         std::string summary() const;
 
@@ -1072,7 +1072,7 @@ namespace OpenXLSX
          * @param styleEntriesPrefix Prefix the newly created cell style XMLNode with this pugi::node_pcdata text
          * @returns The index of the new style as used by operator[]
          */
-        XLStyleIndex create(XLFill copyFrom = XLFill{}, std::string styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+        XLStyleIndex create(XLFill copyFrom = XLFill{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
     private:                                  // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode> m_fillsNode; /**< An XMLNode object with the fills item */
@@ -1374,7 +1374,7 @@ namespace OpenXLSX
          * @param styleEntriesPrefix Prefix the newly created cell style XMLNode with this pugi::node_pcdata text
          * @returns The index of the new style as used by operator[]
          */
-        XLStyleIndex create(XLBorder copyFrom = XLBorder{}, std::string styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+        XLStyleIndex create(XLBorder copyFrom = XLBorder{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
     private:                                    // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode> m_bordersNode; /**< An XMLNode object with the borders item */
@@ -1794,7 +1794,7 @@ namespace OpenXLSX
          * @param styleEntriesPrefix Prefix the newly created cell style XMLNode with this pugi::node_pcdata text
          * @returns The index of the new style as used by operator[]
          */
-        XLStyleIndex create(XLCellFormat copyFrom = XLCellFormat{}, std::string styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+        XLStyleIndex create(XLCellFormat copyFrom = XLCellFormat{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
     private:                                         // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode>  m_cellFormatsNode; /**< An XMLNode object with the cell formats item */
@@ -1908,7 +1908,7 @@ namespace OpenXLSX
          * @param value that shall be set
          * @return true for success, false for failure
          */
-        bool setName(std::string newName);
+        bool setName(std::string_view newName);
         bool setXfId(XLStyleIndex newXfId);
         bool setBuiltinId(uint32_t newBuiltinId);
         bool setOutlineStyle(uint32_t newOutlineStyle);
@@ -2002,7 +2002,7 @@ namespace OpenXLSX
          * @param styleEntriesPrefix Prefix the newly created cell style XMLNode with this pugi::node_pcdata text
          * @returns The index of the new style as used by operator[]
          */
-        XLStyleIndex create(XLCellStyle copyFrom = XLCellStyle{}, std::string styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+        XLStyleIndex create(XLCellStyle copyFrom = XLCellStyle{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
     private:                                       // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode> m_cellStylesNode; /**< An XMLNode object with the cell styles item */
@@ -2199,7 +2199,7 @@ namespace OpenXLSX
          * @param styleEntriesPrefix Prefix the newly created cell style XMLNode with this pugi::node_pcdata text
          * @returns The index of the new differential cell format as used by operator[]
          */
-        XLStyleIndex create(XLDxf copyFrom = XLDxf{}, std::string styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+        XLStyleIndex create(XLDxf copyFrom = XLDxf{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
     private:
         mutable XMLNode      m_dxfsNode;       /**< An XMLNode object with the dxfs item */
@@ -2231,7 +2231,7 @@ namespace OpenXLSX
          * be silenced
          * @param stylesPrefix Prefix any newly created root style nodes with this text as pugi::node_pcdata
          */
-        explicit XLStyles(XLXmlData* xmlData, bool suppressWarnings = false, std::string stylesPrefix = XLDefaultStylesPrefix);
+        explicit XLStyles(gsl::not_null<XLXmlData*> xmlData, bool suppressWarnings = false, std::string_view stylesPrefix = XLDefaultStylesPrefix);
 
         /**
          * @brief Destructor
@@ -2269,7 +2269,7 @@ namespace OpenXLSX
          * @param formatCode The explicit format code string
          * @return The unique number format ID (numFmtId)
          */
-        uint32_t createNumberFormat(const std::string& formatCode);
+        uint32_t createNumberFormat(std::string_view formatCode);
 
         /**
          * @brief Get the number formats object
@@ -2340,7 +2340,7 @@ namespace OpenXLSX
          * @param numFmtId Optional number format index
          * @return The XLStyleIndex in cellXfs that corresponds to this named style.
          */
-        XLStyleIndex addNamedStyle(const std::string& name,
+        XLStyleIndex addNamedStyle(std::string_view name,
                                    std::optional<XLStyleIndex> fontId = std::nullopt,
                                    std::optional<XLStyleIndex> fillId = std::nullopt,
                                    std::optional<XLStyleIndex> borderId = std::nullopt,
@@ -2351,7 +2351,7 @@ namespace OpenXLSX
          * @param name Name of the style
          * @return The XLStyleIndex in cellXfs, or XLInvalidStyleIndex if not found.
          */
-        XLStyleIndex namedStyle(const std::string& name) const;
+        XLStyleIndex namedStyle(std::string_view name) const;
 
         // ---------- Protected Member Functions ---------- //
     private:

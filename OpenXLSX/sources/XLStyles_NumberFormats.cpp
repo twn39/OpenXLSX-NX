@@ -53,8 +53,8 @@ std::string XLNumberFormat::formatCode() const { return m_numberFormatNode->attr
  */
 bool XLNumberFormat::setNumberFormatId(uint32_t newNumberFormatId)
 { return appendAndSetAttribute(*m_numberFormatNode, "numFmtId", std::to_string(newNumberFormatId)).empty() == false; }
-bool XLNumberFormat::setFormatCode(std::string newFormatCode)
-{ return appendAndSetAttribute(*m_numberFormatNode, "formatCode", newFormatCode.c_str()).empty() == false; }
+bool XLNumberFormat::setFormatCode(std::string_view newFormatCode)
+{ return appendAndSetAttribute(*m_numberFormatNode, "formatCode", std::string(newFormatCode).c_str()).empty() == false; }
 
 /**
  * @details assemble a string summary about the number format
@@ -153,7 +153,7 @@ uint32_t XLNumberFormats::numberFormatIdFromIndex(XLStyleIndex index) const
 /**
  * @details Create a new custom number format with a unique ID and format code
  */
-uint32_t XLNumberFormats::createNumberFormat(const std::string& formatCode)
+uint32_t XLNumberFormats::createNumberFormat(std::string_view formatCode)
 {
     uint32_t maxId = 163;
     for (const auto& fmt : m_numberFormats) {
@@ -175,7 +175,7 @@ uint32_t XLNumberFormats::createNumberFormat(const std::string& formatCode)
         newNode = m_numberFormatsNode->insert_child_after("numFmt", lastStyle);
         
     newNode.append_attribute("numFmtId").set_value(newId);
-    newNode.append_attribute("formatCode").set_value(formatCode.c_str());
+    newNode.append_attribute("formatCode").set_value(std::string(formatCode).c_str());
     
     // Add to our tracked vector
     m_numberFormats.emplace_back(newNode);
@@ -194,7 +194,7 @@ uint32_t XLNumberFormats::createNumberFormat(const std::string& formatCode)
 /**
  * @details append a new XLNumberFormat to m_numberFormats and m_numberFormatsNode, based on copyFrom
  */
-XLStyleIndex XLNumberFormats::create(XLNumberFormat copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLNumberFormats::create(XLNumberFormat copyFrom, std::string_view styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the number format to be created
     XMLNode      newNode{};          // scope declaration
@@ -211,7 +211,7 @@ XLStyleIndex XLNumberFormats::create(XLNumberFormat copyFrom, std::string styleE
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
         m_numberFormatsNode->insert_child_before(pugi::node_pcdata, newNode)
-            .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
+            .set_value(std::string(styleEntriesPrefix).c_str());    // prefix the new node with styleEntriesPrefix
 
     XLNumberFormat newNumberFormat(newNode);
     if (copyFrom.m_numberFormatNode->empty()) {    // if no template is given

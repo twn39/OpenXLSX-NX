@@ -59,12 +59,12 @@ namespace {
         return EnumToString(val, XLStylesEntryTypeMap, "(invalid)");
     }
 
-    void wrapNode(XMLNode parentNode, const XMLNode& node, std::string const& prefix)
+    void wrapNode(XMLNode parentNode, const XMLNode& node, std::string_view prefix)
     {
         if (not node.empty() and prefix.length() > 0) {
-            parentNode.insert_child_before(pugi::node_pcdata, node).set_value(prefix.c_str());    // insert prefix before node opening tag
+            parentNode.insert_child_before(pugi::node_pcdata, node).set_value(std::string(prefix).c_str());    // insert prefix before node opening tag
             XMLNode n = node;
-            n.append_child(pugi::node_pcdata).set_value(prefix.c_str());    // insert prefix before node closing tag (within node)
+            n.append_child(pugi::node_pcdata).set_value(std::string(prefix).c_str());    // insert prefix before node closing tag (within node)
         }
     }
 }
@@ -79,7 +79,7 @@ XLStyles::XLStyles() {}    // TBD if defaulting this constructor again would rei
 /**
  * @details Creates an XLStyles object, which will initialize from the given xmlData
  */
-XLStyles::XLStyles(XLXmlData* xmlData, bool suppressWarnings, std::string stylesPrefix)
+XLStyles::XLStyles(gsl::not_null<XLXmlData*> xmlData, bool suppressWarnings, std::string_view stylesPrefix)
     : XLXmlFile(xmlData),
       m_suppressWarnings(suppressWarnings)
 {
@@ -267,7 +267,7 @@ XLStyles& XLStyles::operator=(const XLStyles& other)
 /**
  * @details Create a new custom number format with a unique ID and format code
  */
-uint32_t XLStyles::createNumberFormat(const std::string& formatCode)
+uint32_t XLStyles::createNumberFormat(std::string_view formatCode)
 {
     return m_numberFormats->createNumberFormat(formatCode);
 }
@@ -317,7 +317,7 @@ XLDxfs& XLStyles::dxfs() const { return *m_dxfs; }
  */
 XLStyleIndex XLStyles::addDxf(const XLDxf& dxf) { return m_dxfs->create(dxf); }
 
-XLStyleIndex XLStyles::addNamedStyle(const std::string& name,
+XLStyleIndex XLStyles::addNamedStyle(std::string_view name,
                                      std::optional<XLStyleIndex> fontId,
                                      std::optional<XLStyleIndex> fillId,
                                      std::optional<XLStyleIndex> borderId,
@@ -377,7 +377,7 @@ XLStyleIndex XLStyles::addNamedStyle(const std::string& name,
     return cellXfIdx;
 }
 
-XLStyleIndex XLStyles::namedStyle(const std::string& name) const
+XLStyleIndex XLStyles::namedStyle(std::string_view name) const
 {
     // Find the cellStyle by name to get its xfId
     XLStyleIndex targetStyleXfId = XLInvalidStyleIndex;

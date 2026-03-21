@@ -56,7 +56,7 @@ bool         XLCellStyle::customBuiltin() const { return m_cellStyleNode->attrib
 /**
  * @details Setter functions
  */
-bool XLCellStyle::setName(std::string newName) { return appendAndSetAttribute(*m_cellStyleNode, "name", newName).empty() == false; }
+bool XLCellStyle::setName(std::string_view newName) { return appendAndSetAttribute(*m_cellStyleNode, "name", std::string(newName)).empty() == false; }
 bool XLCellStyle::setXfId(XLStyleIndex newXfId)
 { return appendAndSetAttribute(*m_cellStyleNode, "xfId", std::to_string(newXfId)).empty() == false; }
 bool XLCellStyle::setBuiltinId(uint32_t newBuiltinId)
@@ -161,7 +161,7 @@ XLCellStyle XLCellStyles::cellStyleByIndex(XLStyleIndex index) const
 /**
  * @details append a new XLCellStyle to m_cellStyles and m_cellStyleNode, based on copyFrom
  */
-XLStyleIndex XLCellStyles::create(XLCellStyle copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLCellStyles::create(XLCellStyle copyFrom, std::string_view styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the cell style to be created
     XMLNode      newNode{};          // scope declaration
@@ -178,7 +178,7 @@ XLStyleIndex XLCellStyles::create(XLCellStyle copyFrom, std::string styleEntries
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
         m_cellStylesNode->insert_child_before(pugi::node_pcdata, newNode)
-            .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
+            .set_value(std::string(styleEntriesPrefix).c_str());    // prefix the new node with styleEntriesPrefix
 
     XLCellStyle newCellStyle(newNode);
     if (copyFrom.m_cellStyleNode->empty()) {    // if no template is given

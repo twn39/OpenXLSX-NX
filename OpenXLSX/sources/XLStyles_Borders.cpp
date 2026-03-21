@@ -315,7 +315,7 @@ XLBorder XLBorders::borderByIndex(XLStyleIndex index) const
 /**
  * @details append a new XLBorder to m_borders and m_bordersNode, based on copyFrom
  */
-XLStyleIndex XLBorders::create(XLBorder copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLBorders::create(XLBorder copyFrom, std::string_view styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the border to be created
     XMLNode      newNode{};          // scope declaration
@@ -332,7 +332,7 @@ XLStyleIndex XLBorders::create(XLBorder copyFrom, std::string styleEntriesPrefix
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
         m_bordersNode->insert_child_before(pugi::node_pcdata, newNode)
-            .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
+            .set_value(std::string(styleEntriesPrefix).c_str());    // prefix the new node with styleEntriesPrefix
 
     XLBorder newBorder(newNode);
     if (copyFrom.m_borderNode->empty()) {    // if no template is given

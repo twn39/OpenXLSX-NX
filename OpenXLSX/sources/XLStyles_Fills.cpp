@@ -275,7 +275,7 @@ XLGradientStop XLGradientStops::stopByIndex(XLStyleIndex index) const
 /**
  * @details append a new XLGradientStop to m_gradientStops m_gradientNode, based on copyFrom
  */
-XLStyleIndex XLGradientStops::create(XLGradientStop copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLGradientStops::create(XLGradientStop copyFrom, std::string_view styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the gradient stop to be created
     XMLNode      newNode{};          // scope declaration
@@ -292,7 +292,7 @@ XLStyleIndex XLGradientStops::create(XLGradientStop copyFrom, std::string styleE
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
         m_gradientNode->insert_child_before(pugi::node_pcdata, newNode)
-            .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
+            .set_value(std::string(styleEntriesPrefix).c_str());    // prefix the new node with styleEntriesPrefix
 
     XLGradientStop newStop(newNode);
     if (copyFrom.m_stopNode->empty()) {    // if no template is given
@@ -601,7 +601,7 @@ XLFill XLFills::fillByIndex(XLStyleIndex index) const
 /**
  * @details append a new XLFill to m_fills and m_fillsNode, based on copyFrom
  */
-XLStyleIndex XLFills::create(XLFill copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLFills::create(XLFill copyFrom, std::string_view styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the fill to be created
     XMLNode      newNode{};          // scope declaration
@@ -618,7 +618,7 @@ XLStyleIndex XLFills::create(XLFill copyFrom, std::string styleEntriesPrefix)
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
         m_fillsNode->insert_child_before(pugi::node_pcdata, newNode)
-            .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
+            .set_value(std::string(styleEntriesPrefix).c_str());    // prefix the new node with styleEntriesPrefix
 
     XLFill newFill(newNode);
     if (copyFrom.m_fillNode->empty()) {    // if no template is given

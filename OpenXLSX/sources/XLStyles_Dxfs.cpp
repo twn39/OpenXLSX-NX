@@ -221,7 +221,7 @@ XLDxf XLDxfs::dxfByIndex(XLStyleIndex index) const
 /**
  * @details append a new XLDxf to m_dxfs and m_dxfsNode, based on copyFrom
  */
-XLStyleIndex XLDxfs::create(XLDxf copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLDxfs::create(XLDxf copyFrom, std::string_view styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the cell style to be created
     XMLNode      newNode{};          // scope declaration
@@ -238,7 +238,7 @@ XLStyleIndex XLDxfs::create(XLDxf copyFrom, std::string styleEntriesPrefix)
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
         m_dxfsNode.insert_child_before(pugi::node_pcdata, newNode)
-            .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
+            .set_value(std::string(styleEntriesPrefix).c_str());    // prefix the new node with styleEntriesPrefix
 
     XLDxf newDxf(newNode);
     if (copyFrom.node().empty()) {    // if no template is given

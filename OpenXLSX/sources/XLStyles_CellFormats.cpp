@@ -415,7 +415,7 @@ XLCellFormat XLCellFormats::cellFormatByIndex(XLStyleIndex index) const
 /**
  * @details append a new XLCellFormat to m_cellFormats and m_cellFormatsNode, based on copyFrom
  */
-XLStyleIndex XLCellFormats::create(XLCellFormat copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLCellFormats::create(XLCellFormat copyFrom, std::string_view styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the cell format to be created
     XMLNode      newNode{};          // scope declaration
@@ -432,7 +432,7 @@ XLStyleIndex XLCellFormats::create(XLCellFormat copyFrom, std::string styleEntri
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
         m_cellFormatsNode->insert_child_before(pugi::node_pcdata, newNode)
-            .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
+            .set_value(std::string(styleEntriesPrefix).c_str());    // prefix the new node with styleEntriesPrefix
 
     XLCellFormat newCellFormat(newNode, m_permitXfId);
     if (copyFrom.m_cellFormatNode->empty()) {    // if no template is given

@@ -153,8 +153,8 @@ bool XLFont::extend() const { return getBoolAttributeWhenOmittedMeansTrue(*m_fon
 /**
  * @details Setter functions
  */
-bool XLFont::setFontName(std::string newName)
-{ return appendAndSetNodeAttribute(*m_fontNode, "name", "val", newName.c_str()).empty() == false; }
+bool XLFont::setFontName(std::string_view newName)
+{ return appendAndSetNodeAttribute(*m_fontNode, "name", "val", std::string(newName).c_str()).empty() == false; }
 bool XLFont::setFontCharset(size_t newCharset)
 { return appendAndSetNodeAttribute(*m_fontNode, "charset", "val", std::to_string(newCharset)).empty() == false; }
 bool XLFont::setFontFamily(size_t newFamily)
@@ -271,7 +271,7 @@ XLFont XLFonts::fontByIndex(XLStyleIndex index) const
 /**
  * @details append a new XLFont to m_fonts and m_fontsNode, based on copyFrom
  */
-XLStyleIndex XLFonts::create(XLFont copyFrom, std::string styleEntriesPrefix)
+XLStyleIndex XLFonts::create(XLFont copyFrom, std::string_view styleEntriesPrefix)
 {
     XLStyleIndex index = count();    // index for the font to be created
     XMLNode      newNode{};          // scope declaration
@@ -288,7 +288,7 @@ XLStyleIndex XLFonts::create(XLFont copyFrom, std::string styleEntriesPrefix)
     }
     if (styleEntriesPrefix.length() > 0)    // if a whitespace prefix is configured
         m_fontsNode->insert_child_before(pugi::node_pcdata, newNode)
-            .set_value(styleEntriesPrefix.c_str());    // prefix the new node with styleEntriesPrefix
+            .set_value(std::string(styleEntriesPrefix).c_str());    // prefix the new node with styleEntriesPrefix
 
     XLFont newFont(newNode);
     if (copyFrom.m_fontNode->empty()) {    // if no template is given
