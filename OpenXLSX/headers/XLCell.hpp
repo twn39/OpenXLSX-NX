@@ -42,17 +42,15 @@ namespace OpenXLSX
         friend bool operator!=(const XLCell& lhs, const XLCell& rhs);
 
     public:
-        //---------- Public Member Functions ----------//
-
-        /**
+/**
          * @brief Default constructor. Constructs a null object.
          */
         XLCell();
 
         /**
-         * @brief
-         * @param cellNode
-         * @param sharedStrings
+         * @brief Constructs an XLCell mapped to an XML node.
+         * @param cellNode The underlying XML node representing the cell.
+         * @param sharedStrings Reference to the workbook's shared strings table.
          */
         XLCell(const XMLNode& cellNode, const XLSharedStrings& sharedStrings);
 
@@ -121,14 +119,14 @@ namespace OpenXLSX
         void clear(uint32_t keep);
 
         /**
-         * @brief
-         * @return
+         * @brief Retrieves the mutable value proxy for the cell.
+         * @return Reference to the XLCellValueProxy.
          */
         XLCellValueProxy& value();
 
         /**
-         * @brief
-         * @return
+         * @brief Retrieves the read-only value proxy for the cell.
+         * @return Const reference to the XLCellValueProxy.
          */
         const XLCellValueProxy& value() const;
 
@@ -151,19 +149,18 @@ namespace OpenXLSX
         bool hasFormula() const;
 
         /**
-         * @brief
-         * @return
+         * @brief Retrieves the mutable formula proxy for the cell.
+         * @return Reference to the XLFormulaProxy.
          */
         XLFormulaProxy& formula();
 
         /**
-         * @brief
-         * @return
+         * @brief Retrieves the read-only formula proxy for the cell.
+         * @return Const reference to the XLFormulaProxy.
          */
         const XLFormulaProxy& formula() const;
 
         /**
-         * @brief
          */
         std::string getString() const { return value().getString(); }
 
@@ -188,15 +185,12 @@ namespace OpenXLSX
 
     private:
         /**
-         * @brief
          * @param lhs
          * @param rhs
          * @return
          */
         static bool isEqual(const XLCell& lhs, const XLCell& rhs);
-
-        //---------- Private Member Variables ---------- //
-        std::unique_ptr<XMLNode> m_cellNode;      /**< A pointer to the root XMLNode for the cell. */
+std::unique_ptr<XMLNode> m_cellNode;      /**< A pointer to the root XMLNode for the cell. */
         XLSharedStringsRef       m_sharedStrings; /**< */
         XLCellValueProxy         m_valueProxy;    /**< */
         XLFormulaProxy           m_formulaProxy;  /**< */
@@ -223,15 +217,6 @@ namespace OpenXLSX
          */
         XLCellAssignable(XLCell&& other);
         XLCellAssignable(XLCellAssignable&& other) noexcept;
-
-        // /**
-        //  * @brief Inherit all constructors with parameters from XLCell
-        //  */
-        // template<class base>
-        // // explicit XLCellAssignable(base b) : XLCell(b)
-        // // NOTE: BUG: explicit keyword triggers tons of compiler errors when << operator attempts to use an XLCell (implicit conversion
-        // works because << is overloaded for XLCellAssignable) XLCellAssignable(base b) : XLCell(b)
-        // {}
 
         /**
          * @brief Copy assignment operator
@@ -273,16 +258,14 @@ namespace OpenXLSX
 namespace OpenXLSX
 {
     /**
-     * @brief
-     * @param lhs
+         * @param lhs
      * @param rhs
      * @return
      */
     inline bool operator==(const XLCell& lhs, const XLCell& rhs) { return XLCell::isEqual(lhs, rhs); }
 
     /**
-     * @brief
-     * @param lhs
+         * @param lhs
      * @param rhs
      * @return
      */

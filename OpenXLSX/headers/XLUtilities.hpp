@@ -213,6 +213,13 @@ namespace OpenXLSX
                 return "CalculationChain";
             case XLContentType::VBAProject:
                 return "VBAProject";
+            case XLContentType::PivotTable:
+                return "PivotTable";
+            case XLContentType::PivotCacheDefinition:
+                return "PivotCacheDefinition";
+            case XLContentType::PivotCacheRecords:
+                return "PivotCacheRecords";
+
             case XLContentType::CoreProperties:
                 return "CoreProperties";
             case XLContentType::ExtendedProperties:
@@ -286,6 +293,13 @@ namespace OpenXLSX
                 return "PrinterSettings";
             case XLRelationshipType::VBAProject:
                 return "VBAProject";
+            case XLRelationshipType::PivotTable:
+                return "PivotTable";
+            case XLRelationshipType::PivotCacheDefinition:
+                return "PivotCacheDefinition";
+            case XLRelationshipType::PivotCacheRecords:
+                return "PivotCacheRecords";
+
             case XLRelationshipType::ControlProperties:
                 return "ControlProperties";
             case XLRelationshipType::Comments:
