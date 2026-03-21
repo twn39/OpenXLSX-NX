@@ -28,7 +28,10 @@ namespace OpenXLSX
         Area3D,
         Area3DStacked,
         Area3DPercentStacked,
-        Doughnut
+        Doughnut,
+        Radar,
+        RadarFilled,
+        RadarMarkers
     };
 
     enum class XLLegendPosition {

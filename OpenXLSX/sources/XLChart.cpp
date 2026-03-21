@@ -98,6 +98,17 @@ namespace OpenXLSX
                     chartNode.append_child("c:holeSize").append_attribute("val").set_value("75");
                     hasAxes = false;
                     break;
+                case XLChartType::Radar:
+                case XLChartType::RadarFilled:
+                case XLChartType::RadarMarkers:
+                    chartNode = plotArea.append_child("c:radarChart");
+                    if (type == XLChartType::RadarFilled)
+                        chartNode.append_child("c:radarStyle").append_attribute("val").set_value("filled");
+                    else if (type == XLChartType::RadarMarkers)
+                        chartNode.append_child("c:radarStyle").append_attribute("val").set_value("marker");
+                    else
+                        chartNode.append_child("c:radarStyle").append_attribute("val").set_value("standard");
+                    break;
                 case XLChartType::Bar:
                 case XLChartType::BarStacked:
                 case XLChartType::BarPercentStacked:

@@ -449,6 +449,50 @@ TEST_CASE("Advanced Chart Visual Elements", "[XLChart][OOXML]")
         }
     }
 
+
+    SECTION("Radar Chart Variants")
+    {
+        std::map<XLChartType, std::string> chartNames = {
+            {XLChartType::Radar, "c:radarChart"},
+            {XLChartType::RadarFilled, "c:radarChart"},
+            {XLChartType::RadarMarkers, "c:radarChart"}
+        };
+
+        for (auto const& [enumPos, xmlVal] : chartNames) {
+            {
+                XLDocument doc;
+                doc.create(filename, XLForceOverwrite);
+                auto wks = doc.workbook().worksheet("Sheet1");
+                auto chart = wks.addChart(enumPos, "Chart", 1, 1, 400, 300);
+                chart.addSeries("Sheet1!$B$2:$B$5", "Title", "Sheet1!$A$2:$A$5");
+                
+                doc.save();
+                doc.close();
+            }
+
+            {
+                XLChartAdvTestDoc testDoc;
+                testDoc.open(filename);
+                std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
+
+                // verify base tag exists
+                REQUIRE(chartXml.find("<" + xmlVal + ">") != std::string::npos);
+                
+                // verify radar style attributes
+                if (enumPos == XLChartType::Radar) {
+                    REQUIRE((chartXml.find("<c:radarStyle val=\"standard\"/>") != std::string::npos || chartXml.find("<c:radarStyle val=\"standard\" />") != std::string::npos));
+                } else if (enumPos == XLChartType::RadarFilled) {
+                    REQUIRE((chartXml.find("<c:radarStyle val=\"filled\"/>") != std::string::npos || chartXml.find("<c:radarStyle val=\"filled\" />") != std::string::npos));
+                } else if (enumPos == XLChartType::RadarMarkers) {
+                    REQUIRE((chartXml.find("<c:radarStyle val=\"marker\"/>") != std::string::npos || chartXml.find("<c:radarStyle val=\"marker\" />") != std::string::npos));
+                }
+                
+                testDoc.close();
+            }
+            std::filesystem::remove(filename);
+        }
+    }
+
     SECTION("Hide Legend Functionality")
     {
         {
