@@ -493,6 +493,67 @@ TEST_CASE("Advanced Chart Visual Elements", "[XLChart][OOXML]")
         }
     }
 
+
+    SECTION("Chart Series Smooth Line and Marker Styles")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            auto chart = wks.addChart(XLChartType::Scatter, "Scatter", 1, 1, 400, 300);
+            
+            chart.addSeries("Sheet1!$B$2:$B$5", "Series1", "Sheet1!$A$2:$A$5");
+            chart.addSeries("Sheet1!$C$2:$C$5", "Series2", "Sheet1!$A$2:$A$5");
+            
+            // Series 0: Smooth = true, Marker = None
+            chart.setSeriesSmooth(0, true);
+            chart.setSeriesMarker(0, XLMarkerStyle::None);
+
+            // Series 1: Marker = Triangle (leave smooth default false)
+            chart.setSeriesMarker(1, XLMarkerStyle::Triangle);
+            
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLChartAdvTestDoc testDoc;
+            testDoc.open(filename);
+            std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
+
+            // Look for both series
+            size_t ser0Pos = chartXml.find("<c:ser><c:idx val=\"0\"/>");
+            if (ser0Pos == std::string::npos) ser0Pos = chartXml.find("<c:ser>\n<c:idx val=\"0\" />");
+            if (ser0Pos == std::string::npos) ser0Pos = chartXml.find("<c:idx val=\"0\" />");
+
+            size_t ser1Pos = chartXml.find("<c:idx val=\"1\"");
+
+            REQUIRE(ser0Pos != std::string::npos);
+            REQUIRE(ser1Pos != std::string::npos);
+
+            std::string ser0Block = chartXml.substr(ser0Pos, ser1Pos - ser0Pos);
+            std::string ser1Block = chartXml.substr(ser1Pos);
+
+            // Verify Series 0
+            REQUIRE((ser0Block.find("<c:smooth val=\"1\"/>") != std::string::npos || ser0Block.find("<c:smooth val=\"1\" />") != std::string::npos));
+            REQUIRE((ser0Block.find("<c:symbol val=\"none\"/>") != std::string::npos || ser0Block.find("<c:symbol val=\"none\" />") != std::string::npos));
+            
+            // Verify Series 0 OOXML compliance (marker before val/yVal, smooth after val/yVal)
+            size_t marker0 = ser0Block.find("<c:marker");
+            size_t yVal0   = ser0Block.find("<c:yVal>");
+            size_t smooth0 = ser0Block.find("<c:smooth");
+            REQUIRE(marker0 < yVal0);
+            REQUIRE(yVal0 < smooth0);
+
+            // Verify Series 1
+            REQUIRE((ser1Block.find("<c:symbol val=\"triangle\"/>") != std::string::npos || ser1Block.find("<c:symbol val=\"triangle\" />") != std::string::npos));
+            REQUIRE(ser1Block.find("<c:smooth") == std::string::npos);
+            
+            testDoc.close();
+        }
+        std::filesystem::remove(filename);
+    }
+
     SECTION("Hide Legend Functionality")
     {
         {

@@ -43,6 +43,22 @@ namespace OpenXLSX
         Hidden
     };
 
+
+    enum class XLMarkerStyle {
+        None,
+        Circle,
+        Dash,
+        Diamond,
+        Dot,
+        Picture,
+        Plus,
+        Square,
+        Star,
+        Triangle,
+        X,
+        Default
+    };
+
     /**
      * @brief The XLChart class represents an Excel chart XML file.
      */
@@ -151,6 +167,21 @@ namespace OpenXLSX
          * @param showPercent Whether to show the percentage (useful for Pie/Doughnut charts).
          */
         void setShowDataLabels(bool showValue, bool showCategory = false, bool showPercent = false);
+
+        /**
+         * @brief Set whether a specific series should be rendered with a smooth line.
+         * @param seriesIndex The zero-based index of the series.
+         * @param smooth True to enable smooth lines, false otherwise.
+         */
+        void setSeriesSmooth(uint32_t seriesIndex, bool smooth);
+
+        /**
+         * @brief Set the marker style for a specific series.
+         * @param seriesIndex The zero-based index of the series.
+         * @param style The marker style to apply.
+         */
+        void setSeriesMarker(uint32_t seriesIndex, XLMarkerStyle style);
+
 
 
     private:

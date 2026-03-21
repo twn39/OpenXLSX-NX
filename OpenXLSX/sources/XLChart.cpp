@@ -483,3 +483,59 @@ namespace OpenXLSX
     XLAxis XLChart::xAxis() const { return axis("b"); }
     XLAxis XLChart::yAxis() const { return axis("l"); }
 
+
+
+    static const std::vector<std::string_view> XLSeriesNodeOrder = {
+        "c:idx", "c:order", "c:tx", "c:spPr", "c:marker", "c:dPt", "c:dLbls", 
+        "c:trendline", "c:errBars", "c:xVal", "c:yVal", "c:cat", "c:val", "c:smooth", "c:extLst"
+    };
+
+    XMLNode getSeriesNode(const XMLDocument& doc, uint32_t seriesIndex) {
+        XMLNode chartNode = getChartNode(doc);
+        if (chartNode.empty()) return XMLNode();
+        uint32_t current = 0;
+        for (auto child : chartNode.children("c:ser")) {
+            if (current == seriesIndex) return child;
+            current++;
+        }
+        return XMLNode();
+    }
+
+    void XLChart::setSeriesSmooth(uint32_t seriesIndex, bool smooth) {
+        XMLNode serNode = getSeriesNode(xmlDocument(), seriesIndex);
+        if (serNode.empty()) return;
+
+        XMLNode smoothNode = appendAndGetNode(serNode, "c:smooth", XLSeriesNodeOrder);
+        smoothNode.attribute("val") ? smoothNode.attribute("val").set_value(smooth ? "1" : "0") : smoothNode.append_attribute("val").set_value(smooth ? "1" : "0");
+    }
+
+    void XLChart::setSeriesMarker(uint32_t seriesIndex, XLMarkerStyle style) {
+        XMLNode serNode = getSeriesNode(xmlDocument(), seriesIndex);
+        if (serNode.empty()) return;
+
+        if (style == XLMarkerStyle::Default) {
+            serNode.remove_child("c:marker");
+            return;
+        }
+
+        XMLNode markerNode = appendAndGetNode(serNode, "c:marker", XLSeriesNodeOrder);
+        XMLNode symbolNode = markerNode.child("c:symbol");
+        if (symbolNode.empty()) symbolNode = markerNode.append_child("c:symbol");
+
+        std::string val = "none";
+        switch (style) {
+            case XLMarkerStyle::Circle: val = "circle"; break;
+            case XLMarkerStyle::Dash: val = "dash"; break;
+            case XLMarkerStyle::Diamond: val = "diamond"; break;
+            case XLMarkerStyle::Dot: val = "dot"; break;
+            case XLMarkerStyle::Picture: val = "picture"; break;
+            case XLMarkerStyle::Plus: val = "plus"; break;
+            case XLMarkerStyle::Square: val = "square"; break;
+            case XLMarkerStyle::Star: val = "star"; break;
+            case XLMarkerStyle::Triangle: val = "triangle"; break;
+            case XLMarkerStyle::X: val = "x"; break;
+            case XLMarkerStyle::None:
+            default: val = "none"; break;
+        }
+        symbolNode.attribute("val") ? symbolNode.attribute("val").set_value(val.c_str()) : symbolNode.append_attribute("val").set_value(val.c_str());
+    }
