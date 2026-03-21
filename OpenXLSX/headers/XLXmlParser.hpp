@@ -40,7 +40,7 @@ namespace OpenXLSX
      * Affected XMLNode methods: ::set_name, ::append_child, ::prepend_child, ::insert_child_after, ::insert_child_before
      */
 
-    extern bool NO_XML_NS;    // defined in XLXmlParser.cpp - default: no XML namespaces
+    extern thread_local bool NO_XML_NS;    // defined in XLXmlParser.cpp - default: no XML namespaces
     /**
      * @brief Set NO_XML_NS to false
      * @return true if PUGI_AUGMENTED is defined (success), false if PUGI_AUGMENTED is not in use (function would be pointless)
