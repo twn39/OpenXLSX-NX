@@ -144,8 +144,27 @@ XLCellRange XLWorksheet::range(std::string const& topLeft, std::string const& bo
 XLCellRange XLWorksheet::range(std::string const& rangeReference) const
 {
     size_t pos = rangeReference.find_first_of(':');
-    return range(rangeReference.substr(0, pos), rangeReference.substr(pos + 1, std::string::npos));
+    if (pos == std::string::npos) {
+        return range(rangeReference, rangeReference);
+    }
+    std::string topLeft = rangeReference.substr(0, pos);
+    std::string bottomRight = rangeReference.substr(pos + 1);
+
+    bool topIsCol = std::all_of(topLeft.begin(), topLeft.end(), [](unsigned char c){ return std::isalpha(c); });
+    bool bottomIsCol = std::all_of(bottomRight.begin(), bottomRight.end(), [](unsigned char c){ return std::isalpha(c); });
+    if (topIsCol && bottomIsCol) {
+        return range(topLeft + "1", bottomRight + std::to_string(OpenXLSX::MAX_ROWS));
+    }
+
+    bool topIsRow = std::all_of(topLeft.begin(), topLeft.end(), [](unsigned char c){ return std::isdigit(c); });
+    bool bottomIsRow = std::all_of(bottomRight.begin(), bottomRight.end(), [](unsigned char c){ return std::isdigit(c); });
+    if (topIsRow && bottomIsRow) {
+        return range("A" + topLeft, XLCellReference::columnAsString(OpenXLSX::MAX_COLS) + bottomRight);
+    }
+
+    return range(topLeft, bottomRight);
 }
+
 
 XLRowRange XLWorksheet::rows() const
 {
@@ -163,6 +182,12 @@ XLRowRange XLWorksheet::rows(uint32_t rowCount) const
 
 XLRowRange XLWorksheet::rows(uint32_t firstRow, uint32_t lastRow) const
 { return XLRowRange(xmlDocument().document_element().child("sheetData"), firstRow, lastRow, parentDoc().sharedStrings()); }
+
+void XLWorksheet::appendRow(const std::vector<XLCellValue>& values)
+{
+    row(rowCount() + 1).values() = values;
+}
+
 
 XLRow XLWorksheet::row(uint32_t rowNumber) const
 { return XLRow{getRowNode(xmlDocument().document_element().child("sheetData"), rowNumber), parentDoc().sharedStrings()}; }
@@ -362,4 +387,14 @@ uint16_t XLWorksheet::sheetXmlNumber() const
     while (std::isdigit(xmlPath[pos2])) ++pos2;
     if (pos2 == pos or xmlPath.substr(pos2) != ".xml") return 0;
     return static_cast<uint16_t>(std::stoi(xmlPath.substr(pos, pos2 - pos)));
+}
+
+std::optional<XLCell> XLWorksheet::peekCell(const std::string& ref) const { return peekCell(XLCellReference(ref)); }
+std::optional<XLCell> XLWorksheet::peekCell(const XLCellReference& ref) const { return peekCell(ref.row(), ref.column()); }
+
+std::optional<XLCell> XLWorksheet::peekCell(uint32_t rowNumber, uint16_t columnNumber) const
+{
+    XMLNode cellNode = findCellNode(findRowNode(xmlDocument().document_element().child("sheetData"), rowNumber), columnNumber);
+    if (!cellNode) return std::nullopt;
+    return XLCell(cellNode, parentDoc().sharedStrings());
 }

@@ -542,3 +542,93 @@ TEST_CASE("XLSheet Tests", "[XLSheet]")
         }
 
 }
+TEST_CASE("Worksheet Slicing and Batch Insertion API", "[XLWorksheet][Range][Row]")
+{
+    std::string filename = "test_worksheet_slicing.xlsx";
+
+    SECTION("appendRow and range slicing")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            // Batch insert using initializer list (implicitly converted to std::vector<XLCellValue>)
+            wks.appendRow({1, "Alice", 95.5});
+            wks.appendRow({2, "Bob", 88.0});
+
+            // Standard vector
+            std::vector<XLCellValue> row3 = {3, "Charlie", 76.5};
+            wks.appendRow(row3);
+
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLDocument doc;
+            doc.open(filename);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            REQUIRE(wks.rowCount() == 3);
+            REQUIRE(wks.cell("A1").value().get<int>() == 1);
+            REQUIRE(wks.cell("B1").value().get<std::string>() == "Alice");
+            REQUIRE(wks.cell("C1").value().get<double>() == Catch::Approx(95.5));
+
+            // Test string slice parsing
+            auto rng1 = wks.range("A1");
+            REQUIRE(rng1.address() == "A1:A1");
+
+            auto rng2 = wks.range("A:C");
+            REQUIRE(rng2.address() == "A1:C1048576");
+
+            auto rng3 = wks.range("1:10");
+            REQUIRE(rng3.address() == "A1:XFD10");
+
+            auto rng4 = wks.range("B2:D5");
+            REQUIRE(rng4.address() == "B2:D5");
+        }
+    }
+}
+
+TEST_CASE("Worksheet Peek API", "[XLWorksheet][Peek]")
+{
+    std::string filename = "test_worksheet_peek.xlsx";
+
+    SECTION("peekCell prevents implicit node creation")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            // Explicitly set B2
+            wks.cell("B2").value() = "Hello";
+
+            // Peek B2 - should exist
+            auto c1 = wks.peekCell("B2");
+            REQUIRE(c1.has_value());
+            REQUIRE(c1->value().get<std::string>() == "Hello");
+
+            // Peek A1 - should NOT exist
+            auto c2 = wks.peekCell("A1");
+            REQUIRE(!c2.has_value());
+
+            // Since we only peeked A1, row 1 should still not exist in XML!
+            REQUIRE(wks.rowCount() == 2); // Row 2 was created for B2
+            
+            // Validate that row 1 was never created by peekCell
+            // We can check this by counting actual rows
+            uint32_t actualRows = 0;
+            for (auto row : wks.rows()) {
+                if (row.cells().begin() != row.cells().end()) {
+                    actualRows++;
+                }
+            }
+            REQUIRE(actualRows == 1); // Only row 2 exists
+
+            doc.save();
+            doc.close();
+        }
+    }
+}

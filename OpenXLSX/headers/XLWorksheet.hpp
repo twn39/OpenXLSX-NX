@@ -1,3 +1,5 @@
+#include <optional>
+
 #ifndef OPENXLSX_XLWORKSHEET_HPP
 #define OPENXLSX_XLWORKSHEET_HPP
 
@@ -101,6 +103,11 @@ namespace OpenXLSX
         XLCellAssignable findCell(const XLCellReference& ref) const;
         XLCellAssignable findCell(uint32_t rowNumber, uint16_t columnNumber) const;
 
+        std::optional<XLCell> peekCell(const std::string& ref) const;
+        std::optional<XLCell> peekCell(const XLCellReference& ref) const;
+        std::optional<XLCell> peekCell(uint32_t rowNumber, uint16_t columnNumber) const;
+
+
         XLCellRange range() const;
         XLCellRange range(const XLCellReference& topLeft, const XLCellReference& bottomRight) const;
         XLCellRange range(std::string const& topLeft, std::string const& bottomRight) const;
@@ -111,6 +118,28 @@ namespace OpenXLSX
         XLRowRange rows(uint32_t firstRow, uint32_t lastRow) const;
 
         XLRow row(uint32_t rowNumber) const;
+
+        /**
+         * @brief Append a new row with the given values.
+         * @param values A vector of XLCellValue items.
+         */
+        void appendRow(const std::vector<XLCellValue>& values);
+
+        /**
+         * @brief Append a new row with the given container of values.
+         * @tparam T A container type.
+         * @param values The container of values.
+         */
+        template<typename T,
+                 typename = std::enable_if_t<!std::is_same_v<T, std::vector<XLCellValue>> &&
+                                                 std::is_base_of_v<std::bidirectional_iterator_tag,
+                                                                   typename std::iterator_traits<typename T::iterator>::iterator_category>,
+                                             T>>
+        void appendRow(const T& values)
+        {
+            row(rowCount() + 1).values() = values;
+        }
+
         XLColumn column(uint16_t columnNumber) const;
         XLColumn column(std::string const& columnRef) const;
 
