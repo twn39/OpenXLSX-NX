@@ -273,3 +273,12 @@ XLChart XLWorksheet::addChart(XLChartType type, const XLChartAnchor& anchor)
 
     return chart;
 }
+
+void XLWorksheet::addComment(const std::string& cellRef, const std::string& text, const std::string& author)
+{
+    if (!author.empty()) {
+        comments().set(cellRef, text, author);
+    } else {
+        comments().set(cellRef, text, static_cast<uint16_t>(0));
+    }
+}

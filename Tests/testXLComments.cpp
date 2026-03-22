@@ -186,3 +186,28 @@ TEST_CASE("XLComments Tests", "[XLComments]")
         doc.close();
     }
 }
+
+TEST_CASE("Comments Fluent and Worksheet DX", "[XLComments][Fluent]")
+{
+    const std::string filename = "CommentsFluentDXTest.xlsx";
+
+    SECTION("addComment helper on Worksheet")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            // DX feature 1: Add a comment directly from worksheet without querying the comments object first
+            wks.addComment("A1", "My simple comment", "Reviewer");
+
+            // Verify
+            REQUIRE(wks.hasComments() == true);
+            REQUIRE(wks.comments().get("A1") == "My simple comment");
+            REQUIRE(wks.comments().authorId("A1") == 0);
+
+            doc.save();
+            doc.close();
+        }
+    }
+}

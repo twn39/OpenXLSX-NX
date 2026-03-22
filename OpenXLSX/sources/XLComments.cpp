@@ -93,15 +93,16 @@ std::string XLComment::ref() const { return m_commentNode.attribute("ref").value
 std::string XLComment::text() const { return getCommentString(m_commentNode); }
 XLRichText  XLComment::richText() const { return parseRichText(m_commentNode); }
 uint16_t    XLComment::authorId() const { return gsl::narrow_cast<uint16_t>(m_commentNode.attribute("authorId").as_uint()); }
-bool XLComment::setText(const std::string& newText)
+XLComment& XLComment::setText(const std::string& newText)
 {
     m_commentNode.remove_child("text");
     XMLNode tNode = m_commentNode.append_child("text").append_child("t");
     tNode.append_attribute("xml:space").set_value("preserve");
-    return tNode.text().set(newText.c_str());
+    tNode.text().set(newText.c_str());
+    return *this;
 }
 
-bool XLComment::setRichText(const XLRichText& richText)
+XLComment& XLComment::setRichText(const XLRichText& richText)
 {
     m_commentNode.remove_child("text");
     XMLNode textNode = m_commentNode.append_child("text");
@@ -139,10 +140,10 @@ bool XLComment::setRichText(const XLRichText& richText)
             tNode.append_attribute("xml:space").set_value("preserve");
         }
     }
-    return true;
+    return *this;
 }
-bool XLComment::setAuthorId(uint16_t newAuthorId)
-{ return appendAndSetAttribute(m_commentNode, "authorId", std::to_string(newAuthorId)).empty() == false; }
+XLComment& XLComment::setAuthorId(uint16_t newAuthorId)
+{ appendAndSetAttribute(m_commentNode, "authorId", std::to_string(newAuthorId)); return *this; }
 
 
 XLComments::XLComments() : XLXmlFile(nullptr), m_vmlDrawing() {}

@@ -67,9 +67,9 @@ namespace OpenXLSX
         std::string text() const;
         XLRichText  richText() const;
         uint16_t    authorId() const;
-        bool setText(const std::string& newText);
-        bool setRichText(const XLRichText& richText);
-        bool setAuthorId(uint16_t newAuthorId);
+        XLComment& setText(const std::string& newText);
+        XLComment& setRichText(const XLRichText& richText);
+        XLComment& setAuthorId(uint16_t newAuthorId);
 
         // /**
         //  * @brief Return a string summary of the comment properties

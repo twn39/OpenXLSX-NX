@@ -302,6 +302,14 @@ namespace OpenXLSX
 
         XLVmlDrawing& vmlDrawing();
         XLComments& comments();
+        /**
+         * @brief Add a comment to a cell seamlessly.
+         * @param cellRef The cell reference (e.g. A1).
+         * @param text The comment text.
+         * @param author The author of the comment.
+         */
+        void addComment(const std::string& cellRef, const std::string& text, const std::string& author = "");
+
         XLTableCollection& tables();
 
         void addHyperlink(std::string_view cellRef, std::string_view url, std::string_view tooltip = "");
