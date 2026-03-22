@@ -25,6 +25,7 @@
 #include "XLPageSetup.hpp"
 #include "XLChart.hpp"
 #include "XLStreamWriter.hpp"
+#include "XLStreamReader.hpp"
 #include "XLPivotTable.hpp"
 
 namespace OpenXLSX
@@ -108,6 +109,12 @@ namespace OpenXLSX
          * @warning Initiating a stream writer locks the DOM for this sheet.
          */
         XLStreamWriter streamWriter();
+
+        /**
+         * @brief Create a stream reader for memory efficient reading of large documents
+         * @return An XLStreamReader object.
+         */
+        XLStreamReader streamReader() const;
 
 
         XLCellAssignable findCell(const std::string& ref) const;

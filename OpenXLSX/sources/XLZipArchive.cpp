@@ -196,6 +196,25 @@ std::string XLZipArchive::getEntry(std::string_view name) const
     return result;
 }
 
+void* XLZipArchive::openEntryStream(std::string_view name) const
+{
+    if (!isOpen()) throw XLInternalError("Archive not open");
+    zip_file_t* f = zip_fopen(m_archive->archive, std::string(name).c_str(), 0);
+    if (!f) throw XLInternalError("Failed to open entry stream: " + std::string(name));
+    return f;
+}
+
+int64_t XLZipArchive::readEntryStream(void* stream, char* buffer, uint64_t size) const
+{
+    if (!stream) return -1;
+    return zip_fread(static_cast<zip_file_t*>(stream), buffer, size);
+}
+
+void XLZipArchive::closeEntryStream(void* stream) const
+{
+    if (stream) zip_fclose(static_cast<zip_file_t*>(stream));
+}
+
 bool XLZipArchive::hasEntry(std::string_view entryName) const
 {
     if (!isOpen()) return false;

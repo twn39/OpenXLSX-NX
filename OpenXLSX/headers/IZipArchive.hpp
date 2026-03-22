@@ -115,6 +115,10 @@ namespace OpenXLSX
 
         inline std::string getEntry(const std::string& name) const { return m_zipArchive->getEntry(name); }
 
+        inline void* openEntryStream(std::string_view name) const { return m_zipArchive->openEntryStream(name); }
+        inline int64_t readEntryStream(void* stream, char* buffer, uint64_t size) const { return m_zipArchive->readEntryStream(stream, buffer, size); }
+        inline void closeEntryStream(void* stream) const { m_zipArchive->closeEntryStream(stream); }
+
         inline bool hasEntry(const std::string& entryName) const { return m_zipArchive->hasEntry(entryName); }
 
         inline std::vector<std::string> entryNames() const { return m_zipArchive->entryNames(); }
@@ -182,6 +186,10 @@ namespace OpenXLSX
             inline virtual void deleteEntry(const std::string& entryName) = 0;
 
             inline virtual std::string getEntry(const std::string& name) const = 0;
+
+            inline virtual void* openEntryStream(std::string_view name) const = 0;
+            inline virtual int64_t readEntryStream(void* stream, char* buffer, uint64_t size) const = 0;
+            inline virtual void closeEntryStream(void* stream) const = 0;
 
             inline virtual bool hasEntry(const std::string& entryName) const = 0;
 
@@ -257,6 +265,10 @@ namespace OpenXLSX
             inline void deleteEntry(const std::string& entryName) override { ZipType.deleteEntry(entryName); }
 
             inline std::string getEntry(const std::string& name) const override { return ZipType.getEntry(name); }
+
+            inline void* openEntryStream(std::string_view name) const override { return ZipType.openEntryStream(name); }
+            inline int64_t readEntryStream(void* stream, char* buffer, uint64_t size) const override { return ZipType.readEntryStream(stream, buffer, size); }
+            inline void closeEntryStream(void* stream) const override { ZipType.closeEntryStream(stream); }
 
             inline bool hasEntry(const std::string& entryName) const override { return ZipType.hasEntry(entryName); }
 

@@ -400,6 +400,11 @@ std::optional<XLCell> XLWorksheet::peekCell(uint32_t rowNumber, uint16_t columnN
 }
 
 
+XLStreamReader XLWorksheet::streamReader() const
+{
+    return XLStreamReader(this);
+}
+
 XLStreamWriter XLWorksheet::streamWriter()
 {
     if (m_xmlData->m_isStreamed && !m_xmlData->m_streamFilePath.empty()) {

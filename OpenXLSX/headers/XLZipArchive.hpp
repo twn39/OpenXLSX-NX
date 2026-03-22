@@ -117,6 +117,28 @@ namespace OpenXLSX
         [[nodiscard]] std::string getEntry(std::string_view name) const;
 
         /**
+         * @brief Opens a stream for reading a specific entry.
+         * @param name The name of the entry to open.
+         * @return An opaque pointer to the stream.
+         */
+        void* openEntryStream(std::string_view name) const;
+
+        /**
+         * @brief Reads data from an opened stream.
+         * @param stream The opaque stream pointer.
+         * @param buffer The buffer to read into.
+         * @param size The maximum number of bytes to read.
+         * @return The number of bytes read, or -1 on error.
+         */
+        int64_t readEntryStream(void* stream, char* buffer, uint64_t size) const;
+
+        /**
+         * @brief Closes an opened stream.
+         * @param stream The opaque stream pointer.
+         */
+        void closeEntryStream(void* stream) const;
+
+        /**
          * @brief
          * @param entryName
          * @return
