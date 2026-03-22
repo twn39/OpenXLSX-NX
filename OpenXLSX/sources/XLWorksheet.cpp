@@ -402,6 +402,15 @@ std::optional<XLCell> XLWorksheet::peekCell(uint32_t rowNumber, uint16_t columnN
 
 XLStreamWriter XLWorksheet::streamWriter()
 {
+    if (m_xmlData->m_isStreamed && !m_xmlData->m_streamFilePath.empty()) {
+        std::error_code ec;
+        if (std::filesystem::exists(m_xmlData->m_streamFilePath, ec)) {
+            std::filesystem::remove(m_xmlData->m_streamFilePath, ec);
+        }
+        m_xmlData->m_streamFilePath.clear();
+        m_xmlData->m_isStreamed = false;
+    }
+
     XMLDocument& doc = xmlDocument();
     XMLNode root = doc.document_element();
     XMLNode sheetData = root.child("sheetData");

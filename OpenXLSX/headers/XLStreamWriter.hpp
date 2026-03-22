@@ -27,6 +27,7 @@ namespace OpenXLSX {
         bool isStreamActive() const;
         void appendRow(const std::vector<XLCellValue>& values);
         std::string getTempFilePath() const;
+        void close();
 
     private:
         friend class XLWorksheet;

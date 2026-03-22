@@ -320,6 +320,19 @@ void XLDocument::close()
     if (m_archive.isValid()) m_archive.close();
     m_filePath.clear();
     m_xmlSavingDeclaration = XLXmlSavingDeclaration("1.0", "UTF-8", false);
+    
+    // Clean up temporary streaming files
+    for (auto& item : m_data) {
+        if (item.m_isStreamed && !item.m_streamFilePath.empty()) {
+            std::error_code ec;
+            if (std::filesystem::exists(item.m_streamFilePath, ec)) {
+                std::filesystem::remove(item.m_streamFilePath, ec);
+            }
+            item.m_isStreamed = false;
+            item.m_streamFilePath.clear();
+        }
+    }
+    
     m_data.clear();
     m_sharedStringCache.clear();
     m_sharedStringIndex.clear();

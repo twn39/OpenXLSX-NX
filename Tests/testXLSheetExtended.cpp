@@ -79,3 +79,4 @@ TEST_CASE("XLWorksheet Extended Tests", "[XLSheet]")
         doc.close();
     }
 }
+

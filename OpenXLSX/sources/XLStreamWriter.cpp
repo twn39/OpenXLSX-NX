@@ -7,6 +7,24 @@
 #include "XLCellReference.hpp"
 #include "XLException.hpp"
 
+namespace {
+    std::string escapeXml(const std::string& str) {
+        std::string escaped;
+        escaped.reserve(str.size());
+        for (char c : str) {
+            switch (c) {
+                case '<': escaped += "&lt;"; break;
+                case '>': escaped += "&gt;"; break;
+                case '&': escaped += "&amp;"; break;
+                case '"': escaped += "&quot;"; break;
+                case '\'': escaped += "&apos;"; break;
+                default: escaped += c; break;
+            }
+        }
+        return escaped;
+    }
+}
+
 namespace OpenXLSX {
 
     XLStreamWriter::XLStreamWriter(XLWorksheet* worksheet) 
@@ -22,11 +40,8 @@ namespace OpenXLSX {
     }
 
     XLStreamWriter::~XLStreamWriter() {
-        if (m_stream && m_stream->is_open()) {
-            m_stream->close();
-        }
-        if (std::filesystem::exists(m_tempPath)) {
-            std::filesystem::remove(m_tempPath);
+        if (m_active) {
+            flushSheetDataClose();
         }
     }
 
@@ -44,6 +59,9 @@ namespace OpenXLSX {
 
     XLStreamWriter& XLStreamWriter::operator=(XLStreamWriter&& other) noexcept {
         if (this != &other) {
+            if (m_active) {
+                flushSheetDataClose();
+            }
             m_worksheet = other.m_worksheet;
             m_tempPath = std::move(other.m_tempPath);
             m_stream = std::move(other.m_stream);
@@ -76,7 +94,7 @@ namespace OpenXLSX {
                 // and write strings as "inlineStr". This keeps memory flat.
                 switch (val.type()) {
                     case XLValueType::String:
-                        *m_stream << " t=\"inlineStr\"><is><t xml:space=\"preserve\">" << val.get<std::string>() << "</t></is></c>";
+                        *m_stream << " t=\"inlineStr\"><is><t xml:space=\"preserve\">" << escapeXml(val.get<std::string>()) << "</t></is></c>";
                         break;
                     case XLValueType::Boolean:
                         *m_stream << " t=\"b\"><v>" << (val.get<bool>() ? "1" : "0") << "</v></c>";
@@ -86,7 +104,7 @@ namespace OpenXLSX {
                         *m_stream << " t=\"n\"><v>" << XLCellValue(val).getString() << "</v></c>";
                         break;
                     default:
-                        *m_stream << "><v>" << XLCellValue(val).getString() << "</v></c>";
+                        *m_stream << "><v>" << escapeXml(XLCellValue(val).getString()) << "</v></c>";
                         break;
                 }
             }
@@ -95,6 +113,12 @@ namespace OpenXLSX {
         
         *m_stream << "</row>";
         m_currentRow++;
+    }
+
+    void XLStreamWriter::close() {
+        if (m_active) {
+            flushSheetDataClose();
+        }
     }
 
     void XLStreamWriter::flushSheetDataClose() {
