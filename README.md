@@ -154,49 +154,6 @@ The build system includes platform-specific optimizations for `Release` builds (
 - [fast_float](https://github.com/fastfloat/fast_float) - Fast floating-point parsing.
 
 ---
-
-<details>
-<summary><b>Detailed Change Log</b></summary>
-
-### 2026-03-18: Enhanced Data Tables & AutoFilter
-- **Table High-level API**: Implemented a comprehensive `XLTables` interface for creating and managing Excel Tables.
-- **Totals Row Support**: Added support for `showTotalsRow`, `totalsRowCount`, and column-level aggregate functions (`Sum`, `Average`, `Count`, etc.) via `XLTableColumn`.
-- **Advanced AutoFilters**: Enhanced `XLAutoFilter` to support custom logical rules (e.g., `greaterThan`) and value-based filtering.
-- **Ergonomic Resizing**: Added `resizeToFitData()` to automatically snap table boundaries to contiguous worksheet data.
-- **OOXML Compliance Fixes**: Standardized boolean XML attributes to `1`/`0` and optimized node ordering to ensure 100% compatibility with MS Excel's strict validation.
-- **Performance & Testing**: Added comprehensive Catch2 unit tests and OOXML structure verification tests.
-
-### 2026-03-16: Architectural Migration & Privacy Cleanup
-- **Modernized File Creation**: Completely abandoned the hardcoded, 7.7KB hex-encoded binary `.xlsx` template. Migrated to dynamic, `constexpr std::string_view` XML string templates (inspired by Excelize), significantly improving code readability and maintainability without sacrificing C++ performance.
-- **Privacy & Metadata Scrubbing**: Removed legacy workaround code that was previously necessary to scrub the original author's local file paths and revision histories embedded within the old binary payload. The new XML templates guarantee a 100% clean and pristine initial state for all generated documents.
-- **Zip Archive Reliability**: Fixed a bug where files dynamically injected into memory during creation were occasionally discarded upon `save()` due to missing internal modification flags in `XLZipArchive`.
-- **Enhanced Validation Compliance**: Embedded strict MS Excel required namespaces and `xl/theme/theme1.xml` to prevent any "file corruption / recovery" warnings when opening programmatically generated files.
-
-### 2026-03-15: Feature Expansion & Robustness
-- **Implemented Rich Text**: Added `XLRichText` and `XLRichTextRun` for multi-format text segments within cells, including support for font colors and styles.
-- **AutoFilter Support**: New API to set and manage worksheet filters.
-- **Workbook Defined Names**: Implemented `XLDefinedNames` for managing global and local named ranges.
-- **Page Setup & Print Options**: Added comprehensive control over margins, orientation, paper size, and print-specific settings.
-- **Granular Sheet Protection**: Enhanced protection with granular control over user permissions (sorting, formatting, filtering).
-- **DateTime Overhaul**: Enhanced `XLDateTime` with `std::chrono` support, `fromString`/`toString` methods, and a convenient `now()` function.
-- **Internal OOXML Verification**: Migrated structure verification tests to use internal APIs, removing external dependencies like `unzip` for testing.
-- **Stability Fixes**: Resolved potential segmentation faults in protection property access and fixed symbol conflicts in test builds.
-
-### 2026-03-14: Dependency Cleanup & Data Integrity
-- **Removed `nowide` Dependency**: Migrated to C++17 `std::filesystem::u8path` for cross-platform UTF-8 path support, reducing the library footprint and simplifying build logic.
-- **Fixed Document Properties**: Resolved issues where Title, Subject, and Creator were not correctly updated in `core.xml` due to OOXML namespace handling.
-- **XML Format Optimization**: Switched to standard XML formatting to ensure XML declarations are preserved, improving compatibility with Excel and other spreadsheet viewers.
-- **CI Enhancement**: Added caching for dependencies in GitHub Actions to speed up build times.
-
-### 2026-02-28: Major Refactor & Feature Update
-- **Unified Build System**: Consolidated all sub-module CMake configurations into a single root `CMakeLists.txt`.
-- **Optimization Suite**: Added LTO support and platform-specific Release optimizations (`/O2`, `-O3`, dead-code stripping).
-- **Image Support**: Implemented `XLDrawing` and aspect-ratio aware image insertion.
-- **Data Validation**: Enhanced data validation support with full CRUD operations and Excel-compliant XML serialization.
-- **Enhanced Testing**: Merged test suite into main build flow with automatic test data handling.
-
-</details>
-
 ## 🚀 Advanced Ergonomic Features
 
 ### 1. Matrix Binding & Batch Styling (Like Pandas)
@@ -262,3 +219,46 @@ wks.cell("E1").formula() = "SUM(A1:D1)";
 // Merge multiple cells
 wks.mergeCells("A1:D1");
 ```
+
+## 📜 Changelog
+<details>
+<summary><b>Detailed Change Log</b></summary>
+
+### 2026-03-18: Enhanced Data Tables & AutoFilter
+- **Table High-level API**: Implemented a comprehensive `XLTables` interface for creating and managing Excel Tables.
+- **Totals Row Support**: Added support for `showTotalsRow`, `totalsRowCount`, and column-level aggregate functions (`Sum`, `Average`, `Count`, etc.) via `XLTableColumn`.
+- **Advanced AutoFilters**: Enhanced `XLAutoFilter` to support custom logical rules (e.g., `greaterThan`) and value-based filtering.
+- **Ergonomic Resizing**: Added `resizeToFitData()` to automatically snap table boundaries to contiguous worksheet data.
+- **OOXML Compliance Fixes**: Standardized boolean XML attributes to `1`/`0` and optimized node ordering to ensure 100% compatibility with MS Excel's strict validation.
+- **Performance & Testing**: Added comprehensive Catch2 unit tests and OOXML structure verification tests.
+
+### 2026-03-16: Architectural Migration & Privacy Cleanup
+- **Modernized File Creation**: Completely abandoned the hardcoded, 7.7KB hex-encoded binary `.xlsx` template. Migrated to dynamic, `constexpr std::string_view` XML string templates (inspired by Excelize), significantly improving code readability and maintainability without sacrificing C++ performance.
+- **Privacy & Metadata Scrubbing**: Removed legacy workaround code that was previously necessary to scrub the original author's local file paths and revision histories embedded within the old binary payload. The new XML templates guarantee a 100% clean and pristine initial state for all generated documents.
+- **Zip Archive Reliability**: Fixed a bug where files dynamically injected into memory during creation were occasionally discarded upon `save()` due to missing internal modification flags in `XLZipArchive`.
+- **Enhanced Validation Compliance**: Embedded strict MS Excel required namespaces and `xl/theme/theme1.xml` to prevent any "file corruption / recovery" warnings when opening programmatically generated files.
+
+### 2026-03-15: Feature Expansion & Robustness
+- **Implemented Rich Text**: Added `XLRichText` and `XLRichTextRun` for multi-format text segments within cells, including support for font colors and styles.
+- **AutoFilter Support**: New API to set and manage worksheet filters.
+- **Workbook Defined Names**: Implemented `XLDefinedNames` for managing global and local named ranges.
+- **Page Setup & Print Options**: Added comprehensive control over margins, orientation, paper size, and print-specific settings.
+- **Granular Sheet Protection**: Enhanced protection with granular control over user permissions (sorting, formatting, filtering).
+- **DateTime Overhaul**: Enhanced `XLDateTime` with `std::chrono` support, `fromString`/`toString` methods, and a convenient `now()` function.
+- **Internal OOXML Verification**: Migrated structure verification tests to use internal APIs, removing external dependencies like `unzip` for testing.
+- **Stability Fixes**: Resolved potential segmentation faults in protection property access and fixed symbol conflicts in test builds.
+
+### 2026-03-14: Dependency Cleanup & Data Integrity
+- **Removed `nowide` Dependency**: Migrated to C++17 `std::filesystem::u8path` for cross-platform UTF-8 path support, reducing the library footprint and simplifying build logic.
+- **Fixed Document Properties**: Resolved issues where Title, Subject, and Creator were not correctly updated in `core.xml` due to OOXML namespace handling.
+- **XML Format Optimization**: Switched to standard XML formatting to ensure XML declarations are preserved, improving compatibility with Excel and other spreadsheet viewers.
+- **CI Enhancement**: Added caching for dependencies in GitHub Actions to speed up build times.
+
+### 2026-02-28: Major Refactor & Feature Update
+- **Unified Build System**: Consolidated all sub-module CMake configurations into a single root `CMakeLists.txt`.
+- **Optimization Suite**: Added LTO support and platform-specific Release optimizations (`/O2`, `-O3`, dead-code stripping).
+- **Image Support**: Implemented `XLDrawing` and aspect-ratio aware image insertion.
+- **Data Validation**: Enhanced data validation support with full CRUD operations and Excel-compliant XML serialization.
+- **Enhanced Testing**: Merged test suite into main build flow with automatic test data handling.
+
+</details>
