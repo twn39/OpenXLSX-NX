@@ -282,3 +282,44 @@ void XLWorksheet::addComment(const std::string& cellRef, const std::string& text
         comments().set(cellRef, text, static_cast<uint16_t>(0));
     }
 }
+
+void XLWorksheet::insertImage(const std::string& cellReference, const std::string& imagePath)
+{
+    XLImageOptions opts;
+    insertImage(cellReference, imagePath, opts);
+}
+
+#include "XLEMUConverter.hpp"
+#include "XLImageParser.hpp"
+#include <fstream>
+#include <sstream>
+
+void XLWorksheet::insertImage(const std::string& cellReference, const std::string& imagePath, const XLImageOptions& options)
+{
+    XLImageSize size = XLImageParser::parseDimensions(imagePath);
+    if (!size.valid) throw XLInputError("Invalid or unsupported image file");
+
+    // Read file data into string
+    std::ifstream file(imagePath, std::ios::binary);
+    if (!file) throw XLInputError("Could not open image file");
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    std::string data = ss.str();
+
+    // Generate internal name
+    std::string name = "image_openxlsx." + size.extension;
+
+    // Parse coordinate
+    XLCellReference ref(cellReference);
+    uint32_t row = ref.row() - 1; // 0-indexed for addImage
+    uint16_t col = ref.column() - 1;
+
+    // Scaled dimensions
+    uint32_t scaledWidth = static_cast<uint32_t>(size.width * options.scaleX);
+    uint32_t scaledHeight = static_cast<uint32_t>(size.height * options.scaleY);
+
+    // TODO: Advanced features like TwoCell and Offsets will require 
+    // more complex logic interacting with XLDrawing internals.
+    // For now, this acts as the foundational bridge mapping the high level API to the lower level.
+    addImage(name, data, row, col, scaledWidth, scaledHeight);
+}

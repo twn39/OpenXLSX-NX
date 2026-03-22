@@ -27,6 +27,7 @@
 #include "XLStreamWriter.hpp"
 #include "XLStreamReader.hpp"
 #include "XLPivotTable.hpp"
+#include "XLImageOptions.hpp"
 
 namespace OpenXLSX
 {
@@ -299,6 +300,21 @@ namespace OpenXLSX
 
         XLDrawing& drawing();
         void addImage(const std::string& name, const std::string& data, uint32_t row, uint32_t col, uint32_t width, uint32_t height);
+
+        /**
+         * @brief Insert an image at the specified cell with original dimensions (automatic parsing).
+         * @param cellReference The top-left cell where the image should be anchored (e.g. "B2").
+         * @param imagePath The file path to the local image.
+         */
+        void insertImage(const std::string& cellReference, const std::string& imagePath);
+
+        /**
+         * @brief Insert an image with advanced formatting options (scaling, offset, behavior).
+         * @param cellReference The top-left cell where the image should be anchored (e.g. "B2").
+         * @param imagePath The file path to the local image.
+         * @param options An XLImageOptions struct specifying formatting and behavior.
+         */
+        void insertImage(const std::string& cellReference, const std::string& imagePath, const XLImageOptions& options);
         void addScaledImage(const std::string& name, const std::string& data, uint32_t row, uint32_t col, double scalingFactor = 1.0);
         std::vector<XLDrawingItem> images();
         
