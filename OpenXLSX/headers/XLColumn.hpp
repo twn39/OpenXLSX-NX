@@ -44,7 +44,6 @@ namespace OpenXLSX
         void setWidth(float width);
 
         /**
-        /**
          * @brief Auto fit the column width based on the content of its cells.
          * @note This is a convenience method that internally delegates to XLWorksheet.
          */

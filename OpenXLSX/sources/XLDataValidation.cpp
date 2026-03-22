@@ -955,3 +955,64 @@ namespace OpenXLSX
     }
 
 } // namespace OpenXLSX
+
+namespace OpenXLSX {
+
+XLDataValidation& XLDataValidation::requireList(const std::vector<std::string>& list, bool allowBlank)
+{
+    XLDataValidationConfig cfg = config();
+    cfg.type = XLDataValidationType::List;
+    cfg.allowBlank = allowBlank;
+    cfg.showDropDown = true;
+    
+    std::string formula = "\"";
+    for (size_t i = 0; i < list.size(); ++i) {
+        formula += list[i];
+        if (i < list.size() - 1) formula += ",";
+    }
+    formula += "\"";
+    cfg.formula1 = formula;
+    
+    applyConfig(cfg);
+    return *this;
+}
+
+XLDataValidation& XLDataValidation::requireList(std::string_view formula, bool allowBlank)
+{
+    XLDataValidationConfig cfg = config();
+    cfg.type = XLDataValidationType::List;
+    cfg.allowBlank = allowBlank;
+    cfg.showDropDown = true;
+    cfg.formula1 = std::string(formula);
+    applyConfig(cfg);
+    return *this;
+}
+
+XLDataValidation& XLDataValidation::setErrorAlert(std::string_view title, std::string_view message, XLDataValidationErrorStyle style)
+{
+    XLDataValidationConfig cfg = config();
+    cfg.showErrorMessage = true;
+    cfg.errorTitle = std::string(title);
+    cfg.error = std::string(message);
+    cfg.errorStyle = style;
+    applyConfig(cfg);
+    return *this;
+}
+
+XLDataValidation& XLDataValidation::setPromptMessage(std::string_view title, std::string_view message)
+{
+    XLDataValidationConfig cfg = config();
+    cfg.showInputMessage = true;
+    cfg.promptTitle = std::string(title);
+    cfg.prompt = std::string(message);
+    applyConfig(cfg);
+    return *this;
+}
+
+XLDataValidation XLDataValidations::add(std::string_view sqref)
+{
+    XLDataValidationConfig cfg;
+    return addValidation(cfg, sqref);
+}
+
+} // namespace OpenXLSX

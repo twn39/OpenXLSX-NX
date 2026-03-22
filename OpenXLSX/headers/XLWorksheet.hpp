@@ -355,7 +355,14 @@ namespace OpenXLSX
 
         [[nodiscard]] bool hasPanes() const;
         void freezePanes(uint16_t column, uint32_t row);
-        void freezePanes(std::string_view cellRef);
+        
+        /**
+         * @brief Freeze panes at the specified top-left cell.
+         * This is a highly ergonomic method. E.g. freezePanes("B2") freezes Row 1 and Column A.
+         * @param topLeftCell The cell reference where the scrolling data should start.
+         */
+        void freezePanes(const std::string& topLeftCell);
+        
         void splitPanes(double xSplit, double ySplit, std::string_view topLeftCell = "", XLPane activePane = XLPane::BottomRight);
         void clearPanes();
 

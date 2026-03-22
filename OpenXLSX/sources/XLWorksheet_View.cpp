@@ -125,9 +125,9 @@ void XLWorksheet::freezePanes(uint16_t column, uint32_t row)
     }
 }
 
-void XLWorksheet::freezePanes(std::string_view cellRef)
+void XLWorksheet::freezePanes(const std::string& topLeftCell)
 {
-    XLCellReference ref(std::string{cellRef});
+    XLCellReference ref(topLeftCell);
     freezePanes(static_cast<uint16_t>(ref.column() - 1), ref.row() - 1);
 }
 

@@ -105,6 +105,25 @@ namespace OpenXLSX
 
         [[nodiscard]] bool empty() const { return !m_node; }
 
+        /**
+         * @brief Fluent API for setting a dropdown list validation.
+         * @param list A vector of strings to show in the dropdown.
+         * @param allowBlank Allows blank cells.
+         * @return Reference to self for chaining.
+         */
+        XLDataValidation& requireList(const std::vector<std::string>& list, bool allowBlank = true);
+        
+        /**
+         * @brief Fluent API for setting a dropdown list validation using a formula or range reference.
+         * @param formula Reference string (e.g. "$A$1:$A$10" or "Config!$B$1:$B$5").
+         * @param allowBlank Allows blank cells.
+         * @return Reference to self for chaining.
+         */
+        XLDataValidation& requireList(std::string_view formula, bool allowBlank = true);
+
+        XLDataValidation& setErrorAlert(std::string_view title, std::string_view message, XLDataValidationErrorStyle style = XLDataValidationErrorStyle::Stop);
+        XLDataValidation& setPromptMessage(std::string_view title, std::string_view message);
+
         // Config API
         [[nodiscard]] XLDataValidationConfig config() const;
         void applyConfig(const XLDataValidationConfig& config);
@@ -219,6 +238,13 @@ namespace OpenXLSX
         [[nodiscard]] size_t count() const;
         XLDataValidation append();
         XLDataValidation addValidation(const XLDataValidationConfig& config, std::string_view sqref);
+        /**
+         * @brief Quick fluent factory for adding a validation rule to a cell range.
+         * @param sqref The cell range (e.g. "A1:A10")
+         * @return The newly created XLDataValidation object.
+         */
+        XLDataValidation add(std::string_view sqref);
+
         [[nodiscard]] XLDataValidation at(size_t index);
         [[nodiscard]] XLDataValidation at(std::string_view sqref);
         void clear();
