@@ -3,6 +3,8 @@
 
 #include "OpenXLSX-Exports.hpp"
 #include "XLXmlFile.hpp"
+#include "XLConstants.hpp"
+
 #include <string>
 #include <string_view>
 
@@ -66,6 +68,39 @@ namespace OpenXLSX
     /**
      * @brief A proxy class for an individual chart axis.
      */
+    /**
+     * @brief A proxy class for an individual chart series.
+     */
+    class XLWorksheet;
+    class XLCellRange;
+
+    class OPENXLSX_EXPORT XLChartSeries
+    {
+    public:
+        XLChartSeries() = default;
+        explicit XLChartSeries(const XMLNode& node);
+
+        XLChartSeries& setTitle(std::string_view title);
+        XLChartSeries& setSmooth(bool smooth);
+        XLChartSeries& setMarkerStyle(XLMarkerStyle style);
+
+    private:
+        XMLNode m_node;
+    };
+
+
+    struct XLChartAnchor {
+        std::string name;
+        uint32_t row{1};
+        uint32_t col{1};
+        XLDistance width{XLDistance::Pixels(400)};
+        XLDistance height{XLDistance::Pixels(300)};
+
+        XLChartAnchor() = default;
+        XLChartAnchor(std::string_view n, uint32_t r, uint32_t c, XLDistance w, XLDistance h) : name(n), row(r), col(c), width(w), height(h) {}
+    };
+
+
     class OPENXLSX_EXPORT XLAxis
     {
     public:
@@ -133,7 +168,10 @@ namespace OpenXLSX
          * @param title A literal string or cell reference for the series name (e.g. "Revenue" or "Sheet1!$B$1")
          * @param categoriesRef A cell reference for the X-axis categories (e.g. "Sheet1!$A$1:$A$10")
          */
-        void addSeries(std::string_view valuesRef, std::string_view title = "", std::string_view categoriesRef = "");
+        XLChartSeries addSeries(const XLWorksheet& wks, const XLCellRange& values, std::string_view title = "");
+        XLChartSeries addSeries(const XLWorksheet& wks, const XLCellRange& values, const XLCellRange& categories, std::string_view title = "");
+
+        XLChartSeries addSeries(std::string_view valuesRef, std::string_view title = "", std::string_view categoriesRef = "");
 
         /**
          * @brief Set the chart title

@@ -245,3 +245,127 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
         std::filesystem::remove(filename);
     }
 }
+TEST_CASE("Chart Series Fluent API", "[XLChart][Fluent]")
+{
+    std::string filename = "test_chart_fluent.xlsx";
+
+    SECTION("Create Line Chart with Fluent API")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            for (int i = 1; i <= 5; ++i) {
+                wks.cell(i, 1).value() = i;
+                wks.cell(i, 2).value() = i * i;
+            }
+
+            auto chart = wks.addChart(XLChartType::Line, "My Fluent Chart", 2, 4, 400, 300);
+            
+            chart.addSeries("Sheet1!$B$1:$B$5", "", "Sheet1!$A$1:$A$5")
+                 .setTitle("Squares")
+                 .setSmooth(true)
+                 .setMarkerStyle(XLMarkerStyle::Circle);
+
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLChartTestDoc testDoc;
+            testDoc.open(filename);
+
+            std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
+            REQUIRE(chartXml.find("<c:chartSpace") != std::string::npos);
+            REQUIRE(chartXml.find("Squares") != std::string::npos);
+            REQUIRE(chartXml.find("<c:smooth val=\"1\"") != std::string::npos);
+            REQUIRE(chartXml.find("<c:symbol val=\"circle\"") != std::string::npos);
+        }
+    }
+}
+
+TEST_CASE("Chart Anchor API", "[XLChart][Anchor]")
+{
+    std::string filename = "test_chart_anchor.xlsx";
+
+    SECTION("Create Line Chart with Strong Type Anchor API")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            for (int i = 1; i <= 5; ++i) {
+                wks.cell(i, 1).value() = i;
+                wks.cell(i, 2).value() = i * i;
+            }
+
+            using namespace DistanceLiterals;
+            
+            XLChartAnchor anchor;
+            anchor.name = "My Anchor Chart";
+            anchor.row = 2;
+            anchor.col = 4;
+            anchor.width = 12_cm;
+            anchor.height = 8_cm;
+
+            auto chart = wks.addChart(XLChartType::Line, anchor);
+            
+            chart.addSeries("Sheet1!$B$1:$B$5", "", "Sheet1!$A$1:$A$5")
+                 .setTitle("Squares")
+                 .setSmooth(true)
+                 .setMarkerStyle(XLMarkerStyle::Circle);
+
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLChartTestDoc testDoc;
+            testDoc.open(filename);
+
+            std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
+            REQUIRE(chartXml.find("<c:chartSpace") != std::string::npos);
+        }
+    }
+}
+
+TEST_CASE("Chart Cell Range API", "[XLChart][Range]")
+{
+    std::string filename = "test_chart_range.xlsx";
+
+    SECTION("Add series via XLCellRange")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            for (int i = 1; i <= 5; ++i) {
+                wks.cell(i, 1).value() = "Cat" + std::to_string(i);
+                wks.cell(i, 2).value() = i * 10;
+            }
+
+            auto categories = wks.range(XLCellReference("A1"), XLCellReference("A5"));
+            auto values = wks.range(XLCellReference("B1"), XLCellReference("B5"));
+
+            auto chart = wks.addChart(XLChartType::Bar, "Range Chart", 2, 4, 400, 300);
+            
+            // Should internally build Sheet1!$B$1:$B$5 and Sheet1!$A$1:$A$5
+            chart.addSeries(wks, values, categories, "My Values");
+
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLChartTestDoc testDoc;
+            testDoc.open(filename);
+
+            std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
+            REQUIRE(chartXml.find("Sheet1!$B$1:$B$5") != std::string::npos);
+            REQUIRE(chartXml.find("Sheet1!$A$1:$A$5") != std::string::npos);
+        }
+    }
+}

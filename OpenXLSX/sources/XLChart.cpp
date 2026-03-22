@@ -6,6 +6,9 @@
 // ===== OpenXLSX Includes ===== //
 #include "XLDocument.hpp"
 #include "XLChart.hpp"
+#include "XLWorksheet.hpp"
+#include "XLCellRange.hpp"
+
 #include "XLUtilities.hpp"
 
 using namespace OpenXLSX;
@@ -248,10 +251,10 @@ namespace OpenXLSX
         return count;
     }
 
-    void XLChart::addSeries(std::string_view valuesRef, std::string_view title, std::string_view categoriesRef)
+    XLChartSeries XLChart::addSeries(std::string_view valuesRef, std::string_view title, std::string_view categoriesRef)
     {
         XMLNode chartNode = getChartNode(xmlDocument());
-        if (chartNode.empty()) return;
+        if (chartNode.empty()) return XLChartSeries();
 
         const uint32_t idx = seriesCount();
 
@@ -291,6 +294,8 @@ namespace OpenXLSX
             XMLNode numRefNode = valNode.append_child("c:numRef");
             numRefNode.append_child("c:f").text().set(std::string(valuesRef).c_str());
         }
+        return XLChartSeries(serNode);
+
     }
 
     void XLChart::setTitle(std::string_view title)
@@ -538,4 +543,89 @@ namespace OpenXLSX
             default: val = "none"; break;
         }
         symbolNode.attribute("val") ? symbolNode.attribute("val").set_value(val.c_str()) : symbolNode.append_attribute("val").set_value(val.c_str());
+    }
+
+    XLChartSeries::XLChartSeries(const XMLNode& node) : m_node(node) {}
+
+    XLChartSeries& XLChartSeries::setTitle(std::string_view title)
+    {
+        if (m_node.empty()) return *this;
+        XMLNode txNode = appendAndGetNode(m_node, "c:tx", XLSeriesNodeOrder);
+        
+        txNode.remove_child("c:v");
+        txNode.remove_child("c:strRef");
+
+        if (title.find('!') != std::string_view::npos) {
+            txNode.append_child("c:strRef").append_child("c:f").text().set(std::string(title).c_str());
+        } else {
+            txNode.append_child("c:v").text().set(std::string(title).c_str());
+        }
+        return *this;
+    }
+
+    XLChartSeries& XLChartSeries::setSmooth(bool smooth)
+    {
+        if (m_node.empty()) return *this;
+        XMLNode smoothNode = appendAndGetNode(m_node, "c:smooth", XLSeriesNodeOrder);
+        smoothNode.attribute("val") ? smoothNode.attribute("val").set_value(smooth ? "1" : "0") : smoothNode.append_attribute("val").set_value(smooth ? "1" : "0");
+        return *this;
+    }
+
+    XLChartSeries& XLChartSeries::setMarkerStyle(XLMarkerStyle style)
+    {
+        if (m_node.empty()) return *this;
+        
+        if (style == XLMarkerStyle::Default) {
+            m_node.remove_child("c:marker");
+            return *this;
+        }
+
+        XMLNode markerNode = appendAndGetNode(m_node, "c:marker", XLSeriesNodeOrder);
+        XMLNode symbolNode = markerNode.child("c:symbol");
+        if (symbolNode.empty()) symbolNode = markerNode.append_child("c:symbol");
+
+        std::string val = "none";
+        switch (style) {
+            case XLMarkerStyle::Circle: val = "circle"; break;
+            case XLMarkerStyle::Dash: val = "dash"; break;
+            case XLMarkerStyle::Diamond: val = "diamond"; break;
+            case XLMarkerStyle::Dot: val = "dot"; break;
+            case XLMarkerStyle::Picture: val = "picture"; break;
+            case XLMarkerStyle::Plus: val = "plus"; break;
+            case XLMarkerStyle::Square: val = "square"; break;
+            case XLMarkerStyle::Star: val = "star"; break;
+            case XLMarkerStyle::Triangle: val = "triangle"; break;
+            case XLMarkerStyle::X: val = "x"; break;
+            case XLMarkerStyle::None:
+            default: val = "none"; break;
+        }
+
+        symbolNode.attribute("val") ? symbolNode.attribute("val").set_value(val.c_str()) : symbolNode.append_attribute("val").set_value(val.c_str());
+        return *this;
+    }
+
+    static std::string buildAbsoluteChartReference(const XLWorksheet& wks, const XLCellRange& range) {
+        if (range.empty()) return "";
+        
+        std::string sheetName = wks.name();
+        bool needsQuote = sheetName.find(' ') != std::string::npos || sheetName.find('-') != std::string::npos;
+        std::string formattedSheetName = needsQuote ? "'" + sheetName + "'" : sheetName;
+
+        auto tl = range.topLeft();
+        auto br = range.bottomRight();
+
+        std::string tlAddr = "$" + XLCellReference::columnAsString(tl.column()) + "$" + std::to_string(tl.row());
+        std::string brAddr = "$" + XLCellReference::columnAsString(br.column()) + "$" + std::to_string(br.row());
+
+        if (tlAddr == brAddr) return formattedSheetName + "!" + tlAddr;
+
+        return formattedSheetName + "!" + tlAddr + ":" + brAddr;
+    }
+
+    XLChartSeries XLChart::addSeries(const XLWorksheet& wks, const XLCellRange& values, std::string_view title) {
+        return addSeries(buildAbsoluteChartReference(wks, values), title, "");
+    }
+
+    XLChartSeries XLChart::addSeries(const XLWorksheet& wks, const XLCellRange& values, const XLCellRange& categories, std::string_view title) {
+        return addSeries(buildAbsoluteChartReference(wks, values), title, buildAbsoluteChartReference(wks, categories));
     }

@@ -249,3 +249,27 @@ void XLWorksheet::removeHyperlink(std::string_view cellRef)
     if (hyperlinksNode.first_child().empty()) { docElement.remove_child(hyperlinksNode); }
 }
 
+
+XLChart XLWorksheet::addChart(XLChartType type, const XLChartAnchor& anchor)
+{
+    // 1. Create Chart File in Document
+    XLChart chart = parentDoc().createChart(type);
+
+    // 2. Get Drawing for the sheet
+    XLDrawing& drw = drawing();
+    std::string drawingPath     = drw.getXmlPath();
+    std::string chartRelativePath = getPathARelativeToPathB(chart.getXmlPath(), drawingPath);
+
+    // 3. Add Relationship in drawing to the new chart file
+    XLRelationshipItem chartRel;
+    if (!drw.relationships().targetExists(chartRelativePath)) {
+        chartRel = drw.relationships().addRelationship(XLRelationshipType::Chart, chartRelativePath);
+    } else {
+        chartRel = drw.relationships().relationshipByTarget(chartRelativePath);
+    }
+
+    // 4. Add Chart Anchor in Drawing
+    drw.addChartAnchor(chartRel.id(), anchor.name, anchor.row, anchor.col, anchor.width, anchor.height);
+
+    return chart;
+}

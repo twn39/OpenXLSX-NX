@@ -779,3 +779,57 @@ XLDrawingItem XLDrawing::image(uint32_t index) const
     }
     throw XLException("XLDrawing::image: index out of bounds");
 }
+
+void XLDrawing::addChartAnchor(std::string_view rId,
+                               std::string_view   name,
+                               uint32_t           row,
+                               uint32_t           col,
+                               XLDistance         width,
+                               XLDistance         height)
+{
+    XMLNode rootNode = xmlDocument().document_element();
+
+    // Create oneCellAnchor
+    XMLNode anchor = rootNode.append_child("xdr:oneCellAnchor");
+
+    // From node (top-left)
+    XMLNode from = anchor.append_child("xdr:from");
+    from.append_child("xdr:col").text().set(col);
+    from.append_child("xdr:colOff").text().set(0);
+    from.append_child("xdr:row").text().set(row);
+    from.append_child("xdr:rowOff").text().set(0);
+
+    // Extents (size)
+    XMLNode ext = anchor.append_child("xdr:ext");
+    ext.append_attribute("cx").set_value(std::to_string(width.getEMU()).c_str());
+    ext.append_attribute("cy").set_value(std::to_string(height.getEMU()).c_str());
+
+    // Graphic Frame
+    XMLNode frame = anchor.append_child("xdr:graphicFrame");
+    frame.append_attribute("macro").set_value("");
+
+    XMLNode nvPr = frame.append_child("xdr:nvGraphicFramePr");
+    XMLNode cNvp = nvPr.append_child("xdr:cNvPr");
+    cNvp.append_attribute("id").set_value("2");
+    cNvp.append_attribute("name").set_value(std::string(name).c_str());
+    nvPr.append_child("xdr:cNvGraphicFramePr");
+
+    XMLNode xfrm = frame.append_child("xdr:xfrm");
+    XMLNode off  = xfrm.append_child("a:off");
+    off.append_attribute("x").set_value("0");
+    off.append_attribute("y").set_value("0");
+    XMLNode ext2 = xfrm.append_child("a:ext");
+    ext2.append_attribute("cx").set_value(0);
+    ext2.append_attribute("cy").set_value(0);
+
+    XMLNode graphic = frame.append_child("a:graphic");
+    XMLNode data    = graphic.append_child("a:graphicData");
+    data.append_attribute("uri").set_value("http://schemas.openxmlformats.org/drawingml/2006/chart");
+
+    XMLNode chartNode = data.append_child("c:chart");
+    chartNode.append_attribute("xmlns:c").set_value("http://schemas.openxmlformats.org/drawingml/2006/chart");
+    chartNode.append_attribute("xmlns:r").set_value("http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+    chartNode.append_attribute("r:id").set_value(std::string(rId).c_str());
+
+    anchor.append_child("xdr:clientData");
+}

@@ -13,6 +13,8 @@
 #include "XLException.hpp"
 #include "XLXmlData.hpp"
 #include "XLXmlFile.hpp"
+#include "XLConstants.hpp"
+
 
 #include <memory>
 
@@ -379,6 +381,13 @@ mutable XMLNode                                   m_shapeNode; /**< An XMLNode o
                             uint32_t           col,
                             uint32_t           width,
                             uint32_t           height);
+
+        void addChartAnchor(std::string_view rId,
+                               std::string_view   name,
+                               uint32_t           row,
+                               uint32_t           col,
+                               XLDistance         width,
+                               XLDistance         height);
 
         /**
          * @brief Add an image to the drawing, automatically maintaining aspect ratio

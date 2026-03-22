@@ -254,6 +254,8 @@ namespace OpenXLSX
         std::vector<XLDrawingItem> images();
         
         XLChart addChart(XLChartType type, std::string_view name, uint32_t row, uint32_t col, uint32_t width, uint32_t height);
+        XLChart addChart(XLChartType type, const XLChartAnchor& anchor);
+
 
         /**
          * @brief Create and add a pivot table to this worksheet.
