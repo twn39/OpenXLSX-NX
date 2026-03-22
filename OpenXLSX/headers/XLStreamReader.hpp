@@ -33,6 +33,12 @@ namespace OpenXLSX {
          */
         std::vector<XLCellValue> nextRow();
 
+        /**
+         * @brief Returns the 1-based index of the row last read by nextRow().
+         * @return The current row index.
+         */
+        uint32_t currentRow() const;
+
     private:
         friend class XLWorksheet;
         

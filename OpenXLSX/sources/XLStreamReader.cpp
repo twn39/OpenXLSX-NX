@@ -152,11 +152,21 @@ namespace OpenXLSX {
         pugi::xml_node rowNode = doc.child("row");
         if (!rowNode) return result;
 
+        pugi::xml_attribute rowRAttr = rowNode.attribute("r");
+        if (rowRAttr) {
+            m_currentRow = rowRAttr.as_uint();
+        } else {
+            m_currentRow++;
+        }
+
         uint32_t expectedColIdx = 1;
 
         for (pugi::xml_node cNode = rowNode.child("c"); cNode; cNode = cNode.next_sibling("c")) {
-            std::string rAttr = cNode.attribute("r").value();
-            uint16_t actualColIdx = XLCellReference(rAttr).column();
+            uint16_t actualColIdx = expectedColIdx;
+            pugi::xml_attribute rAttr = cNode.attribute("r");
+            if (rAttr && *rAttr.value()) {
+                actualColIdx = XLCellReference(rAttr.value()).column();
+            }
 
             // Fill missing columns
             while (expectedColIdx < actualColIdx) {
@@ -177,8 +187,18 @@ namespace OpenXLSX {
                 }
             } else if (tAttr == "inlineStr") {
                 // Inline string
-                pugi::xml_node tNode = cNode.child("is").child("t");
-                if (tNode) {
+                pugi::xml_node isNode = cNode.child("is");
+                if (!isNode.child("r").empty()) {
+                    // Rich text: concatenate all <t> nodes within <r> nodes
+                    std::string plainText;
+                    for (pugi::xml_node rNode = isNode.child("r"); rNode; rNode = rNode.next_sibling("r")) {
+                        pugi::xml_node tNode = rNode.child("t");
+                        if (tNode) {
+                            plainText += tNode.text().get();
+                        }
+                    }
+                    result.emplace_back(plainText);
+                } else if (pugi::xml_node tNode = isNode.child("t")) {
                     result.emplace_back(std::string(tNode.text().get()));
                 } else {
                     result.emplace_back(XLCellValue());
@@ -186,7 +206,7 @@ namespace OpenXLSX {
             } else if (tAttr == "b") {
                 // Boolean
                 if (vNode) {
-                    bool val = (std::string_view(vNode.text().get()) == "1");
+                    bool val = vNode.text().as_bool();
                     result.emplace_back(val);
                 } else {
                     result.emplace_back(XLCellValue());
@@ -230,8 +250,11 @@ namespace OpenXLSX {
             expectedColIdx++;
         }
 
-        m_currentRow++;
         return result;
+    }
+
+    uint32_t XLStreamReader::currentRow() const {
+        return m_currentRow;
     }
 
 }

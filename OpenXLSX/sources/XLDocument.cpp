@@ -171,17 +171,19 @@ void XLDocument::open(std::string_view fileName)
         }
     }
 
-    // ===== Read shared strings table.
-    XMLDocument* sharedStrings = getXmlData("xl/sharedStrings.xml")->getXmlDocument();
-    if (not sharedStrings->document_element().attribute("uniqueCount").empty())
-        sharedStrings->document_element().remove_attribute(
-            "uniqueCount");    // pull request #192 -> remove count & uniqueCount as they are optional
-    if (not sharedStrings->document_element().attribute("count").empty())
-        sharedStrings->document_element().remove_attribute(
-            "count");    // pull request #192 -> remove count & uniqueCount as they are optional
+    // ===== Read shared strings table (Safely bypass if not present)
+    XLXmlData* sstData = getXmlData("xl/sharedStrings.xml", true);
+    XMLDocument* sharedStrings = sstData ? sstData->getXmlDocument() : nullptr;
+    if (sharedStrings && sharedStrings->document_element()) {
+        if (not sharedStrings->document_element().attribute("uniqueCount").empty())
+            sharedStrings->document_element().remove_attribute(
+                "uniqueCount");
+        if (not sharedStrings->document_element().attribute("count").empty())
+            sharedStrings->document_element().remove_attribute(
+                "count");
+    }
 
-    XMLNode node =
-        sharedStrings->document_element().first_child_of_type(pugi::node_element);    // pull request #186: Skip non-element nodes in sst.
+    XMLNode node = (sharedStrings && sharedStrings->document_element()) ? sharedStrings->document_element().first_child_of_type(pugi::node_element) : XMLNode();
     while (not node.empty()) {
         // ===== Validate si node name.
         using namespace std::literals::string_literals;
@@ -237,7 +239,12 @@ void XLDocument::open(std::string_view fileName)
     // Worksheets
     m_appProperties.alignWorksheets(m_workbook.sheetNames());
 
-    m_sharedStrings = XLSharedStrings(getXmlData("xl/sharedStrings.xml"), &m_sharedStringCache, &m_sharedStringIndex);
+
+    if (getXmlData("xl/sharedStrings.xml", true)) {
+        m_sharedStrings = XLSharedStrings(getXmlData("xl/sharedStrings.xml"), &m_sharedStringCache, &m_sharedStringIndex);
+    } else {
+        m_sharedStrings = XLSharedStrings();
+    }
     m_styles = XLStyles(getXmlData("xl/styles.xml"), m_suppressWarnings);    // 2024-10-14: forward supress warnings setting to XLStyles
 }
 
