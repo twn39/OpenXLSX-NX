@@ -1,5 +1,8 @@
 // ===== External Includes ===== //
 #include <stdexcept>
+#include <string_view>
+#include <random>
+#include <chrono>
 
 // ===== OpenXLSX Includes ===== //
 #include "XLStreamWriter.hpp"
@@ -8,9 +11,9 @@
 #include "XLException.hpp"
 
 namespace {
-    std::string escapeXml(const std::string& str) {
+    std::string escapeXml(std::string_view str) {
         std::string escaped;
-        escaped.reserve(str.size());
+        escaped.reserve(str.size() + 10); // Reserve a little extra to avoid small reallocations
         for (char c : str) {
             switch (c) {
                 case '<': escaped += "&lt;"; break;
@@ -27,15 +30,14 @@ namespace {
 
 namespace OpenXLSX {
 
-    XLStreamWriter::XLStreamWriter(XLWorksheet* worksheet) 
-        : m_worksheet(worksheet), 
-          m_tempPath(std::filesystem::temp_directory_path() / ("openxlsx_stream_" + std::to_string(std::rand()) + ".xml")),
-          m_stream(std::make_unique<std::ofstream>(m_tempPath, std::ios::binary)),
+    XLStreamWriter::XLStreamWriter(XLWorksheet* /*worksheet*/) 
+        : m_tempPath(std::filesystem::temp_directory_path() / ("openxlsx_stream_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "_" + std::to_string(std::rand()) + ".xml")),
+          m_stream(m_tempPath, std::ios::binary),
           m_currentRow(1),
           m_active(true)
     {
-        if (!m_stream->is_open()) {
-            throw XLInternalError("Failed to open temporary stream file");
+        if (!m_stream.is_open()) {
+            throw XLInternalError("Failed to open temporary stream file: " + m_tempPath.string());
         }
     }
 
@@ -46,14 +48,12 @@ namespace OpenXLSX {
     }
 
     XLStreamWriter::XLStreamWriter(XLStreamWriter&& other) noexcept
-        : m_worksheet(other.m_worksheet),
-          m_tempPath(std::move(other.m_tempPath)),
+        : m_tempPath(std::move(other.m_tempPath)),
           m_stream(std::move(other.m_stream)),
           m_currentRow(other.m_currentRow),
           m_active(other.m_active),
           m_bottomHalf(std::move(other.m_bottomHalf))
     {
-        other.m_worksheet = nullptr;
         other.m_active = false;
     }
 
@@ -62,56 +62,54 @@ namespace OpenXLSX {
             if (m_active) {
                 flushSheetDataClose();
             }
-            m_worksheet = other.m_worksheet;
             m_tempPath = std::move(other.m_tempPath);
             m_stream = std::move(other.m_stream);
             m_currentRow = other.m_currentRow;
             m_active = other.m_active;
             m_bottomHalf = std::move(other.m_bottomHalf);
-            other.m_worksheet = nullptr;
             other.m_active = false;
         }
         return *this;
     }
 
-    bool XLStreamWriter::isStreamActive() const { return m_active && m_stream && m_stream->is_open(); }
+    bool XLStreamWriter::isStreamActive() const { return m_active && m_stream.is_open(); }
 
     std::string XLStreamWriter::getTempFilePath() const { return m_tempPath.string(); }
 
     void XLStreamWriter::appendRow(const std::vector<XLCellValue>& values) {
         if (!isStreamActive()) throw XLInternalError("Stream writer is not active");
 
-        *m_stream << "<row r=\"" << m_currentRow << "\">";
+        m_stream << "<row r=\"" << m_currentRow << "\">";
         
         uint16_t colIdx = 1;
         for (const auto& val : values) {
             if (val.type() != XLValueType::Empty) {
                 std::string cellRef = XLCellReference::columnAsString(colIdx) + std::to_string(m_currentRow);
                 
-                *m_stream << "<c r=\"" << cellRef << "\"";
+                m_stream << "<c r=\"" << cellRef << "\"";
                 
                 // For optimal streaming, bypass the shared string table completely
                 // and write strings as "inlineStr". This keeps memory flat.
                 switch (val.type()) {
                     case XLValueType::String:
-                        *m_stream << " t=\"inlineStr\"><is><t xml:space=\"preserve\">" << escapeXml(val.get<std::string>()) << "</t></is></c>";
+                        m_stream << " t=\"inlineStr\"><is><t xml:space=\"preserve\">" << escapeXml(val.get<std::string>()) << "</t></is></c>";
                         break;
                     case XLValueType::Boolean:
-                        *m_stream << " t=\"b\"><v>" << (val.get<bool>() ? "1" : "0") << "</v></c>";
+                        m_stream << " t=\"b\"><v>" << (val.get<bool>() ? "1" : "0") << "</v></c>";
                         break;
                     case XLValueType::Float:
                     case XLValueType::Integer:
-                        *m_stream << " t=\"n\"><v>" << XLCellValue(val).getString() << "</v></c>";
+                        m_stream << " t=\"n\"><v>" << XLCellValue(val).getString() << "</v></c>";
                         break;
                     default:
-                        *m_stream << "><v>" << escapeXml(XLCellValue(val).getString()) << "</v></c>";
+                        m_stream << "><v>" << escapeXml(XLCellValue(val).getString()) << "</v></c>";
                         break;
                 }
             }
             colIdx++;
         }
         
-        *m_stream << "</row>";
+        m_stream << "</row>";
         m_currentRow++;
     }
 
@@ -122,9 +120,9 @@ namespace OpenXLSX {
     }
 
     void XLStreamWriter::flushSheetDataClose() {
-        if (m_stream && m_stream->is_open()) {
-            *m_stream << m_bottomHalf;
-            m_stream->close();
+        if (m_stream.is_open()) {
+            m_stream << m_bottomHalf;
+            m_stream.close();
         }
         m_active = false;
     }

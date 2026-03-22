@@ -456,9 +456,9 @@ XLStreamWriter XLWorksheet::streamWriter()
     XLStreamWriter writer(this);
     writer.m_bottomHalf = bottomHalf;
     
-    if (writer.m_stream && writer.m_stream->is_open()) {
+    if (writer.m_stream.is_open()) {
         std::string header = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
-        *(writer.m_stream) << header << topHalf;
+        writer.m_stream << header << topHalf;
     }
     
     m_xmlData->m_isStreamed = true;

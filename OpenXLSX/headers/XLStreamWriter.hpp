@@ -7,7 +7,6 @@
 #include <vector>
 #include <fstream>
 #include <filesystem>
-#include <memory>
 
 namespace OpenXLSX {
 
@@ -36,9 +35,8 @@ namespace OpenXLSX {
         
         void flushSheetDataClose();
 
-        XLWorksheet* m_worksheet{nullptr};
         std::filesystem::path m_tempPath;
-        std::unique_ptr<std::ofstream> m_stream;
+        std::ofstream m_stream;
         uint32_t m_currentRow{1};
         bool m_active{false};
         std::string m_bottomHalf;
