@@ -96,6 +96,14 @@ namespace OpenXLSX
         void addEntry(std::string_view name, std::string_view data);
 
         /**
+         * @brief Add a file to the ZIP archive directly from the file system (useful for streaming large files).
+         * @param name The name of the entry within the ZIP archive.
+         * @param filePath The path to the file on disk.
+         */
+        void addEntryFromFile(std::string_view name, std::string_view filePath);
+
+
+        /**
          * @brief
          * @param entryName
          */

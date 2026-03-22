@@ -340,6 +340,8 @@ void XLDocument::close()
  */
 void XLDocument::save() { saveAs(m_filePath, XLForceOverwrite); }
 
+void XLDocument::addStreamedFile(const std::string& pathInZip, const std::string& tempFilePath) { m_archive.addEntryFromFile(pathInZip, tempFilePath); }
+
 /**
  * @details Serializes the modified DOM objects into their respective XML strings and constructs a new ZIP archive. Caches and restores unhandled media/VBA entries to prevent data loss in macro-enabled files.
  */
@@ -375,9 +377,15 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
         if ((item.getXmlPath() == "docProps/core.xml") or (item.getXmlPath() == "docProps/app.xml") or
             (item.getXmlPath() == "docProps/custom.xml"))
             xmlIsStandalone = XLXmlStandalone;
-        m_archive.addEntry(
-            item.getXmlPath(),
-            item.getRawData(XLXmlSavingDeclaration(m_xmlSavingDeclaration.version(), m_xmlSavingDeclaration.encoding(), xmlIsStandalone)));
+        
+        if (item.m_isStreamed) {
+            m_archive.addEntryFromFile(item.getXmlPath(), item.m_streamFilePath);
+        } else {
+            m_archive.addEntry(
+                item.getXmlPath(),
+                item.getRawData(XLXmlSavingDeclaration(m_xmlSavingDeclaration.version(), m_xmlSavingDeclaration.encoding(), xmlIsStandalone)));
+        }
+
     }
 
     for (const auto& entry : m_unhandledEntries) {

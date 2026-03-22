@@ -24,6 +24,7 @@
 #include "XLConditionalFormatting.hpp"
 #include "XLPageSetup.hpp"
 #include "XLChart.hpp"
+#include "XLStreamWriter.hpp"
 #include "XLPivotTable.hpp"
 
 namespace OpenXLSX
@@ -101,6 +102,12 @@ namespace OpenXLSX
         XLCellAssignable cell(const XLCellReference& ref) const;
         XLCellAssignable cell(uint32_t rowNumber, uint16_t columnNumber) const;
         XLCellAssignable cell(XLRowIndex row, XLColIndex col) const { return cell(row.val, col.val); }
+
+        /**
+         * @brief Starts a high-performance, low-memory stream writer for this worksheet.
+         * @warning Initiating a stream writer locks the DOM for this sheet.
+         */
+        XLStreamWriter streamWriter();
 
 
         XLCellAssignable findCell(const std::string& ref) const;

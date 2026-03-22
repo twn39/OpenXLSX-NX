@@ -138,6 +138,7 @@ namespace OpenXLSX
          * @brief Save changes to the original file path.
          */
         void save();
+        void addStreamedFile(const std::string& pathInZip, const std::string& tempFilePath);
 
         /**
          * @brief Persistence to a new location.

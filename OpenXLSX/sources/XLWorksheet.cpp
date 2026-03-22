@@ -398,3 +398,43 @@ std::optional<XLCell> XLWorksheet::peekCell(uint32_t rowNumber, uint16_t columnN
     if (!cellNode) return std::nullopt;
     return XLCell(cellNode, parentDoc().sharedStrings());
 }
+
+XLStreamWriter XLWorksheet::streamWriter()
+{
+    XLStreamWriter writer(this);
+    
+    XMLDocument& doc = xmlDocument();
+    XMLNode root = doc.document_element();
+    XMLNode sheetData = root.child("sheetData");
+    
+    if (!sheetData.empty()) {
+        root.remove_child(sheetData);
+    }
+    
+    struct StringWriter : pugi::xml_writer {
+        std::string result;
+        void write(const void* data, size_t size) override {
+            result.append(static_cast<const char*>(data), size);
+        }
+    } sw;
+    
+    doc.save(sw, "  ", pugi::format_default | pugi::format_no_declaration);
+    
+    std::string xmlStr = sw.result;
+    
+    size_t closeTag = xmlStr.rfind("</worksheet>");
+    if (closeTag != std::string::npos) {
+        xmlStr = xmlStr.substr(0, closeTag);
+    }
+    
+    xmlStr += "<sheetData>";
+    
+    if (writer.m_stream && writer.m_stream->is_open()) {
+        *(writer.m_stream) << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" << xmlStr;
+    }
+    
+    m_xmlData->m_isStreamed = true;
+    m_xmlData->m_streamFilePath = writer.getTempFilePath();
+    
+    return writer;
+}

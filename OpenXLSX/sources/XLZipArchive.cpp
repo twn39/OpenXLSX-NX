@@ -217,3 +217,21 @@ std::vector<std::string> XLZipArchive::entryNames() const
 
     return result;
 }
+
+void XLZipArchive::addEntryFromFile(std::string_view name, std::string_view filePath)
+{
+    if (!isOpen()) throw XLInternalError("Archive not open");
+
+    m_archive->isModified = true;
+
+    zip_source_t* s = zip_source_file(m_archive->archive, std::string(filePath).c_str(), 0, 0);
+    if (!s) { 
+        throw XLInternalError("Failed to create zip source from file: " + std::string(filePath)); 
+    }
+
+    zip_int64_t index = zip_file_add(m_archive->archive, std::string(name).c_str(), s, ZIP_FL_OVERWRITE);
+    if (index < 0) {
+        zip_source_free(s);
+        throw XLInternalError("Failed to add file entry to archive");
+    }
+}

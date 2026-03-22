@@ -165,6 +165,9 @@ namespace OpenXLSX
         std::string                          m_xmlID{};     /**< The relationship ID of the XML data. >*/
         XLContentType                        m_xmlType{};   /**< The type represented by the XML data. >*/
         mutable std::unique_ptr<XMLDocument> m_xmlDoc;      /**< The underlying XMLDocument object. >*/
+    public:
+        bool m_isStreamed{false};
+        std::string m_streamFilePath;
     };
 }    // namespace OpenXLSX
 
