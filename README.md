@@ -8,11 +8,13 @@ OpenXLSX is a high-performance C++ library for reading, writing, creating, and m
 
 - **Modern C++**: Built with C++17, ensuring type safety and modern abstractions.
 - **High Performance**: Optimized for speed, capable of processing millions of cells per second.
+- **Stream Reading/Writing**: Support for true streaming workflows (`XLStreamReader` & `XLStreamWriter`) with tiny memory footprint to handle gigabyte-level reports.
 - **Zero-Dependency Core**: All dependencies (`libzip`, `pugixml`, `fmt`, `fast_float`) are integrated via CMake's `FetchContent` or standard library.
 - **Unicode Support**: Consistent UTF-8 handling across all platforms using C++17 `std::filesystem`.
-- **Comprehensive Image Support**: Insert and read images (PNG/JPEG) with automatic dimension detection and aspect ratio preservation.
-- **Rich Text & Formatting**: Support for multi-format text segments (`XLRichText`), fonts, fills, borders, and conditional formatting.
-- **Advanced Data Validation**: Enterprise-grade data validation API with smart range collapsing, complex region subtraction, cross-sheet reference safety, and ergonomic configuration objects (`XLDataValidationConfig`).
+- **Ergonomic Facade APIs**: "Python/Go-like" C++ developer experience. Use declarative `XLStyle` builder to style cells instantly, auto-fit column widths, or freeze panes intuitively (`freezePanes("B2")`).
+- **Comprehensive Image Support**: Insert images via simple APIs (`wks.insertImage("A1", "logo.png")`) with zero-dependency automatic resolution detection and dynamic aspect-ratio scaling (`XLImageOptions`).
+- **Batch & Matrix Operations**: Bulk-fill 2D matrices (`std::vector<std::vector<T>>`) into regions using `XLCellRange::setValue()` without `for` loops, and apply bulk styling/border-outlining instantly.
+- **Advanced Data Validation**: Fluent-API builder for generating dropdown lists, region subtraction, cross-sheet references, and error alerts (`requireList({"A", "B"})`).
 - **Data Tables & AutoFilters**: High-level API for creating and managing Excel Tables (`XLTables`), including totals rows, column-level aggregate functions (`Sum`, `Average`, etc.), and custom logical AutoFilters.
 - **AutoFilter & Names**: Set worksheet filters and manage workbook-level named ranges and constants.
 - **Page Setup & Print**: Fine-grained control over margins, orientation, paper size, and print options (gridlines, headings, centering).
@@ -35,9 +37,16 @@ int main() {
     doc.create("Example.xlsx", XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
-    // Writing data
+    // Easy styling and data writing
     wks.cell("A1").value() = "Hello, OpenXLSX!";
-    wks.cell("B1").value() = 42;
+    
+    XLStyle style;
+    style.font.bold = true;
+    style.font.color = XLColor("FF0000"); // Red text
+    wks.cell("A1").setStyle(style);
+
+    // AutoFit Column
+    wks.autoFitColumn(1);
 
     doc.save();
     return 0;
@@ -187,3 +196,48 @@ The build system includes platform-specific optimizations for `Release` builds (
 - **Enhanced Testing**: Merged test suite into main build flow with automatic test data handling.
 
 </details>
+
+## 🚀 Advanced Ergonomic Features
+
+### 1. Matrix Binding & Batch Styling (Like Pandas)
+```cpp
+auto range = wks.range("A1:C3");
+
+// One-liner to dump a 2D matrix into the spreadsheet
+std::vector<std::vector<int>> matrix = { {1,2,3}, {4,5,6}, {7,8,9} };
+range.setValue(matrix);
+
+// One-liner to extract a 2D matrix back to C++
+auto extracted = range.getValue<int>();
+
+// Draw a thick blue border ONLY around the outer perimeter of the 3x3 matrix
+range.setBorderOutline(XLLineStyleThick, XLColor("0000FF"));
+```
+
+### 2. Stream Reading (For Multi-Gigabyte Files)
+Never worry about `std::bad_alloc` again. `XLStreamReader` uses a micro-DOM sliding window to read massive files with virtually zero memory overhead.
+```cpp
+auto reader = doc.workbook().worksheet("MassiveData").streamReader();
+while (reader.hasNext()) {
+    auto row = reader.nextRow();
+    std::cout << "Read row " << reader.currentRow() << " with " << row.size() << " columns." << std::endl;
+}
+```
+
+### 3. Smart Image Insertion
+Insert any `png`, `jpg`, or `gif` using natural cell coordinates. The engine automatically parses the binary header to detect the image dimensions without depending on OpenCV or libpng.
+```cpp
+XLImageOptions opts;
+opts.scaleX = 0.5; // Scale to 50%
+opts.positioning = XLImagePositioning::TwoCell; // Stretch with cell bounds
+
+wks.insertImage("B2", "company_logo.png", opts);
+```
+
+### 4. Fluent Data Validation (Dropdowns)
+Build complex dropdown lists and warnings with method chaining.
+```cpp
+wks.dataValidations().add("C2:C100")
+   .requireList({"Pending", "Approved", "Rejected"})
+   .setErrorAlert("Invalid", "Please select a valid state from the list.");
+```
