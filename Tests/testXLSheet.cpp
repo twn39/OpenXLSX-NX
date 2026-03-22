@@ -695,3 +695,50 @@ TEST_CASE("Worksheet Strong Index API", "[XLWorksheet][Index]")
         }
     }
 }
+
+TEST_CASE("Page Setup Ergonomics Validation", "[XLPageSetup][Fluent]")
+{
+    const std::string filename = "PageSetupDXTest.xlsx";
+
+    SECTION("Configure page setup seamlessly using fluent API and XLDistance")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            using namespace OpenXLSX::DistanceLiterals;
+            
+            wks.pageMargins()
+                 .setLeft(1_inch)
+                 .setRight(2.5_cm)
+                 .setTop(1.5_inch)
+                 .setBottom(1.5_inch)
+                 .setHeader(0.5_inch)
+                 .setFooter(0.5_inch);
+
+            wks.pageSetup()
+                 .setOrientation(XLPageOrientation::Landscape)
+                 .setPaperSize(9) // A4
+                 .setBlackAndWhite(true);
+
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLDocument doc;
+            doc.open(filename);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            
+            // Check orientation
+            REQUIRE(wks.pageSetup().orientation() == XLPageOrientation::Landscape);
+            REQUIRE(wks.pageSetup().paperSize() == 9);
+            REQUIRE(wks.pageSetup().blackAndWhite() == true);
+            
+            // Check margins
+            REQUIRE(wks.pageMargins().left() == Catch::Approx(1.0));
+            REQUIRE(wks.pageMargins().right() == Catch::Approx(2.5 / 2.54)); // roughly 0.984 inch
+        }
+    }
+}

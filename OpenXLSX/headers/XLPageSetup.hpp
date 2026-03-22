@@ -4,6 +4,7 @@
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
 #include "XLXmlParser.hpp"
+#include "XLConstants.hpp"
 
 namespace OpenXLSX
 {
@@ -22,22 +23,28 @@ namespace OpenXLSX
         explicit XLPageMargins(const XMLNode& node);
 
         double left() const;
-        void   setLeft(double value);
+        XLPageMargins& setLeft(double value);
+        XLPageMargins& setLeft(XLDistance value);
 
         double right() const;
-        void   setRight(double value);
+        XLPageMargins& setRight(double value);
+        XLPageMargins& setRight(XLDistance value);
 
         double top() const;
-        void   setTop(double value);
+        XLPageMargins& setTop(double value);
+        XLPageMargins& setTop(XLDistance value);
 
         double bottom() const;
-        void   setBottom(double value);
+        XLPageMargins& setBottom(double value);
+        XLPageMargins& setBottom(XLDistance value);
 
         double header() const;
-        void   setHeader(double value);
+        XLPageMargins& setHeader(double value);
+        XLPageMargins& setHeader(XLDistance value);
 
         double footer() const;
-        void   setFooter(double value);
+        XLPageMargins& setFooter(double value);
+        XLPageMargins& setFooter(XLDistance value);
 
     private:
         XMLNode m_node;
@@ -122,32 +129,32 @@ namespace OpenXLSX
         explicit XLPageSetup(const XMLNode& node);
 
         uint32_t paperSize() const;
-        void     setPaperSize(uint32_t value);
+        XLPageSetup& setPaperSize(uint32_t value);
 
         XLPageOrientation orientation() const;
-        void              setOrientation(XLPageOrientation value);
+        XLPageSetup& setOrientation(XLPageOrientation value);
 
         uint32_t scale() const;
-        void     setScale(uint32_t value);
+        XLPageSetup& setScale(uint32_t value);
 
         uint32_t fitToWidth() const;
-        void     setFitToWidth(uint32_t value);
+        XLPageSetup& setFitToWidth(uint32_t value);
 
 
         uint32_t fitToHeight() const;
-        void     setFitToHeight(uint32_t value);
+        XLPageSetup& setFitToHeight(uint32_t value);
 
         [[nodiscard]] std::string pageOrder() const;
-        void setPageOrder(std::string_view value);
+        XLPageSetup& setPageOrder(std::string_view value);
 
         [[nodiscard]] bool useFirstPageNumber() const;
-        void setUseFirstPageNumber(bool value);
+        XLPageSetup& setUseFirstPageNumber(bool value);
 
         [[nodiscard]] uint32_t firstPageNumber() const;
-        void setFirstPageNumber(uint32_t value);
+        XLPageSetup& setFirstPageNumber(uint32_t value);
 
         bool blackAndWhite() const;
-        void setBlackAndWhite(bool value);
+        XLPageSetup& setBlackAndWhite(bool value);
 
     private:
         XMLNode m_node;
