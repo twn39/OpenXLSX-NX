@@ -376,6 +376,12 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
 
     m_filePath = std::string(fileName);
     workbook().updateWorksheetDimensions();
+    
+    // Auto-apply calculation enforcement if any formula was written during this session
+    if (m_formulaNeedsRecalculation) {
+        execCommand(XLCommand(XLCommandType::SetFullCalcOnLoad));
+    }
+    
     execCommand(XLCommand(XLCommandType::ResetCalcChain));
 
     if (m_filePath.size() >= 5 && m_filePath.substr(m_filePath.size() - 5) == ".xlsm") {

@@ -316,6 +316,11 @@ namespace OpenXLSX
          */
         void cleanupSharedStrings();
 
+        /**
+         * @brief Marks the document to require formula recalculation on load.
+         */
+        void setFormulaNeedsRecalculation(bool status = true) { m_formulaNeedsRecalculation = status; }
+
     public:
         /**
          * @brief Fetch raw XML content for a specific package path. 
@@ -355,6 +360,8 @@ namespace OpenXLSX
         mutable std::map<const XMLDocument*, std::unordered_map<uint32_t, SharedFormula>>
             m_sharedFormulas{};
         std::map<std::string, std::string> m_unhandledEntries{};
+
+        bool m_formulaNeedsRecalculation{false};
 
         XLRelationships    m_docRelationships{};
         XLRelationships    m_wbkRelationships{};

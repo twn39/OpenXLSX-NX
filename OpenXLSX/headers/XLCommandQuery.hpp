@@ -24,6 +24,7 @@ namespace OpenXLSX
         SetSheetIndex,
         SetSheetActive,
         ResetCalcChain,
+        SetFullCalcOnLoad,
         CheckAndFixCoreProperties,
         CheckAndFixExtendedProperties,
         CheckAndFixCustomProperties,

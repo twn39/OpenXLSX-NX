@@ -51,7 +51,7 @@ TEST_CASE("Sparkline Creation", "[XLSparkline]")
     REQUIRE(sheetXmlStr.find("type=\"stacked\"") != std::string::npos);
 
     // 4. Verify that formatting (like colorAxis) was created
-    REQUIRE(sheetXmlStr.find("<x14:colorAxis rgb=\"FF000000\"/>") != std::string::npos);
+    REQUIRE(sheetXmlStr.find("<x14:colorAxis rgb=\"FF000000\" />") != std::string::npos);
 
     // 5. Verify the formula logic (xm:f) and square reference (xm:sqref)
     REQUIRE(sheetXmlStr.find("<xm:f>Sheet1!A1:E1</xm:f>") != std::string::npos);

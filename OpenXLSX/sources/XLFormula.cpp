@@ -241,6 +241,10 @@ void XLFormulaProxy::setFormulaString(const char* formulaString, bool resetValue
     // ===== Ensure that the formula node <f> is the first child, listed before the value <v> node.
     m_cellNode->prepend_move(m_cellNode->child("f"));
     // END pull request #189
+
+    // ===== Trigger document formula recalculation
+    auto& doc = const_cast<XLDocument&>(m_cell->m_sharedStrings.get().parentDoc());
+    doc.setFormulaNeedsRecalculation(true);
 }
 
 /**

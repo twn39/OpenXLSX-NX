@@ -38,6 +38,7 @@ namespace OpenXLSX
     {
         friend class XLCellIterator;
         friend class XLCellValueProxy;
+        friend class XLFormulaProxy;
         friend class XLRowDataIterator;
         friend bool operator==(const XLCell& lhs, const XLCell& rhs);
         friend bool operator!=(const XLCell& lhs, const XLCell& rhs);

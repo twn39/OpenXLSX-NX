@@ -47,6 +47,9 @@ bool XLDocument::execCommand(const XLCommand& command)
 
             if (item != m_data.end()) m_data.erase(item);
         } break;
+        case XLCommandType::SetFullCalcOnLoad: {
+            m_workbook.setFullCalculationOnLoad();
+        } break;
         case XLCommandType::CheckAndFixCoreProperties: {    // does nothing if core properties are in good shape
             // ===== If _rels/.rels has no entry for docProps/core.xml
             if (!m_docRelationships.targetExists("docProps/core.xml"))
