@@ -83,6 +83,14 @@ namespace OpenXLSX
         XLChartSeries& setTitle(std::string_view title);
         XLChartSeries& setSmooth(bool smooth);
         XLChartSeries& setMarkerStyle(XLMarkerStyle style);
+        
+        /**
+         * @brief Enable and configure data labels for this series.
+         * @param showValue Set to true to show the value on the labels.
+         * @param showCategoryName Set to true to show the category name on the labels.
+         * @param showPercent Set to true to show the percentage on the labels (mainly for pie charts).
+         */
+        XLChartSeries& setDataLabels(bool showValue, bool showCategoryName = false, bool showPercent = false);
 
     private:
         XMLNode m_node;
@@ -178,6 +186,12 @@ namespace OpenXLSX
          * @param title The title text
          */
         void setTitle(std::string_view title);
+
+        /**
+         * @brief Set the built-in chart style ID
+         * @param styleId The numeric ID of the chart style (e.g. 2 for simple standard, 42 for modern UI). Max 48.
+         */
+        void setStyle(uint8_t styleId);
 
         /**
          * @brief Set the legend position or hide it

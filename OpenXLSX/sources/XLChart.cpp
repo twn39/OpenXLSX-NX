@@ -321,6 +321,21 @@ namespace OpenXLSX
         titleNode.append_child("c:overlay").append_attribute("val").set_value("0");
     }
 
+    void XLChart::setStyle(uint8_t styleId)
+    {
+        XMLNode rootNode = xmlDocument().document_element();
+        XMLNode styleNode = rootNode.child("c:style");
+        if (styleNode.empty()) {
+            styleNode = rootNode.insert_child_after("c:style", rootNode.child("c:chart"));
+        }
+        
+        if (styleNode.attribute("val").empty()) {
+            styleNode.append_attribute("val").set_value(styleId);
+        } else {
+            styleNode.attribute("val").set_value(styleId);
+        }
+    }
+
     void XLChart::setLegendPosition(XLLegendPosition position)
     {
         XMLNode chartNode = xmlDocument().document_element().child("c:chart");
@@ -601,6 +616,26 @@ namespace OpenXLSX
         }
 
         symbolNode.attribute("val") ? symbolNode.attribute("val").set_value(val.c_str()) : symbolNode.append_attribute("val").set_value(val.c_str());
+        return *this;
+    }
+
+    XLChartSeries& XLChartSeries::setDataLabels(bool showValue, bool showCategoryName, bool showPercent)
+    {
+        if (m_node.empty()) return *this;
+
+        XMLNode dLblsNode = m_node.child("c:dLbls");
+        if (dLblsNode.empty()) {
+            dLblsNode = appendAndGetNode(m_node, "c:dLbls", XLSeriesNodeOrder);
+        }
+
+        // Clean up old configuration to overwrite cleanly
+        dLblsNode.remove_children();
+
+        dLblsNode.append_child("c:showVal").append_attribute("val").set_value(showValue ? "1" : "0");
+        dLblsNode.append_child("c:showCatName").append_attribute("val").set_value(showCategoryName ? "1" : "0");
+        dLblsNode.append_child("c:showSerName").append_attribute("val").set_value("0");
+        dLblsNode.append_child("c:showPercent").append_attribute("val").set_value(showPercent ? "1" : "0");
+
         return *this;
     }
 
