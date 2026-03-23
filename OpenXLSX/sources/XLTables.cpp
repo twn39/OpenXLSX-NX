@@ -148,9 +148,24 @@ namespace OpenXLSX
     void XLTable::setRangeReference(std::string_view ref)
     {
         XMLNode docNode = xmlDocument().document_element();
+        
+        bool hasTotals = docNode.attribute("totalsRowShown").as_bool(false);
+        std::string filterRef = std::string(ref);
+        
+        if (hasTotals) {
+             // If setting a new range while totals are shown, the autoFilter should be one row less
+             auto colonPos = filterRef.find(':');
+             if (colonPos != std::string::npos) {
+                 XLCellReference start(filterRef.substr(0, colonPos));
+                 XLCellReference end(filterRef.substr(colonPos + 1));
+                 end.setRow(end.row() > 1 ? end.row() - 1 : 1);
+                 filterRef = start.address() + ":" + end.address();
+             }
+        }
+        
         setTableAttribute(docNode, "ref", ref);
         XMLNode autoFilter = appendAndGetNode(docNode, "autoFilter", TableNodeOrder);
-        appendAndSetAttribute(autoFilter, "ref", std::string(ref));
+        appendAndSetAttribute(autoFilter, "ref", filterRef);
     }
 
     std::string XLTable::styleName() const { return xmlDocument().document_element().child("tableStyleInfo").attribute("name").value(); }
@@ -225,8 +240,29 @@ namespace OpenXLSX
     bool XLTable::showTotalsRow() const { return xmlDocument().document_element().attribute("totalsRowShown").as_bool(); }
     void XLTable::setShowTotalsRow(bool show) {
         XMLNode node = xmlDocument().document_element();
-        setTableAttribute(node, "totalsRowShown", show ? "1" : "0");
-        setTableAttribute(node, "totalsRowCount", show ? "1" : "0");
+        bool currentlyShowing = node.attribute("totalsRowShown").as_bool(false);
+        
+        if (show != currentlyShowing) {
+            setTableAttribute(node, "totalsRowShown", show ? "1" : "0");
+            setTableAttribute(node, "totalsRowCount", show ? "1" : "0");
+            
+            // Adjust the overall table ref, but NOT the autoFilter ref.
+            // When show is true, we add 1 to the end row.
+            // When show is false, we subtract 1 from the end row.
+            std::string ref = node.attribute("ref").value();
+            auto colonPos = ref.find(':');
+            if (colonPos != std::string::npos) {
+                XLCellReference start(ref.substr(0, colonPos));
+                XLCellReference end(ref.substr(colonPos + 1));
+                
+                if (show) {
+                    end.setRow(end.row() + 1);
+                } else {
+                    end.setRow(end.row() > 1 ? end.row() - 1 : 1);
+                }
+                setTableAttribute(node, "ref", start.address() + ":" + end.address());
+            }
+        }
     }
 
     void XLTable::createColumnsFromRange(const XLWorksheet& worksheet) {
