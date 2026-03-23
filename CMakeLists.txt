@@ -165,14 +165,3 @@ if(OPENXLSX_BUILD_BENCHMARKS)
     target_link_libraries(OpenXLSXBenchmark PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2WithMain)
 endif()
 
-
-
-
-
-
-
-
-
-
-
-
