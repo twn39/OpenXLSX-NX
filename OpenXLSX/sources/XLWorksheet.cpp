@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <charconv>
 #include <fmt/format.h>
 #include <pugixml.hpp>
 #include "XLWorksheet.hpp"
@@ -19,11 +20,14 @@ XLWorksheet::XLWorksheet(XLXmlData* xmlData) : XLSheetBase(xmlData)
         while (not currentNode.empty()) {
             uint16_t min{};
             uint16_t max{};
-            try {
-                min = static_cast<uint16_t>(std::stoi(currentNode.attribute("min").value()));
-                max = static_cast<uint16_t>(std::stoi(currentNode.attribute("max").value()));
-            }
-            catch (...) {
+            
+            std::string_view minStr = currentNode.attribute("min").value();
+            std::string_view maxStr = currentNode.attribute("max").value();
+            
+            auto resMin = std::from_chars(minStr.data(), minStr.data() + minStr.size(), min);
+            auto resMax = std::from_chars(maxStr.data(), maxStr.data() + maxStr.size(), max);
+            
+            if (resMin.ec != std::errc() || resMax.ec != std::errc()) {
                 throw XLInternalError("Worksheet column min and/or max attributes are invalid.");
             }
             if (min != max) {
@@ -386,7 +390,11 @@ uint16_t XLWorksheet::sheetXmlNumber() const
     size_t pos2 = pos;
     while (std::isdigit(xmlPath[pos2])) ++pos2;
     if (pos2 == pos or xmlPath.substr(pos2) != ".xml") return 0;
-    return static_cast<uint16_t>(std::stoi(xmlPath.substr(pos, pos2 - pos)));
+    
+    uint16_t num = 0;
+    std::string_view numStr(xmlPath.data() + pos, pos2 - pos);
+    std::from_chars(numStr.data(), numStr.data() + numStr.size(), num);
+    return num;
 }
 
 std::optional<XLCell> XLWorksheet::peekCell(const std::string& ref) const { return peekCell(XLCellReference(ref)); }

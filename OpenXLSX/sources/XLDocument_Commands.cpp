@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <vector>
 #include <string>
+#include <fmt/format.h>
 
 #include "XLDocument.hpp"
 #include "XLSheet.hpp"
@@ -174,7 +175,7 @@ bool XLDocument::execCommand(const XLCommand& command)
         case XLCommandType::CloneSheet: {
             validateSheetName(command.getParam<std::string>("cloneName"), THROW_ON_INVALID);
             const auto internalID = m_workbook.createInternalSheetID();
-            const auto sheetPath  = "/xl/worksheets/sheet" + std::to_string(internalID) + ".xml";
+            const auto sheetPath  = fmt::format("/xl/worksheets/sheet{}.xml", internalID);
             if (m_workbook.sheetExists(command.getParam<std::string>("cloneName")))
                 throw XLInternalError("Sheet named \"" + command.getParam<std::string>("cloneName") + "\" already exists.");
 

@@ -2,6 +2,8 @@
 #include <cassert>
 #include <pugixml.hpp>
 #include <regex>
+#include <charconv>
+#include <fmt/format.h>
 
 // ===== OpenXLSX Includes ===== //
 #include "XLCell.hpp"
@@ -49,10 +51,13 @@ namespace
             result += XLCellReference::columnAsString(static_cast<uint16_t>(XLCellReference::columnAsNumber(colPart) + colOffset));
 
         if (rowAbsolute) result += '$';
-        if (rowAbsolute || rowOffset == 0)
+        if (rowAbsolute || rowOffset == 0) {
             result += rowPart;
-        else
-            result += std::to_string(std::stoul(rowPart) + rowOffset);
+        } else {
+            uint32_t rowNum = 0;
+            std::from_chars(rowPart.data(), rowPart.data() + rowPart.size(), rowNum);
+            result += fmt::format("{}", rowNum + rowOffset);
+        }
 
         return result;
     }
@@ -319,7 +324,7 @@ XLFormula XLFormulaProxy::getFormula() const
                 }
             }
             
-            throw XLFormulaError("Could not find master formula for shared index " + std::to_string(si));
+            throw XLFormulaError(fmt::format("Could not find master formula for shared index {}", si));
         }
 
         if (type == "array") throw XLFormulaError("Array formulas not supported.");

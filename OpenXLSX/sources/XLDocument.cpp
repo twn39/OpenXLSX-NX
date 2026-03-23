@@ -9,6 +9,7 @@
 #include <pugixml.hpp>
 #include <sys/stat.h>    // for stat, to test if a file exists and if a file is a directory
 #include <vector>        // std::vector
+#include <fmt/format.h>
 
 // ===== OpenXLSX Includes ===== //
 #include "XLContentTypes.hpp"
@@ -500,9 +501,9 @@ bool XLDocument::hasSheetRelationships(uint16_t sheetXmlNo, bool isChartsheet) c
 {
     using namespace std::literals::string_literals;
     if (isChartsheet) {
-        return m_archive.hasEntry("xl/chartsheets/_rels/sheet"s + std::to_string(sheetXmlNo) + ".xml.rels"s);
+        return m_archive.hasEntry(fmt::format("xl/chartsheets/_rels/sheet{}.xml.rels", sheetXmlNo));
     }
-    return m_archive.hasEntry("xl/worksheets/_rels/sheet"s + std::to_string(sheetXmlNo) + ".xml.rels"s);
+    return m_archive.hasEntry(fmt::format("xl/worksheets/_rels/sheet{}.xml.rels", sheetXmlNo));
 }
 
 /**
@@ -511,7 +512,7 @@ bool XLDocument::hasSheetRelationships(uint16_t sheetXmlNo, bool isChartsheet) c
 bool XLDocument::hasSheetDrawing(uint16_t sheetXmlNo) const
 {
     using namespace std::literals::string_literals;
-    return m_archive.hasEntry("xl/drawings/drawing"s + std::to_string(sheetXmlNo) + ".xml"s);
+    return m_archive.hasEntry(fmt::format("xl/drawings/drawing{}.xml", sheetXmlNo));
 }
 
 /**
@@ -520,7 +521,7 @@ bool XLDocument::hasSheetDrawing(uint16_t sheetXmlNo) const
 bool XLDocument::hasSheetVmlDrawing(uint16_t sheetXmlNo) const
 {
     using namespace std::literals::string_literals;
-    return m_archive.hasEntry("xl/drawings/vmlDrawing"s + std::to_string(sheetXmlNo) + ".vml"s);
+    return m_archive.hasEntry(fmt::format("xl/drawings/vmlDrawing{}.vml", sheetXmlNo));
 }
 
 /**
@@ -529,7 +530,7 @@ bool XLDocument::hasSheetVmlDrawing(uint16_t sheetXmlNo) const
 bool XLDocument::hasSheetComments(uint16_t sheetXmlNo) const
 {
     using namespace std::literals::string_literals;
-    return m_archive.hasEntry("xl/comments"s + std::to_string(sheetXmlNo) + ".xml"s);
+    return m_archive.hasEntry(fmt::format("xl/comments{}.xml", sheetXmlNo));
 }
 
 /**
@@ -538,7 +539,7 @@ bool XLDocument::hasSheetComments(uint16_t sheetXmlNo) const
 bool XLDocument::hasSheetTables(uint16_t sheetXmlNo) const
 {
     using namespace std::literals::string_literals;
-    return m_archive.hasEntry("xl/tables/table"s + std::to_string(sheetXmlNo) + ".xml"s);
+    return m_archive.hasEntry(fmt::format("xl/tables/table{}.xml", sheetXmlNo));
 }
 
 /**
@@ -588,7 +589,7 @@ XLRelationships XLDocument::drawingRelationships(std::string_view drawingPath)
 XLDrawing XLDocument::sheetDrawing(uint16_t sheetXmlNo)
 {
     using namespace std::literals::string_literals;
-    std::string drawingFilename = "xl/drawings/drawing"s + std::to_string(sheetXmlNo) + ".xml"s;
+    std::string drawingFilename = fmt::format("xl/drawings/drawing{}.xml", sheetXmlNo);
 
     if (!m_archive.hasEntry(drawingFilename)) {
         m_archive.addEntry(drawingFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\"standalone=\"yes\"?>");
@@ -606,10 +607,10 @@ XLDrawing XLDocument::createDrawing()
     using namespace std::literals::string_literals;
 
     uint32_t drawingNo = 1;
-    std::string drawingFilename = "xl/drawings/drawing"s + std::to_string(drawingNo) + ".xml"s;
+    std::string drawingFilename = fmt::format("xl/drawings/drawing{}.xml", drawingNo);
     while (m_archive.hasEntry(drawingFilename)) {
         ++drawingNo;
-        drawingFilename = "xl/drawings/drawing"s + std::to_string(drawingNo) + ".xml"s;
+        drawingFilename = fmt::format("xl/drawings/drawing{}.xml", drawingNo);
     }
 
     m_archive.addEntry(drawingFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
@@ -635,10 +636,10 @@ XLChart XLDocument::createChart(XLChartType type)
 
     // Find a new chart number by looking at existing chart entries
     uint32_t chartNo = 1;
-    std::string chartFilename = "xl/charts/chart"s + std::to_string(chartNo) + ".xml"s;
+    std::string chartFilename = fmt::format("xl/charts/chart{}.xml", chartNo);
     while (m_archive.hasEntry(chartFilename)) {
         ++chartNo;
-        chartFilename = "xl/charts/chart"s + std::to_string(chartNo) + ".xml"s;
+        chartFilename = fmt::format("xl/charts/chart{}.xml", chartNo);
     }
 
     m_archive.addEntry(chartFilename, "");
@@ -661,7 +662,7 @@ XLChart XLDocument::createChart(XLChartType type)
 XLVmlDrawing XLDocument::sheetVmlDrawing(uint16_t sheetXmlNo)
 {
     using namespace std::literals::string_literals;
-    std::string vmlDrawingFilename = "xl/drawings/vmlDrawing"s + std::to_string(sheetXmlNo) + ".vml"s;
+    std::string vmlDrawingFilename = fmt::format("xl/drawings/vmlDrawing{}.vml", sheetXmlNo);
 
     if (!m_archive.hasEntry(vmlDrawingFilename)) {
         m_archive.addEntry(vmlDrawingFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\"standalone=\"yes\"?>");
@@ -711,7 +712,7 @@ std::string XLDocument::getImage(std::string_view path) const
 XLComments XLDocument::sheetComments(uint16_t sheetXmlNo)
 {
     using namespace std::literals::string_literals;
-    std::string commentsFilename = "xl/comments"s + std::to_string(sheetXmlNo) + ".xml"s;
+    std::string commentsFilename = fmt::format("xl/comments{}.xml", sheetXmlNo);
 
     if (!m_archive.hasEntry(commentsFilename)) {
         m_archive.addEntry(commentsFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\"standalone=\"yes\"?>");
@@ -730,7 +731,7 @@ XLComments XLDocument::sheetComments(uint16_t sheetXmlNo)
 XLTableCollection XLDocument::sheetTables(uint16_t sheetXmlNo)
 {
     using namespace std::literals::string_literals;
-    std::string tablesFilename = "xl/tables/table"s + std::to_string(sheetXmlNo) + ".xml"s;
+    std::string tablesFilename = fmt::format("xl/tables/table{}.xml", sheetXmlNo);
 
     if (!m_archive.hasEntry(tablesFilename)) {
         m_archive.addEntry(tablesFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -900,10 +901,10 @@ XLPivotTable XLDocument::createPivotTable()
     using namespace std::literals::string_literals;
 
     uint32_t num = 1;
-    std::string filename = "xl/pivotTables/pivotTable"s + std::to_string(num) + ".xml"s;
+    std::string filename = fmt::format("xl/pivotTables/pivotTable{}.xml", num);
     while (m_archive.hasEntry(filename)) {
         ++num;
-        filename = "xl/pivotTables/pivotTable"s + std::to_string(num) + ".xml"s;
+        filename = fmt::format("xl/pivotTables/pivotTable{}.xml", num);
     }
 
     m_archive.addEntry(filename, std::string(xlPivotTableTemplate));
@@ -923,10 +924,10 @@ XLPivotCacheDefinition XLDocument::createPivotCacheDefinition()
     using namespace std::literals::string_literals;
 
     uint32_t num = 1;
-    std::string filename = "xl/pivotCache/pivotCacheDefinition"s + std::to_string(num) + ".xml"s;
+    std::string filename = fmt::format("xl/pivotCache/pivotCacheDefinition{}.xml", num);
     while (m_archive.hasEntry(filename)) {
         ++num;
-        filename = "xl/pivotCache/pivotCacheDefinition"s + std::to_string(num) + ".xml"s;
+        filename = fmt::format("xl/pivotCache/pivotCacheDefinition{}.xml", num);
     }
 
     m_archive.addEntry(filename, std::string(xlPivotCacheDefinitionTemplate));

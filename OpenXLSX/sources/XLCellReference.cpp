@@ -4,9 +4,7 @@
 #include <string_view>
 #include <gsl/assert>
 #include <gsl/util>
-#ifdef CHARCONV_ENABLED
-#    include <charconv>
-#endif
+#include <charconv>
 #include <cctype>     // std::isdigit
 #include <cstdint>    // pull requests #216, #232
 
@@ -204,20 +202,9 @@ void XLCellReference::setAddress(std::string_view address)
  */
 std::string XLCellReference::rowAsString(uint32_t row)
 {
-#ifdef CHARCONV_ENABLED
-    std::array<char, 7> str{};    // NOLINT
+    std::array<char, 11> str{};    // NOLINT (11 chars enough for max uint32_t)
     const auto*         p = std::to_chars(str.data(), str.data() + str.size(), row).ptr;
-    return std::string{str.data(), static_cast<uint16_t>(p - str.data())};
-#else
-    std::string result(7, '\0');
-    int pos = 6;
-    while (row != 0) {
-        uint32_t rem = row % 10;
-        result[pos--] = gsl::narrow_cast<char>((rem > 9) ? (rem - 10) + 'a' : rem + '0');
-        row = row / 10;
-    }
-    return result.substr(pos + 1);
-#endif
+    return std::string{str.data(), static_cast<size_t>(p - str.data())};
 }
 
 /**
@@ -225,13 +212,9 @@ std::string XLCellReference::rowAsString(uint32_t row)
  */
 uint32_t XLCellReference::rowAsNumber(std::string_view row)
 {
-#ifdef CHARCONV_ENABLED
     uint32_t value = 0;
     std::from_chars(row.data(), row.data() + row.size(), value);    // NOLINT
     return value;
-#else
-    return gsl::narrow_cast<uint32_t>(std::stoul(std::string(row)));
-#endif
 }
 
 /**

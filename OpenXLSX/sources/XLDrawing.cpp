@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <pugixml.hpp>
 #include <string>
+#include <charconv>
+#include <fmt/format.h>
 
 // ===== OpenXLSX Includes ===== //
 #include "XLDocument.hpp"
@@ -279,10 +281,30 @@ bool XLShapeStyle::setAttribute(std::string_view attributeName, std::string_view
 }
 
 std::string XLShapeStyle::position() const { return getAttribute("position").value; }
-uint16_t    XLShapeStyle::marginLeft() const { return gsl::narrow_cast<uint16_t>(std::stoi(getAttribute("margin-left").value)); }
-uint16_t    XLShapeStyle::marginTop() const { return gsl::narrow_cast<uint16_t>(std::stoi(getAttribute("margin-top").value)); }
-uint16_t    XLShapeStyle::width() const { return gsl::narrow_cast<uint16_t>(std::stoi(getAttribute("width").value)); }
-uint16_t    XLShapeStyle::height() const { return gsl::narrow_cast<uint16_t>(std::stoi(getAttribute("height").value)); }
+uint16_t XLShapeStyle::marginLeft() const { 
+    uint16_t val = 0; 
+    std::string_view str = getAttribute("margin-left").value;
+    std::from_chars(str.data(), str.data() + str.size(), val); 
+    return val; 
+}
+uint16_t XLShapeStyle::marginTop() const { 
+    uint16_t val = 0; 
+    std::string_view str = getAttribute("margin-top").value;
+    std::from_chars(str.data(), str.data() + str.size(), val); 
+    return val; 
+}
+uint16_t XLShapeStyle::width() const { 
+    uint16_t val = 0; 
+    std::string_view str = getAttribute("width").value;
+    std::from_chars(str.data(), str.data() + str.size(), val); 
+    return val; 
+}
+uint16_t XLShapeStyle::height() const { 
+    uint16_t val = 0; 
+    std::string_view str = getAttribute("height").value;
+    std::from_chars(str.data(), str.data() + str.size(), val); 
+    return val; 
+}
 std::string XLShapeStyle::msoWrapStyle() const { return getAttribute("mso-wrap-style").value; }
 std::string XLShapeStyle::vTextAnchor() const { return getAttribute("v-text-anchor").value; }
 bool        XLShapeStyle::hidden() const { return ("hidden" == getAttribute("visibility").value); }
@@ -290,11 +312,11 @@ bool        XLShapeStyle::visible() const { return !hidden(); }
 
 bool XLShapeStyle::setPosition(std::string_view newPosition) { return setAttribute("position", newPosition); }
 bool XLShapeStyle::setMarginLeft(uint16_t newMarginLeft)
-{ return setAttribute("margin-left", std::to_string(newMarginLeft) + "pt"); }
+{ return setAttribute("margin-left", fmt::format("{}pt", newMarginLeft)); }
 bool XLShapeStyle::setMarginTop(uint16_t newMarginTop)
-{ return setAttribute("margin-top", std::to_string(newMarginTop) + "pt"); }
-bool XLShapeStyle::setWidth(uint16_t newWidth) { return setAttribute("width", std::to_string(newWidth) + "pt"); }
-bool XLShapeStyle::setHeight(uint16_t newHeight) { return setAttribute("height", std::to_string(newHeight) + "pt"); }
+{ return setAttribute("margin-top", fmt::format("{}pt", newMarginTop)); }
+bool XLShapeStyle::setWidth(uint16_t newWidth) { return setAttribute("width", fmt::format("{}pt", newWidth)); }
+bool XLShapeStyle::setHeight(uint16_t newHeight) { return setAttribute("height", fmt::format("{}pt", newHeight)); }
 bool XLShapeStyle::setMsoWrapStyle(std::string_view newMsoWrapStyle) { return setAttribute("mso-wrap-style", newMsoWrapStyle); }
 bool XLShapeStyle::setVTextAnchor(std::string_view newVTextAnchor) { return setAttribute("v-text-anchor", newVTextAnchor); }
 bool XLShapeStyle::hide() { return setAttribute("visibility", "hidden"); }
@@ -440,7 +462,7 @@ XMLNode XLVmlDrawing::shapeNode(uint32_t index) const
         }
     }
     if (node.empty() or node.raw_name() != ShapeNodeName)
-        throw XLException("XLVmlDrawing: shape index "s + std::to_string(index) + " is out of bounds"s);
+        throw XLException(fmt::format("XLVmlDrawing: shape index {} is out of bounds", index));
 
     return node;
 }
@@ -514,7 +536,7 @@ XLShape XLVmlDrawing::createShape([[maybe_unused]] const XLShape& shapeTemplate)
     }
 
     using namespace std::literals::string_literals;
-    node.prepend_attribute("id").set_value(("shape_"s + std::to_string(m_lastAssignedShapeId++)).c_str());
+    node.prepend_attribute("id").set_value(fmt::format("shape_{}", m_lastAssignedShapeId++).c_str());
     node.append_attribute("type").set_value(("#"s + m_defaultShapeTypeId).c_str());
 
     m_shapeCount++;
@@ -624,8 +646,8 @@ void XLDrawing::addImage(std::string_view rId,
     // Extents (size) - Required for oneCellAnchor and absoluteAnchor
     if (options.positioning != XLImagePositioning::TwoCell) {
         XMLNode ext = anchor.append_child("xdr:ext");
-        ext.append_attribute("cx").set_value(std::to_string(emuWidth).c_str());
-        ext.append_attribute("cy").set_value(std::to_string(emuHeight).c_str());
+        ext.append_attribute("cx").set_value(fmt::format("{}", emuWidth).c_str());
+        ext.append_attribute("cy").set_value(fmt::format("{}", emuHeight).c_str());
     }
 
     // Picture node
@@ -635,7 +657,7 @@ void XLDrawing::addImage(std::string_view rId,
     XMLNode nvPicPr    = pic.append_child("xdr:nvPicPr");
     XMLNode cNvPr      = nvPicPr.append_child("xdr:cNvPr");
     auto    childCount = static_cast<size_t>(std::distance(rootNode.children().begin(), rootNode.children().end()));
-    cNvPr.append_attribute("id").set_value(std::to_string(childCount + 1).c_str());
+    cNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
     cNvPr.append_attribute("name").set_value(std::string(name).c_str());
     cNvPr.append_attribute("descr").set_value(std::string(description).c_str());
 
@@ -653,8 +675,8 @@ void XLDrawing::addImage(std::string_view rId,
     XMLNode xfrm = spPr.append_child("a:xfrm");
     xfrm.append_child("a:off").append_attribute("x").set_value("0");
     xfrm.child("a:off").append_attribute("y").set_value("0");
-    xfrm.append_child("a:ext").append_attribute("cx").set_value(std::to_string(emuWidth).c_str());
-    xfrm.child("a:ext").append_attribute("cy").set_value(std::to_string(emuHeight).c_str());
+    xfrm.append_child("a:ext").append_attribute("cx").set_value(fmt::format("{}", emuWidth).c_str());
+    xfrm.child("a:ext").append_attribute("cy").set_value(fmt::format("{}", emuHeight).c_str());
 
     XMLNode prstGeom = spPr.append_child("a:prstGeom");
     prstGeom.append_attribute("prst").set_value("rect");
@@ -687,8 +709,8 @@ void XLDrawing::addChartAnchor(std::string_view rId,
     const uint64_t emuHeight = static_cast<uint64_t>(height) * EMU_PER_PIXEL;
 
     XMLNode ext = anchor.append_child("xdr:ext");
-    ext.append_attribute("cx").set_value(std::to_string(emuWidth).c_str());
-    ext.append_attribute("cy").set_value(std::to_string(emuHeight).c_str());
+    ext.append_attribute("cx").set_value(fmt::format("{}", emuWidth).c_str());
+    ext.append_attribute("cy").set_value(fmt::format("{}", emuHeight).c_str());
 
     // graphicFrame node
     XMLNode frame = anchor.append_child("xdr:graphicFrame");
@@ -697,7 +719,7 @@ void XLDrawing::addChartAnchor(std::string_view rId,
     XMLNode nvGraphicFramePr = frame.append_child("xdr:nvGraphicFramePr");
     XMLNode cNvPr = nvGraphicFramePr.append_child("xdr:cNvPr");
     auto    childCount = static_cast<size_t>(std::distance(rootNode.children().begin(), rootNode.children().end()));
-    cNvPr.append_attribute("id").set_value(std::to_string(childCount + 1).c_str());
+    cNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
     cNvPr.append_attribute("name").set_value(std::string(name).c_str());
     nvGraphicFramePr.append_child("xdr:cNvGraphicFramePr");
 
@@ -770,13 +792,17 @@ uint32_t XLDrawingItem::col() const { return m_anchorNode.child("xdr:from").chil
 
 uint32_t XLDrawingItem::width() const
 {
-    const uint64_t emus = std::stoull(m_anchorNode.child("xdr:ext").attribute("cx").value());
+    uint64_t emus = 0;
+    std::string_view str = m_anchorNode.child("xdr:ext").attribute("cx").value();
+    std::from_chars(str.data(), str.data() + str.size(), emus);
     return static_cast<uint32_t>(emus / EMU_PER_PIXEL);
 }
 
 uint32_t XLDrawingItem::height() const
 {
-    const uint64_t emus = std::stoull(m_anchorNode.child("xdr:ext").attribute("cy").value());
+    uint64_t emus = 0;
+    std::string_view str = m_anchorNode.child("xdr:ext").attribute("cy").value();
+    std::from_chars(str.data(), str.data() + str.size(), emus);
     return static_cast<uint32_t>(emus / EMU_PER_PIXEL);
 }
 
@@ -832,8 +858,8 @@ void XLDrawing::addChartAnchor(std::string_view rId,
 
     // Extents (size)
     XMLNode ext = anchor.append_child("xdr:ext");
-    ext.append_attribute("cx").set_value(std::to_string(width.getEMU()).c_str());
-    ext.append_attribute("cy").set_value(std::to_string(height.getEMU()).c_str());
+    ext.append_attribute("cx").set_value(fmt::format("{}", width.getEMU()).c_str());
+    ext.append_attribute("cy").set_value(fmt::format("{}", height.getEMU()).c_str());
 
     // Graphic Frame
     XMLNode frame = anchor.append_child("xdr:graphicFrame");

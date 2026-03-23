@@ -31,7 +31,7 @@ namespace {
 namespace OpenXLSX {
 
     XLStreamWriter::XLStreamWriter(XLWorksheet* /*worksheet*/) 
-        : m_tempPath(std::filesystem::temp_directory_path() / ("openxlsx_stream_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "_" + std::to_string(std::rand()) + ".xml")),
+        : m_tempPath(std::filesystem::temp_directory_path() / fmt::format("openxlsx_stream_{}_{}.xml", std::chrono::system_clock::now().time_since_epoch().count(), std::rand())),
           m_stream(m_tempPath, std::ios::binary),
           m_currentRow(1),
           m_active(true)
@@ -84,7 +84,7 @@ namespace OpenXLSX {
         uint16_t colIdx = 1;
         for (const auto& val : values) {
             if (val.type() != XLValueType::Empty) {
-                std::string cellRef = XLCellReference::columnAsString(colIdx) + std::to_string(m_currentRow);
+                std::string cellRef = fmt::format("{}{}", XLCellReference::columnAsString(colIdx), m_currentRow);
                 
                 m_stream << "<c r=\"" << cellRef << "\"";
                 

@@ -1,6 +1,7 @@
 #include "XLChartsheet.hpp"
 #include "XLXmlData.hpp"
 #include "XLDocument.hpp"
+#include <charconv>
 #include "XLUtilities.hpp"
 
 using namespace OpenXLSX;
@@ -18,7 +19,11 @@ uint16_t XLChartsheet::sheetXmlNumber() const
     size_t pos2 = pos;
     while (std::isdigit(xmlPath[pos2])) ++pos2;
     if (pos2 == pos or xmlPath.substr(pos2) != ".xml") return 0;
-    return static_cast<uint16_t>(std::stoi(xmlPath.substr(pos, pos2 - pos)));
+    
+    uint16_t num = 0;
+    std::string_view numStr(xmlPath.data() + pos, pos2 - pos);
+    std::from_chars(numStr.data(), numStr.data() + numStr.size(), num);
+    return num;
 }
 
 XLRelationships& XLChartsheet::relationships()

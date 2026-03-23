@@ -1,5 +1,6 @@
 #include <string>
 #include <string_view>
+#include <charconv>
 #include <fmt/format.h>
 
 #include "XLDocument.hpp"
@@ -82,18 +83,14 @@ bool getAppVersion(std::string_view versionString, int& majorVersion, int& minor
 
     const size_t end = versionString.find_last_not_of(" \t");
     if (begin != std::string_view::npos and dotPos != std::string_view::npos) {
-        const std::string strMajorVersion = std::string(versionString.substr(begin, dotPos - begin));
-        const std::string strMinorVersion = std::string(versionString.substr(dotPos + 1, end - dotPos));
-        try {
-            size_t pos;
-            majorVersion = std::stoi(strMajorVersion, &pos);
-            if (pos != strMajorVersion.length()) throw 1;
-            minorVersion = std::stoi(strMinorVersion, &pos);
-            if (pos != strMinorVersion.length()) throw 1;
-        }
-        catch (...) {
-            return false;    // conversion failed or did not convert the full string
-        }
+        std::string_view strMajorVersion = versionString.substr(begin, dotPos - begin);
+        std::string_view strMinorVersion = versionString.substr(dotPos + 1, end - dotPos);
+        
+        auto resMajor = std::from_chars(strMajorVersion.data(), strMajorVersion.data() + strMajorVersion.size(), majorVersion);
+        if (resMajor.ec != std::errc() || resMajor.ptr != strMajorVersion.data() + strMajorVersion.size()) return false;
+        
+        auto resMinor = std::from_chars(strMinorVersion.data(), strMinorVersion.data() + strMinorVersion.size(), minorVersion);
+        if (resMinor.ec != std::errc() || resMinor.ptr != strMinorVersion.data() + strMinorVersion.size()) return false;
     }
     if (majorVersion < minMajorV or majorVersion > maxMajorV or minorVersion < minMinorV ||
         minorVersion > maxMinorV)    // final range check
