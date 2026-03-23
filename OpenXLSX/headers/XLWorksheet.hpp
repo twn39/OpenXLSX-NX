@@ -18,6 +18,7 @@
 #include "XLMergeCells.hpp"
 #include "XLDataValidation.hpp"
 #include "XLTables.hpp"
+#include "XLSparkline.hpp"
 #include "XLDrawing.hpp"
 #include "XLComments.hpp"
 #include "XLRelationships.hpp"
@@ -296,6 +297,14 @@ namespace OpenXLSX
         std::string passwordHash() const;
         bool passwordIsSet() const;
         std::string sheetProtectionSummary() const;
+
+        /**
+         * @brief Add a sparkline to the worksheet.
+         * @param location The cell where the sparkline is displayed (e.g., "A1").
+         * @param dataRange The cell range containing the data (e.g., "B1:Z1").
+         * @param type The type of the sparkline (Line, Column, Stacked).
+         */
+        void addSparkline(const std::string& location, const std::string& dataRange, XLSparklineType type = XLSparklineType::Line);
 
         bool hasRelationships() const;
         bool hasDrawing() const;

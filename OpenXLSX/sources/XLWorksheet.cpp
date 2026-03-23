@@ -408,6 +408,96 @@ std::optional<XLCell> XLWorksheet::peekCell(uint32_t rowNumber, uint16_t columnN
 }
 
 
+void XLWorksheet::addSparkline(const std::string& location, const std::string& dataRange, XLSparklineType type)
+{
+    XMLNode rootNode = xmlDocument().document_element();
+    
+    // Ensure x14 namespace is registered at the root worksheet level
+    if (rootNode.attribute("xmlns:x14").empty()) {
+        rootNode.append_attribute("xmlns:x14") = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main";
+    }
+
+    // Add x14 to mc:Ignorable attribute
+    auto ignorableAttr = rootNode.attribute("mc:Ignorable");
+    if (!ignorableAttr.empty()) {
+        std::string ignorable = ignorableAttr.value();
+        if (ignorable.find("x14 ") == std::string::npos && 
+            ignorable.find(" x14") == std::string::npos && 
+            ignorable != "x14") {
+            ignorableAttr.set_value((ignorable + " x14").c_str());
+        }
+    } else {
+        rootNode.append_attribute("mc:Ignorable") = "x14ac x14";
+    }
+
+    XMLNode extLst = rootNode.child("extLst");
+    if (extLst.empty()) {
+        extLst = appendAndGetNode(rootNode, "extLst", m_nodeOrder);
+    }
+
+    XMLNode extNode = extLst.find_child_by_attribute("ext", "uri", "{05C60535-1F16-4fd2-B633-F4F36F0B64E0}");
+    if (extNode.empty()) {
+        extNode = extLst.append_child("ext");
+        extNode.append_attribute("uri") = "{05C60535-1F16-4fd2-B633-F4F36F0B64E0}";
+    }
+
+    XMLNode sparklineGroups = extNode.child("x14:sparklineGroups");
+    if (sparklineGroups.empty()) {
+        sparklineGroups = extNode.append_child("x14:sparklineGroups");
+        sparklineGroups.append_attribute("xmlns:xm") = "http://schemas.microsoft.com/office/excel/2006/main";
+    }
+
+    XMLNode sparklineGroup = sparklineGroups.append_child("x14:sparklineGroup");
+    sparklineGroup.append_attribute("displayEmptyCellsAs") = "gap";
+    
+    // Default standard colors
+    XMLNode colorSeries = sparklineGroup.append_child("x14:colorSeries");
+    colorSeries.append_attribute("theme") = "4";
+    colorSeries.append_attribute("tint") = "-0.499984740745262";
+    
+    XMLNode colorNegative = sparklineGroup.append_child("x14:colorNegative");
+    colorNegative.append_attribute("theme") = "5";
+
+    // Required colorAxis node
+    XMLNode colorAxis = sparklineGroup.append_child("x14:colorAxis");
+    colorAxis.append_attribute("rgb") = "FF000000";
+    
+    XMLNode colorMarkers = sparklineGroup.append_child("x14:colorMarkers");
+    colorMarkers.append_attribute("theme") = "4";
+    colorMarkers.append_attribute("tint") = "-0.499984740745262";
+
+    XMLNode colorFirst = sparklineGroup.append_child("x14:colorFirst");
+    colorFirst.append_attribute("theme") = "4";
+    colorFirst.append_attribute("tint") = "0.39997558519241921";
+
+    XMLNode colorLast = sparklineGroup.append_child("x14:colorLast");
+    colorLast.append_attribute("theme") = "4";
+    colorLast.append_attribute("tint") = "0.39997558519241921";
+
+    XMLNode colorHigh = sparklineGroup.append_child("x14:colorHigh");
+    colorHigh.append_attribute("theme") = "4";
+
+    XMLNode colorLow = sparklineGroup.append_child("x14:colorLow");
+    colorLow.append_attribute("theme") = "4";
+
+    XLSparkline sparkline(sparklineGroup);
+    sparkline.setType(type);
+    sparkline.setLocation(location);
+
+    // Format the data range to include the sheet name (e.g. "Sheet1!A1:B2") if it doesn't already have one
+    std::string formattedRange = dataRange;
+    if (formattedRange.find('!') == std::string::npos) {
+        std::string sName = name();
+        // Quote sheet name if it contains spaces
+        if (sName.find(' ') != std::string::npos) {
+            formattedRange = "'" + sName + "'!" + dataRange;
+        } else {
+            formattedRange = sName + "!" + dataRange;
+        }
+    }
+    sparkline.setDataRange(formattedRange);
+}
+
 XLStreamReader XLWorksheet::streamReader() const
 {
     return XLStreamReader(this);
