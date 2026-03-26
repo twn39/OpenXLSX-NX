@@ -42,6 +42,17 @@ namespace OpenXLSX
         XLPivotTable& operator=(XLPivotTable&& other) noexcept = default;
         
         void setName(std::string_view name);
+
+        /**
+         * @brief Tell Excel to refresh this pivot table when the file is opened.
+         */
+        void setRefreshOnLoad(bool refresh = true);
+
+        /**
+         * @brief Get the name of the pivot table.
+         */
+        std::string name() const;
+
     };
 
     class OPENXLSX_EXPORT XLPivotCacheDefinition final : public XLXmlFile

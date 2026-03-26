@@ -346,6 +346,16 @@ namespace OpenXLSX
          */
         void addTableSlicer(std::string_view cellReference, const XLTable& table, std::string_view columnName, const XLSlicerOptions& options = XLSlicerOptions());
 
+        /**
+         * @brief Add a slicer connected to a Pivot Table.
+         * @param cellReference The top-left cell where the slicer should be anchored.
+         * @param pivotTable The Pivot Table to filter.
+         * @param columnName The exact name of the pivot field (source column name) to filter.
+         * @param options The visual and naming options for the slicer.
+         */
+        void addPivotSlicer(std::string_view cellReference, const XLPivotTable& pivotTable, std::string_view columnName, const XLSlicerOptions& options = XLSlicerOptions());
+
+
         void insertImage(const std::string& cellReference, const std::string& imagePath);
 
         /**

@@ -961,7 +961,7 @@ std::string XLDocument::createTableSlicerCache(uint32_t tableId, uint32_t tableC
     }
 
     std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8"?>
-<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" mc:Ignorable="x15 xr10" name="{0}" sourceName="{1}">
+<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" sourceName="{1}">
   <extLst>
     <ext xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" uri="{{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}}">
       <x15:tableSlicerCache tableId="{2}" column="{3}"/>
@@ -1026,6 +1026,92 @@ std::string XLDocument::createTableSlicerCache(uint32_t tableId, uint32_t tableC
     XMLNode definedName = definedNames.append_child("definedName");
     definedName.append_attribute("name").set_value(std::string(name).c_str());
     definedName.text().set("#N/A");
+    return filename;
+}
+
+
+std::string XLDocument::createPivotSlicerCache(uint32_t pivotCacheId, uint32_t sheetId, std::string_view pivotTableName, std::string_view name, std::string_view sourceName)
+{
+    using namespace std::literals::string_literals;
+
+    uint32_t num = 1;
+    std::string filename = fmt::format("xl/slicerCaches/slicerCache{}.xml", num);
+    while (m_archive.hasEntry(filename)) {
+        ++num;
+        filename = fmt::format("xl/slicerCaches/slicerCache{}.xml", num);
+    }
+
+    std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8"?>
+<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" sourceName="{1}">
+  <pivotTables>
+    <pivotTable tabId="{2}" name="{3}"/>
+  </pivotTables>
+  <data>
+    <tabular pivotCacheId="{4}" showMissing="false">
+      <items count="1">
+        <i x="0" s="true"/>
+      </items>
+    </tabular>
+  </data>
+</slicerCacheDefinition>)", name, sourceName, sheetId, pivotTableName, pivotCacheId);
+
+    m_archive.addEntry(filename, templateStr);
+    m_contentTypes.addOverride("/" + filename, XLContentType::SlicerCache);
+    
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData* xmlData = getXmlData(filename, DO_NOT_THROW);
+    if (xmlData == nullptr) {
+        m_data.emplace_back(this, filename, templateStr, XLContentType::SlicerCache);
+    }
+
+    // Add relationship to workbook.xml
+    m_wbkRelationships.addRelationship(XLRelationshipType::SlicerCache, "/" + filename);
+    std::string rId = m_wbkRelationships.relationshipByTarget("/" + filename).id();
+
+    // Add extLst to workbook.xml to reference the slicer cache
+    XMLNode wbkNode = m_workbook.xmlDocument().document_element();
+    XMLNode extLst = wbkNode.child("extLst");
+    // Ensure mc namespaces are present
+    if (!wbkNode.attribute("xmlns:mc")) wbkNode.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
+    if (!wbkNode.attribute("xmlns:x15")) wbkNode.append_attribute("xmlns:x15").set_value("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main");
+    if (!wbkNode.attribute("mc:Ignorable")) {
+        wbkNode.append_attribute("mc:Ignorable").set_value("x15");
+    } else {
+        std::string ign = wbkNode.attribute("mc:Ignorable").value();
+        if (ign.find("x15") == std::string::npos) wbkNode.attribute("mc:Ignorable").set_value((ign + " x15").c_str());
+    }
+
+    if (extLst.empty()) extLst = wbkNode.append_child("extLst");
+    
+    XMLNode ext = extLst.find_child_by_attribute("uri", "{BBE1A952-AA13-448e-AADC-164F8A28A991}");
+    if (ext.empty()) {
+        ext = extLst.append_child("ext");
+        ext.append_attribute("uri").set_value("{BBE1A952-AA13-448e-AADC-164F8A28A991}");
+        ext.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+    }
+    
+    XMLNode slicerCaches = ext.child("x14:slicerCaches");
+    if (slicerCaches.empty()) {
+        slicerCaches = ext.append_child("x14:slicerCaches");
+        slicerCaches.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+    }
+    
+    slicerCaches.append_child("x14:slicerCache").append_attribute("r:id").set_value(rId.c_str());
+
+    // Add definedName to workbook.xml
+    XMLNode definedNames = wbkNode.child("definedNames");
+    if (definedNames.empty()) {
+        XMLNode calcPr = wbkNode.child("calcPr");
+        if (!calcPr.empty()) {
+            definedNames = wbkNode.insert_child_before("definedNames", calcPr);
+        } else {
+            definedNames = wbkNode.append_child("definedNames");
+        }
+    }
+    XMLNode definedName = definedNames.append_child("definedName");
+    definedName.append_attribute("name").set_value(std::string(name).c_str());
+    definedName.text().set("#N/A");
+
     return filename;
 }
 

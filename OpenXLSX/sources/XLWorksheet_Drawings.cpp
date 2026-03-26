@@ -478,3 +478,190 @@ void XLWorksheet::addTableSlicer(std::string_view cellReference, const XLTable& 
 
     XMLNode cd = anchor.append_child("xdr:clientData"); cd.append_attribute("fLocksWithSheet").set_value("true"); cd.append_attribute("fPrintsWithSheet").set_value("true");
 }
+
+
+void XLWorksheet::addPivotSlicer(std::string_view cellReference, const XLPivotTable& pivotTable, std::string_view columnName, const XLSlicerOptions& options)
+{
+    std::string ptName = pivotTable.xmlDocument().document_element().attribute("name").value();
+    uint32_t cacheId = pivotTable.xmlDocument().document_element().attribute("cacheId").as_uint();
+    
+    // Find the sheetId where the pivot table lives (it should be this worksheet)
+    uint32_t sheetId = 0;
+    XMLNode wbkSheets = parentDoc().workbook().xmlDocument().document_element().child("sheets");
+    for (auto sheet : wbkSheets.children("sheet")) {
+        if (std::string(sheet.attribute("name").value()) == name()) {
+            sheetId = sheet.attribute("sheetId").as_uint();
+            break;
+        }
+    }
+
+    std::string sName = options.name.empty() ? std::string(columnName) : options.name;
+    std::string caption = options.caption.empty() ? std::string(columnName) : options.caption;
+    std::string cacheName = "Slicer_" + sName;
+
+    // Find PivotCacheDefinition and add the extLst required for slicers
+    std::string pcRId;
+    XMLNode wbkPivotCaches = parentDoc().workbook().xmlDocument().document_element().child("pivotCaches");
+    for (auto pc : wbkPivotCaches.children("pivotCache")) {
+        if (pc.attribute("cacheId").as_uint() == cacheId) {
+            pcRId = pc.attribute("r:id").value();
+            break;
+        }
+    }
+    if (!pcRId.empty()) {
+        std::string pcTargetPath = parentDoc().workbookRelationships().relationshipById(pcRId).target();
+        if (pcTargetPath[0] != '/') pcTargetPath = "/xl/" + pcTargetPath;
+        
+        // Use XLDocument's private getXmlData via our new friend status
+        XLXmlData* data = parentDoc().getXmlData(pcTargetPath.substr(1));
+        if (data) {
+            XMLNode cacheRoot = data->getXmlDocument()->document_element();
+            XMLNode extLst = cacheRoot.child("extLst");
+            if (extLst.empty()) extLst = cacheRoot.append_child("extLst");
+            XMLNode ext = extLst.find_child_by_attribute("uri", "{725AE2AE-9491-48be-B2B4-4EB974FC3084}");
+            if (ext.empty()) {
+                ext = extLst.append_child("ext");
+                ext.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+                ext.append_attribute("uri").set_value("{725AE2AE-9491-48be-B2B4-4EB974FC3084}");
+                ext.append_child("x14:pivotCacheDefinition").append_attribute("pivotCacheId").set_value(cacheId);
+            }
+        }
+    }
+
+    // 1. Create Slicer Cache and Slicer files
+    parentDoc().createPivotSlicerCache(cacheId, sheetId, ptName, cacheName, columnName);
+    std::string slicerFilename = parentDoc().createSlicer(sName, cacheName, caption);
+
+    // 2. Add Slicer relationship to worksheet
+    relationships().addRelationship(XLRelationshipType::Slicer, "../slicers/" + slicerFilename.substr(11));
+    std::string rId = relationships().relationshipByTarget("../slicers/" + slicerFilename.substr(11)).id();
+
+    // 3. Add extLst to worksheet.xml
+    XMLNode sheetNode = xmlDocument().document_element();
+    XMLNode extLst = sheetNode.child("extLst");
+    if (extLst.empty()) extLst = sheetNode.append_child("extLst");
+
+    XMLNode ext = extLst.find_child_by_attribute("uri", "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
+    if (ext.empty()) {
+        ext = extLst.append_child("ext");
+        ext.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+        ext.append_attribute("uri").set_value("{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
+    }
+    
+    XMLNode slicerList = ext.child("x14:slicerList");
+    if (slicerList.empty()) {
+        slicerList = ext.append_child("x14:slicerList");
+    }
+    
+    slicerList.append_child("x14:slicer").append_attribute("r:id").set_value(rId.c_str());
+
+    // Ensure sheet namespaces for mc:Ignorable
+    if (!sheetNode.attribute("xmlns:mc")) sheetNode.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
+    if (!sheetNode.attribute("xmlns:x14")) sheetNode.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+    if (!sheetNode.attribute("mc:Ignorable")) {
+        sheetNode.append_attribute("mc:Ignorable").set_value("x14");
+    } else {
+        std::string ign = sheetNode.attribute("mc:Ignorable").value();
+        if (ign.find("x14") == std::string::npos) {
+            sheetNode.attribute("mc:Ignorable").set_value((ign + " x14").c_str());
+        }
+    }
+
+    // 4. Add drawing for the slicer
+    XLCellReference ref{std::string(cellReference)};
+    uint32_t row = ref.row() - 1; 
+    uint16_t colIdx = ref.column() - 1;
+
+    XLDrawing& drw = drawing();
+    XMLNode drwRoot = drw.xmlDocument().document_element();
+
+    XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
+
+    XMLNode from = anchor.append_child("xdr:from");
+    from.append_child("xdr:col").text().set(colIdx);
+    from.append_child("xdr:colOff").text().set(options.offsetX * 9525);
+    from.append_child("xdr:row").text().set(row);
+    from.append_child("xdr:rowOff").text().set(options.offsetY * 9525);
+
+    XMLNode to = anchor.append_child("xdr:to");
+    to.append_child("xdr:col").text().set(colIdx + 2);
+    to.append_child("xdr:colOff").text().set(options.offsetX * 9525);
+    to.append_child("xdr:row").text().set(row + 10);
+    to.append_child("xdr:rowOff").text().set(options.offsetY * 9525);
+
+    XMLNode altContent = anchor.append_child("mc:AlternateContent");
+    altContent.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
+
+    XMLNode choice = altContent.append_child("mc:Choice");
+    choice.append_attribute("xmlns:a14").set_value("http://schemas.microsoft.com/office/drawing/2010/main");
+    choice.append_attribute("Requires").set_value("a14");
+
+    XMLNode graphicFrame = choice.append_child("xdr:graphicFrame");
+    graphicFrame.append_attribute("macro").set_value("");
+
+    XMLNode nvGraphicFramePr = graphicFrame.append_child("xdr:nvGraphicFramePr");
+    XMLNode cNvPr = nvGraphicFramePr.append_child("xdr:cNvPr");
+    
+    auto childCount = static_cast<size_t>(std::distance(drwRoot.children().begin(), drwRoot.children().end()));
+    cNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
+    cNvPr.append_attribute("name").set_value(sName.c_str());
+    cNvPr.append_attribute("descr").set_value("");
+
+    nvGraphicFramePr.append_child("xdr:cNvGraphicFramePr");
+
+    XMLNode xfrm = graphicFrame.append_child("xdr:xfrm");
+    xfrm.append_child("a:off").append_attribute("x").set_value("0");
+    xfrm.child("a:off").append_attribute("y").set_value("0");
+    xfrm.append_child("a:ext").append_attribute("cx").set_value("0");
+    xfrm.child("a:ext").append_attribute("cy").set_value("0");
+
+    XMLNode graphic = graphicFrame.append_child("a:graphic");
+    XMLNode graphicData = graphic.append_child("a:graphicData");
+    graphicData.append_attribute("uri").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
+    
+    XMLNode sleSlicer = graphicData.append_child("sle:slicer");
+    sleSlicer.append_attribute("xmlns:sle").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
+    sleSlicer.append_attribute("name").set_value(sName.c_str());
+
+    XMLNode fallback = altContent.append_child("mc:Fallback");
+    XMLNode sp = fallback.append_child("xdr:sp");
+    sp.append_attribute("macro").set_value("");
+    sp.append_attribute("textlink").set_value("");
+    
+    XMLNode nvSpPr = sp.append_child("xdr:nvSpPr");
+    XMLNode spCNvPr = nvSpPr.append_child("xdr:cNvPr");
+    spCNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
+    spCNvPr.append_attribute("name").set_value("");
+    nvSpPr.append_child("xdr:cNvSpPr").append_attribute("txBox").set_value("true");
+
+    XMLNode spPr = sp.append_child("xdr:spPr");
+    XMLNode spXfrm = spPr.append_child("a:xfrm");
+    spXfrm.append_child("a:off").append_attribute("x").set_value("0");
+    spXfrm.child("a:off").append_attribute("y").set_value("0");
+    spXfrm.append_child("a:ext").append_attribute("cx").set_value(fmt::format("{}", static_cast<uint64_t>(options.width) * 9525).c_str());
+    spXfrm.child("a:ext").append_attribute("cy").set_value(fmt::format("{}", static_cast<uint64_t>(options.height) * 9525).c_str());
+    spPr.append_child("a:prstGeom").append_attribute("prst").set_value("rect");
+    spPr.append_child("a:solidFill").append_child("a:srgbClr").append_attribute("val").set_value("FFFFFF");
+    XMLNode ln = spPr.append_child("a:ln"); 
+    ln.append_attribute("w").set_value("1"); 
+    ln.append_child("a:solidFill").append_child("a:prstClr").append_attribute("val").set_value("black");
+
+    XMLNode txBody = sp.append_child("xdr:txBody");
+    XMLNode bodyPr = txBody.append_child("a:bodyPr");
+    bodyPr.append_attribute("anchorCtr").set_value("false");
+    bodyPr.append_attribute("rot").set_value("0");
+    bodyPr.append_attribute("horzOverflow").set_value("clip");
+    bodyPr.append_attribute("spcFirstLastPara").set_value("false");
+    bodyPr.append_attribute("vertOverflow").set_value("clip");
+
+    XMLNode p = txBody.append_child("a:p");
+    XMLNode r = p.append_child("a:r");
+    XMLNode rPr = r.append_child("a:rPr");
+    rPr.append_attribute("b").set_value("false");
+    rPr.append_attribute("i").set_value("false");
+    r.append_child("a:t").text().set("This shape represents a pivot slicer. Slicers are not supported in this version of Excel.");
+
+    XMLNode cd = anchor.append_child("xdr:clientData"); 
+    cd.append_attribute("fLocksWithSheet").set_value("true"); 
+    cd.append_attribute("fPrintsWithSheet").set_value("true");
+}

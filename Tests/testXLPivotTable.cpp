@@ -100,3 +100,155 @@ TEST_CASE("Dynamic Pivot Table Generation", "[XLPivotTable]")
 
     doc2.close();
 }
+
+
+TEST_CASE("Pivot Table Advanced: Slicers and RefreshOnLoad", "[XLPivotTable]")
+{
+    XLDocument doc;
+    doc.create("./PivotSlicerTest.xlsx", XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    wks.cell("A1").value() = "Region";
+    wks.cell("B1").value() = "Sales";
+    wks.cell("A2").value() = "North";
+    wks.cell("B2").value() = 100;
+    wks.cell("A3").value() = "South";
+    wks.cell("B3").value() = 200;
+
+    doc.workbook().addWorksheet("Pivot");
+    auto pivotWks = doc.workbook().worksheet("Pivot");
+    
+    XLPivotTableOptions opts;
+    opts.name = "MyPivot";
+    opts.sourceRange = "Sheet1!A1:B3";
+    opts.targetCell = "A1";
+    XLPivotField rf; rf.name = "Region"; opts.rows.push_back(rf);
+    XLPivotField df; df.name = "Sales"; df.customName = "Sum of Sales"; df.subtotal = XLPivotSubtotal::Sum; opts.data.push_back(df);
+    
+    auto pt = pivotWks.addPivotTable(opts);
+    
+    // Set refresh on load
+    pt.setRefreshOnLoad(true);
+
+    // Add a Slicer bound to the Pivot Table
+    XLSlicerOptions sOpts;
+    sOpts.name = "Region";
+    sOpts.caption = "Region Filter";
+    pivotWks.addPivotSlicer("D1", pt, "Region", sOpts);
+
+    doc.save();
+
+    // Verify
+    XLDocument doc2;
+    doc2.open("./PivotSlicerTest.xlsx");
+    auto ptWks2 = doc2.workbook().worksheet("Pivot");
+    REQUIRE(ptWks2.hasDrawing() == true);
+
+    // Deep Validation 1: Worksheet extLst must have A8765BA9 for Pivot Slicers
+    auto wksNode = ptWks2.xmlDocument().document_element();
+    auto wksExtLst = wksNode.child("extLst");
+    REQUIRE(!wksExtLst.empty());
+    auto wksExt = wksExtLst.find_child_by_attribute("uri", "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
+    REQUIRE(!wksExt.empty());
+    REQUIRE(!wksExt.child("x14:slicerList").empty());
+
+    // Deep Validation 2: Workbook extLst must have BBE1A952 for Pivot Slicer Caches
+    auto wbkNode = doc2.workbook().xmlDocument().document_element();
+    auto wbkExtLst = wbkNode.child("extLst");
+    REQUIRE(!wbkExtLst.empty());
+    auto wbkExt = wbkExtLst.find_child_by_attribute("uri", "{BBE1A952-AA13-448e-AADC-164F8A28A991}");
+    REQUIRE(!wbkExt.empty());
+    REQUIRE(!wbkExt.child("x14:slicerCaches").empty());
+
+    // --- NEW: Deep Archive XML content format validation ---
+    
+    // 1. Validate PivotCacheDefinition contains the required x14:pivotCacheDefinition extLst (The root cause of the bug)
+    auto pcNode = wbkNode.child("pivotCaches").child("pivotCache");
+    REQUIRE(!pcNode.empty());
+    std::string pcRId = pcNode.attribute("r:id").value();
+    std::string pcPath = doc2.workbookRelationships().relationshipById(pcRId).target();
+    if (pcPath[0] != '/') pcPath = "/xl/" + pcPath;
+    
+    std::string pcDefStr = doc2.archive().getEntry(pcPath.substr(1)); // drop leading slash
+    REQUIRE(!pcDefStr.empty());
+    XMLDocument pcDefDoc;
+    pcDefDoc.load_string(pcDefStr.c_str());
+    auto pcDefRoot = pcDefDoc.document_element();
+    REQUIRE(std::string(pcDefRoot.name()) == "pivotCacheDefinition");
+    
+    auto pcDefExtLst = pcDefRoot.child("extLst");
+    REQUIRE(!pcDefExtLst.empty());
+    auto pcDefExt = pcDefExtLst.find_child_by_attribute("uri", "{725AE2AE-9491-48be-B2B4-4EB974FC3084}");
+    REQUIRE(!pcDefExt.empty());
+    REQUIRE(!pcDefExt.child("x14:pivotCacheDefinition").empty());
+    REQUIRE(std::string(pcDefExt.child("x14:pivotCacheDefinition").attribute("pivotCacheId").value()) == pcNode.attribute("cacheId").value());
+
+    // 2. Validate SlicerCache XML formatting
+    std::string slicerCacheStr = doc2.archive().getEntry("xl/slicerCaches/slicerCache1.xml");
+    REQUIRE(!slicerCacheStr.empty());
+    XMLDocument scDoc;
+    scDoc.load_string(slicerCacheStr.c_str());
+    auto scRoot = scDoc.document_element();
+    REQUIRE(std::string(scRoot.name()) == "slicerCacheDefinition");
+    REQUIRE(std::string(scRoot.attribute("name").value()) == "Slicer_Region");
+    REQUIRE(std::string(scRoot.attribute("sourceName").value()) == "Region");
+    auto scPivotTables = scRoot.child("pivotTables");
+    REQUIRE(!scPivotTables.empty());
+    REQUIRE(std::string(scPivotTables.child("pivotTable").attribute("name").value()) == "MyPivot");
+
+    // 3. Validate Slicer XML formatting
+    std::string slicerStr = doc2.archive().getEntry("xl/slicers/slicer1.xml");
+    REQUIRE(!slicerStr.empty());
+    XMLDocument sDoc;
+    sDoc.load_string(slicerStr.c_str());
+    auto sRoot = sDoc.document_element();
+    REQUIRE(std::string(sRoot.name()) == "slicers");
+    auto slicerNode = sRoot.child("slicer");
+    REQUIRE(!slicerNode.empty());
+    REQUIRE(std::string(slicerNode.attribute("name").value()) == "Region");
+    REQUIRE(std::string(slicerNode.attribute("cache").value()) == "Slicer_Region");
+    REQUIRE(std::string(slicerNode.attribute("caption").value()) == "Region Filter");
+
+    // 4. Validate Drawing XML formatting (Must use a14 for Pivot Slicers!)
+    // We need to find the drawing file path for the Pivot worksheet
+    std::string drwRId = ptWks2.xmlDocument().document_element().child("drawing").attribute("r:id").value();
+    // We know it's one of the drawing files, let's just search the archive
+    std::string drawingStr;
+    for (auto name : doc2.archive().entryNames()) {
+        if (name.find("xl/drawings/drawing") == 0) {
+            std::string temp = doc2.archive().getEntry(name);
+            if (temp.find("RegionSlicer") != std::string::npos || temp.find("a14") != std::string::npos) {
+                drawingStr = temp;
+                break;
+            }
+        }
+    }
+    REQUIRE(!drawingStr.empty());
+    XMLDocument drwDoc;
+    drwDoc.load_string(drawingStr.c_str());
+    auto drwRoot = drwDoc.document_element();
+    
+    bool foundA14Choice = false;
+    for (auto anchor : drwRoot.children("xdr:twoCellAnchor")) {
+        auto altContent = anchor.child("mc:AlternateContent");
+        if (!altContent.empty()) {
+            auto choice = altContent.child("mc:Choice");
+            if (!choice.empty() && std::string(choice.attribute("Requires").value()) == "a14") {
+                foundA14Choice = true;
+                auto graphicFrame = choice.child("xdr:graphicFrame");
+                REQUIRE(!graphicFrame.empty());
+                auto sleSlicer = graphicFrame.child("a:graphic").child("a:graphicData").child("sle:slicer");
+                REQUIRE(!sleSlicer.empty());
+                REQUIRE(std::string(sleSlicer.attribute("name").value()) == "Region");
+            }
+        }
+    }
+    REQUIRE(foundA14Choice == true);
+
+
+    // Test double save for robustness
+    doc2.saveAs("./PivotSlicerTest_SaveAs.xlsx", XLForceOverwrite);
+    XLDocument doc3;
+    doc3.open("./PivotSlicerTest_SaveAs.xlsx");
+    REQUIRE(doc3.workbook().worksheet("Pivot").hasDrawing() == true);
+}
