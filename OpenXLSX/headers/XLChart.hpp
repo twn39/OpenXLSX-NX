@@ -74,7 +74,37 @@ namespace OpenXLSX
     class XLWorksheet;
     class XLCellRange;
 
-    class OPENXLSX_EXPORT XLChartSeries
+    
+
+    enum class XLErrorBarDirection {
+        X,
+        Y
+    };
+
+    enum class XLErrorBarType {
+        Both,
+        Minus,
+        Plus
+    };
+
+    enum class XLErrorBarValueType {
+        Custom,
+        FixedValue,
+        Percentage,
+        StandardDeviation,
+        StandardError
+    };
+
+    enum class XLTrendlineType {
+        Linear,
+        Exponential,
+        Logarithmic,
+        Polynomial,
+        Power,
+        MovingAverage
+    };
+
+class OPENXLSX_EXPORT XLChartSeries
     {
     public:
         XLChartSeries() = default;
@@ -92,7 +122,27 @@ namespace OpenXLSX
          */
         XLChartSeries& setDataLabels(bool showValue, bool showCategoryName = false, bool showPercent = false);
 
-    private:
+    
+        /**
+         * @brief Add a trendline to this series
+         * @param type The type of trendline
+         * @param name Optional name for the trendline
+         * @param order Polynomial order (2-6) if type is Polynomial
+         * @param period Moving average period if type is MovingAverage
+         */
+
+        /**
+         * @brief Add error bars to this series
+         * @param direction X or Y axis error bars
+         * @param type Both, Minus, Plus
+         * @param valType The calculation method (Fixed, Percentage, StdDev, etc.)
+         * @param value The value to apply (e.g. 5 for 5%, or 5 for FixedValue 5)
+         */
+        XLChartSeries& addErrorBars(XLErrorBarDirection direction, XLErrorBarType type, XLErrorBarValueType valType, double value = 0.0);
+
+        XLChartSeries& addTrendline(XLTrendlineType type, std::string_view name = "", uint8_t order = 2, uint8_t period = 2);
+
+private:
         XMLNode m_node;
     };
 
@@ -126,7 +176,27 @@ namespace OpenXLSX
         void setMajorGridlines(bool show);
         void setMinorGridlines(bool show);
 
-    private:
+    
+        /**
+         * @brief Add a trendline to this series
+         * @param type The type of trendline
+         * @param name Optional name for the trendline
+         * @param order Polynomial order (2-6) if type is Polynomial
+         * @param period Moving average period if type is MovingAverage
+         */
+
+        /**
+         * @brief Add error bars to this series
+         * @param direction X or Y axis error bars
+         * @param type Both, Minus, Plus
+         * @param valType The calculation method (Fixed, Percentage, StdDev, etc.)
+         * @param value The value to apply (e.g. 5 for 5%, or 5 for FixedValue 5)
+         */
+        XLChartSeries& addErrorBars(XLErrorBarDirection direction, XLErrorBarType type, XLErrorBarValueType valType, double value = 0.0);
+
+        XLChartSeries& addTrendline(XLTrendlineType type, std::string_view name = "", uint8_t order = 2, uint8_t period = 2);
+
+private:
         XMLNode m_node;
     };
 
@@ -176,10 +246,10 @@ namespace OpenXLSX
          * @param title A literal string or cell reference for the series name (e.g. "Revenue" or "Sheet1!$B$1")
          * @param categoriesRef A cell reference for the X-axis categories (e.g. "Sheet1!$A$1:$A$10")
          */
-        XLChartSeries addSeries(const XLWorksheet& wks, const XLCellRange& values, std::string_view title = "");
-        XLChartSeries addSeries(const XLWorksheet& wks, const XLCellRange& values, const XLCellRange& categories, std::string_view title = "");
+        XLChartSeries addSeries(const XLWorksheet& wks, const XLCellRange& values, std::string_view title = "", std::optional<XLChartType> targetChartType = std::nullopt, bool useSecondaryAxis = false);
+        XLChartSeries addSeries(const XLWorksheet& wks, const XLCellRange& values, const XLCellRange& categories, std::string_view title = "", std::optional<XLChartType> targetChartType = std::nullopt, bool useSecondaryAxis = false);
 
-        XLChartSeries addSeries(std::string_view valuesRef, std::string_view title = "", std::string_view categoriesRef = "");
+        XLChartSeries addSeries(std::string_view valuesRef, std::string_view title = "", std::string_view categoriesRef = "", std::optional<XLChartType> targetChartType = std::nullopt, bool useSecondaryAxis = false);
 
         /**
          * @brief Set the chart title

@@ -890,3 +890,94 @@ void XLDrawing::addChartAnchor(std::string_view rId,
 
     anchor.append_child("xdr:clientData");
 }
+
+std::string vectorShapeTypeToString(XLVectorShapeType type) {
+    switch (type) {
+        case XLVectorShapeType::Rectangle: return "rect";
+        case XLVectorShapeType::Ellipse: return "ellipse";
+        case XLVectorShapeType::Line: return "line";
+        case XLVectorShapeType::Triangle: return "triangle";
+        case XLVectorShapeType::RightTriangle: return "rtTriangle";
+        case XLVectorShapeType::Arrow: return "rightArrow";
+        case XLVectorShapeType::Diamond: return "diamond";
+        case XLVectorShapeType::Parallelogram: return "parallelogram";
+        case XLVectorShapeType::Hexagon: return "hexagon";
+        default: return "rect";
+    }
+}
+
+void XLDrawing::addShape(uint32_t row, uint32_t col, const XLVectorShapeOptions& options)
+{
+    XMLNode rootNode = xmlDocument().document_element();
+    XMLNode anchor = rootNode.append_child("xdr:oneCellAnchor");
+
+    XMLNode from = anchor.append_child("xdr:from");
+    from.append_child("xdr:col").text().set(col);
+    from.append_child("xdr:colOff").text().set(options.offsetX * EMU_PER_PIXEL);
+    from.append_child("xdr:row").text().set(row);
+    from.append_child("xdr:rowOff").text().set(options.offsetY * EMU_PER_PIXEL);
+
+    const uint64_t emuWidth  = static_cast<uint64_t>(options.width) * EMU_PER_PIXEL;
+    const uint64_t emuHeight = static_cast<uint64_t>(options.height) * EMU_PER_PIXEL;
+
+    XMLNode ext = anchor.append_child("xdr:ext");
+    ext.append_attribute("cx").set_value(fmt::format("{}", emuWidth).c_str());
+    ext.append_attribute("cy").set_value(fmt::format("{}", emuHeight).c_str());
+
+    XMLNode sp = anchor.append_child("xdr:sp");
+    if (!options.macro.empty()) {
+        sp.append_attribute("macro").set_value(options.macro.c_str());
+        sp.append_attribute("textlink").set_value("");
+    }
+
+    XMLNode nvSpPr = sp.append_child("xdr:nvSpPr");
+    XMLNode cNvPr  = nvSpPr.append_child("xdr:cNvPr");
+    auto childCount = static_cast<size_t>(std::distance(rootNode.children().begin(), rootNode.children().end()));
+    cNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
+    cNvPr.append_attribute("name").set_value(options.name.c_str());
+    nvSpPr.append_child("xdr:cNvSpPr");
+
+    XMLNode spPr = sp.append_child("xdr:spPr");
+    XMLNode xfrm = spPr.append_child("a:xfrm");
+    xfrm.append_child("a:off").append_attribute("x").set_value("0");
+    xfrm.child("a:off").append_attribute("y").set_value("0");
+    xfrm.append_child("a:ext").append_attribute("cx").set_value(fmt::format("{}", emuWidth).c_str());
+    xfrm.child("a:ext").append_attribute("cy").set_value(fmt::format("{}", emuHeight).c_str());
+
+    XMLNode prstGeom = spPr.append_child("a:prstGeom");
+    prstGeom.append_attribute("prst").set_value(vectorShapeTypeToString(options.type).c_str());
+    prstGeom.append_child("a:avLst");
+
+    if (!options.fillColor.empty()) {
+        XMLNode solidFill = spPr.append_child("a:solidFill");
+        solidFill.append_child("a:srgbClr").append_attribute("val").set_value(options.fillColor.c_str());
+    }
+
+    XMLNode ln = spPr.append_child("a:ln");
+    ln.append_attribute("w").set_value(fmt::format("{}", static_cast<uint32_t>(options.lineWidth * EMU_PER_PIXEL)).c_str());
+    if (!options.lineColor.empty()) {
+        XMLNode solidFill = ln.append_child("a:solidFill");
+        solidFill.append_child("a:srgbClr").append_attribute("val").set_value(options.lineColor.c_str());
+    } else {
+        ln.append_child("a:noFill");
+    }
+
+    if (!options.text.empty() || !options.macro.empty()) {
+        XMLNode txBody = sp.append_child("xdr:txBody");
+        XMLNode bodyPr = txBody.append_child("a:bodyPr");
+        if (!options.macro.empty()) {
+            bodyPr.append_attribute("vertOverflow").set_value("clip");
+            bodyPr.append_attribute("wrap").set_value("square");
+        }
+        txBody.append_child("a:lstStyle");
+        XMLNode p = txBody.append_child("a:p");
+        XMLNode r = p.append_child("a:r");
+        XMLNode rPr = r.append_child("a:rPr");
+        rPr.append_attribute("lang").set_value("en-US");
+        rPr.append_attribute("sz").set_value("1100");
+        r.append_child("a:t").text().set(options.text.c_str());
+        p.append_child("a:endParaRPr").append_attribute("lang").set_value("en-US");
+    }
+
+    anchor.append_child("xdr:clientData");
+}

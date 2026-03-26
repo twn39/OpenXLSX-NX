@@ -230,6 +230,149 @@ namespace OpenXLSX
         }
     }
 
+
+    static std::string_view chartTypeToNodeName(XLChartType type) {
+        switch (type) {
+            case XLChartType::Line:
+            case XLChartType::LineStacked:
+            case XLChartType::LinePercentStacked: return "c:lineChart";
+            case XLChartType::Line3D: return "c:line3DChart";
+            case XLChartType::Pie: return "c:pieChart";
+            case XLChartType::Pie3D: return "c:pie3DChart";
+            case XLChartType::Scatter: return "c:scatterChart";
+            case XLChartType::Area:
+            case XLChartType::AreaStacked:
+            case XLChartType::AreaPercentStacked: return "c:areaChart";
+            case XLChartType::Area3D:
+            case XLChartType::Area3DStacked:
+            case XLChartType::Area3DPercentStacked: return "c:area3DChart";
+            case XLChartType::Doughnut: return "c:doughnutChart";
+            case XLChartType::Radar:
+            case XLChartType::RadarFilled:
+            case XLChartType::RadarMarkers: return "c:radarChart";
+            case XLChartType::Bar:
+            case XLChartType::BarStacked:
+            case XLChartType::BarPercentStacked: return "c:barChart";
+            case XLChartType::Bar3D:
+            case XLChartType::Bar3DStacked:
+            case XLChartType::Bar3DPercentStacked: return "c:bar3DChart";
+            default: return "c:barChart";
+        }
+    }
+
+
+    XMLNode getOrCreateChartNode(XMLDocument& doc, std::optional<XLChartType> targetChartType, bool useSecondaryAxis) {
+        XMLNode plotArea = doc.document_element().child("c:chart").child("c:plotArea");
+        
+        std::string targetNodeName = targetChartType ? std::string(chartTypeToNodeName(*targetChartType)) : "";
+        
+        std::string expectedCatAxId = useSecondaryAxis ? "200000000" : "100000000";
+        std::string expectedValAxId = useSecondaryAxis ? "200000001" : "100000001";
+
+        XMLNode matchedNode;
+        // 1. Try to find an existing chart node that matches
+        for (auto child : plotArea.children()) {
+            std::string_view name = child.name();
+            if (name.length() > 5 && name.substr(name.length() - 5) == "Chart") {
+                bool nameMatches = targetNodeName.empty() || name == targetNodeName;
+                
+                // Check if it uses the correct axes
+                bool axesMatch = false;
+                for (auto axIdNode : child.children("c:axId")) {
+                    if (std::string(axIdNode.attribute("val").value()) == expectedValAxId) {
+                        axesMatch = true;
+                        break;
+                    }
+                }
+                // If it's the primary axis and it has NO axId, it's pie/doughnut which doesn't have axes. We can accept it if we don't need secondary.
+                if (child.child("c:axId").empty() && !useSecondaryAxis) axesMatch = true;
+
+                if (nameMatches && axesMatch) {
+                    matchedNode = child;
+                    break;
+                }
+            }
+        }
+
+        if (!matchedNode.empty()) return matchedNode;
+
+        // 2. If not found, we need to create it!
+        if (!targetChartType) {
+            // Default to line chart for new combo chart layers
+            targetNodeName = "c:lineChart"; 
+        }
+
+        matchedNode = plotArea.append_child(targetNodeName.c_str());
+        
+        if (targetNodeName == "c:lineChart") {
+            matchedNode.append_child("c:grouping").append_attribute("val").set_value("standard");
+        } else if (targetNodeName == "c:barChart") {
+            matchedNode.append_child("c:barDir").append_attribute("val").set_value("col");
+            matchedNode.append_child("c:grouping").append_attribute("val").set_value("clustered");
+        } else if (targetNodeName == "c:scatterChart") {
+            matchedNode.append_child("c:scatterStyle").append_attribute("val").set_value("lineMarker");
+        }
+
+        // Add axes IDs to the new chart node (unless it's a Pie chart)
+        if (targetNodeName != "c:pieChart" && targetNodeName != "c:pie3DChart" && targetNodeName != "c:doughnutChart") {
+            matchedNode.append_child("c:axId").append_attribute("val").set_value(expectedCatAxId.c_str());
+            matchedNode.append_child("c:axId").append_attribute("val").set_value(expectedValAxId.c_str());
+        }
+
+        // 3. If we are creating a secondary axis, ensure the axes exist in plotArea
+        if (useSecondaryAxis) {
+            bool hasSecValAx = false;
+            for (auto valAx : plotArea.children("c:valAx")) {
+                if (std::string(valAx.child("c:axId").attribute("val").value()) == expectedValAxId) {
+                    hasSecValAx = true;
+                    break;
+                }
+            }
+            if (!hasSecValAx) {
+                // We must create secondary axes
+                std::string secAxesTemplate = fmt::format(R"(<dummy>
+      <c:catAx>
+        <c:axId val="{}"/>
+        <c:scaling><c:orientation val="minMax"/></c:scaling>
+        <c:delete val="0"/>
+        <c:axPos val="b"/>
+        <c:majorTickMark val="none"/>
+        <c:minorTickMark val="none"/>
+        <c:tickLblPos val="nextTo"/>
+        <c:crossAx val="{}"/>
+        <c:crosses val="autoZero"/>
+        <c:auto val="1"/>
+        <c:lblAlgn val="ctr"/>
+        <c:lblOffset val="100"/>
+        <c:noMultiLvlLbl val="0"/>
+      </c:catAx>
+      <c:valAx>
+        <c:axId val="{}"/>
+        <c:scaling><c:orientation val="minMax"/></c:scaling>
+        <c:delete val="0"/>
+        <c:axPos val="r"/>
+        <c:majorGridlines/>
+        <c:numFmt formatCode="General" sourceLinked="0"/>
+        <c:majorTickMark val="none"/>
+        <c:minorTickMark val="none"/>
+        <c:tickLblPos val="nextTo"/>
+        <c:crossAx val="{}"/>
+        <c:crosses val="max"/>
+        <c:crossBetween val="between"/>
+      </c:valAx>
+</dummy>)", expectedCatAxId, expectedValAxId, expectedValAxId, expectedCatAxId);
+
+                XMLDocument tempDoc;
+                tempDoc.load_string(secAxesTemplate.c_str());
+                for (auto child : tempDoc.document_element().children()) {
+                    plotArea.append_copy(child);
+                }
+            }
+        }
+
+        return matchedNode;
+    }
+
     XMLNode getChartNode(const XMLDocument& doc) {
         XMLNode plotArea = doc.document_element().child("c:chart").child("c:plotArea");
         for (auto child : plotArea.children()) {
@@ -251,9 +394,9 @@ namespace OpenXLSX
         return count;
     }
 
-    XLChartSeries XLChart::addSeries(std::string_view valuesRef, std::string_view title, std::string_view categoriesRef)
+    XLChartSeries XLChart::addSeries(std::string_view valuesRef, std::string_view title, std::string_view categoriesRef, std::optional<XLChartType> targetChartType, bool useSecondaryAxis)
     {
-        XMLNode chartNode = getChartNode(xmlDocument());
+        XMLNode chartNode = getOrCreateChartNode(xmlDocument(), targetChartType, useSecondaryAxis);
         if (chartNode.empty()) return XLChartSeries();
 
         const uint32_t idx = seriesCount();
@@ -639,6 +782,70 @@ namespace OpenXLSX
         return *this;
     }
 
+    XLChartSeries& XLChartSeries::addTrendline(XLTrendlineType type, std::string_view name, uint8_t order, uint8_t period)
+    {
+        if (m_node.empty()) return *this;
+
+        XMLNode trendNode = m_node.append_child("c:trendline");
+
+        if (!name.empty()) {
+            trendNode.append_child("c:name").text().set(std::string(name).c_str());
+        }
+
+        XMLNode typeNode = trendNode.append_child("c:trendlineType");
+        switch (type) {
+            case XLTrendlineType::Exponential: typeNode.append_attribute("val").set_value("exp"); break;
+            case XLTrendlineType::Linear: typeNode.append_attribute("val").set_value("linear"); break;
+            case XLTrendlineType::Logarithmic: typeNode.append_attribute("val").set_value("log"); break;
+            case XLTrendlineType::Polynomial: 
+                typeNode.append_attribute("val").set_value("poly"); 
+                trendNode.append_child("c:order").append_attribute("val").set_value(order);
+                break;
+            case XLTrendlineType::Power: typeNode.append_attribute("val").set_value("power"); break;
+            case XLTrendlineType::MovingAverage: 
+                typeNode.append_attribute("val").set_value("movingAvg"); 
+                trendNode.append_child("c:period").append_attribute("val").set_value(period);
+                break;
+        }
+
+        return *this;
+    }
+
+    XLChartSeries& XLChartSeries::addErrorBars(XLErrorBarDirection direction, XLErrorBarType type, XLErrorBarValueType valType, double value)
+    {
+        if (m_node.empty()) return *this;
+
+        XMLNode errBarsNode = m_node.append_child("c:errBars");
+
+        errBarsNode.append_child("c:errDir").append_attribute("val").set_value(direction == XLErrorBarDirection::X ? "x" : "y");
+
+        XMLNode typeNode = errBarsNode.append_child("c:errBarType");
+        switch (type) {
+            case XLErrorBarType::Both: typeNode.append_attribute("val").set_value("both"); break;
+            case XLErrorBarType::Minus: typeNode.append_attribute("val").set_value("minus"); break;
+            case XLErrorBarType::Plus: typeNode.append_attribute("val").set_value("plus"); break;
+        }
+
+        XMLNode valTypeNode = errBarsNode.append_child("c:errValType");
+        switch (valType) {
+            case XLErrorBarValueType::Custom: valTypeNode.append_attribute("val").set_value("cust"); break;
+            case XLErrorBarValueType::FixedValue: valTypeNode.append_attribute("val").set_value("fixedVal"); break;
+            case XLErrorBarValueType::Percentage: valTypeNode.append_attribute("val").set_value("percentage"); break;
+            case XLErrorBarValueType::StandardDeviation: valTypeNode.append_attribute("val").set_value("stdDev"); break;
+            case XLErrorBarValueType::StandardError: valTypeNode.append_attribute("val").set_value("stdErr"); break;
+        }
+
+        if (valType == XLErrorBarValueType::FixedValue || valType == XLErrorBarValueType::Percentage) {
+            errBarsNode.append_child("c:val").append_attribute("val").set_value(value);
+        }
+
+        errBarsNode.append_child("c:noEndCap").append_attribute("val").set_value("0");
+
+        return *this;
+    }
+
+
+
     static std::string buildAbsoluteChartReference(const XLWorksheet& wks, const XLCellRange& range) {
         if (range.empty()) return "";
         
@@ -657,10 +864,10 @@ namespace OpenXLSX
         return formattedSheetName + "!" + tlAddr + ":" + brAddr;
     }
 
-    XLChartSeries XLChart::addSeries(const XLWorksheet& wks, const XLCellRange& values, std::string_view title) {
-        return addSeries(buildAbsoluteChartReference(wks, values), title, "");
+    XLChartSeries XLChart::addSeries(const XLWorksheet& wks, const XLCellRange& values, std::string_view title, std::optional<XLChartType> targetChartType, bool useSecondaryAxis) {
+        return addSeries(buildAbsoluteChartReference(wks, values), title, "", targetChartType, useSecondaryAxis);
     }
 
-    XLChartSeries XLChart::addSeries(const XLWorksheet& wks, const XLCellRange& values, const XLCellRange& categories, std::string_view title) {
-        return addSeries(buildAbsoluteChartReference(wks, values), title, buildAbsoluteChartReference(wks, categories));
+    XLChartSeries XLChart::addSeries(const XLWorksheet& wks, const XLCellRange& values, const XLCellRange& categories, std::string_view title, std::optional<XLChartType> targetChartType, bool useSecondaryAxis) {
+        return addSeries(buildAbsoluteChartReference(wks, values), title, buildAbsoluteChartReference(wks, categories), targetChartType, useSecondaryAxis);
     }

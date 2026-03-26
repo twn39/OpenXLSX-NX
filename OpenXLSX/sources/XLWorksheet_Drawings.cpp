@@ -310,7 +310,7 @@ void XLWorksheet::insertImage(const std::string& cellReference, const std::strin
     std::string name = "image_openxlsx." + size.extension;
 
     // Parse coordinate
-    XLCellReference ref(cellReference);
+    XLCellReference ref{std::string(cellReference)};
     uint32_t row = ref.row() - 1; // 0-indexed for addImage
     uint16_t col = ref.column() - 1;
 
@@ -320,4 +320,14 @@ void XLWorksheet::insertImage(const std::string& cellReference, const std::strin
 
     // Call addImage with options to correctly generate TwoCell or Absolute anchors
     addImage(name, data, row, col, scaledWidth, scaledHeight, options);
+}
+
+void XLWorksheet::addShape(std::string_view cellReference, const XLVectorShapeOptions& options)
+{
+    XLCellReference ref{std::string(cellReference)};
+    uint32_t row = ref.row() - 1; // 0-indexed for drawing
+    uint16_t col = ref.column() - 1;
+
+    XLDrawing& drw = drawing();
+    drw.addShape(row, col, options);
 }

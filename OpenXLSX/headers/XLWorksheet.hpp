@@ -334,6 +334,8 @@ namespace OpenXLSX
          * @param cellReference The top-left cell where the image should be anchored (e.g. "B2").
          * @param imagePath The file path to the local image.
          */
+
+        void addShape(std::string_view cellReference, const XLVectorShapeOptions& options);
         void insertImage(const std::string& cellReference, const std::string& imagePath);
 
         /**
