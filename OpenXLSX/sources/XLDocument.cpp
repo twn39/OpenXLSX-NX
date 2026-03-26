@@ -948,6 +948,105 @@ XLPivotCacheDefinition XLDocument::createPivotCacheDefinition()
     return XLPivotCacheDefinition(xmlData);
 }
 
+
+std::string XLDocument::createTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName)
+{
+    using namespace std::literals::string_literals;
+
+    uint32_t num = 1;
+    std::string filename = fmt::format("xl/slicerCaches/slicerCache{}.xml", num);
+    while (m_archive.hasEntry(filename)) {
+        ++num;
+        filename = fmt::format("xl/slicerCaches/slicerCache{}.xml", num);
+    }
+
+    std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8"?>
+<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" sourceName="{1}">
+  <extLst>
+    <ext xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" uri="{{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}}">
+      <x15:tableSlicerCache tableId="{2}" column="{3}"/>
+    </ext>
+  </extLst>
+</slicerCacheDefinition>)", name, sourceName, tableId, tableColumnId);
+
+    m_archive.addEntry(filename, templateStr);
+    m_contentTypes.addOverride("/" + filename, XLContentType::SlicerCache);
+    
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData* xmlData = getXmlData(filename, DO_NOT_THROW);
+    if (xmlData == nullptr) {
+        m_data.emplace_back(this, filename, templateStr, XLContentType::SlicerCache);
+    }
+
+    // Add relationship to workbook.xml
+    m_wbkRelationships.addRelationship(XLRelationshipType::SlicerCache, "/" + filename);
+    std::string rId = m_wbkRelationships.relationshipByTarget("/" + filename).id();
+
+    // Add extLst to workbook.xml to reference the slicer cache
+    XMLNode wbkNode = m_workbook.xmlDocument().document_element();
+    XMLNode extLst = wbkNode.child("extLst");
+    if (extLst.empty()) extLst = wbkNode.append_child("extLst");
+    
+    XMLNode ext = extLst.find_child_by_attribute("uri", "{46BE6895-7355-4a93-B00E-2C351335B9C9}");
+    if (ext.empty()) {
+        ext = extLst.append_child("ext");
+        ext.append_attribute("xmlns:x15").set_value("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main");
+        ext.append_attribute("uri").set_value("{46BE6895-7355-4a93-B00E-2C351335B9C9}");
+    }
+    
+    XMLNode slicerCaches = ext.child("x15:slicerCaches");
+    if (slicerCaches.empty()) {
+        slicerCaches = ext.append_child("x15:slicerCaches");
+        slicerCaches.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+    }
+    
+    slicerCaches.append_child("x14:slicerCache").append_attribute("r:id").set_value(rId.c_str());
+
+    // Add definedName to workbook.xml
+    XMLNode definedNames = wbkNode.child("definedNames");
+    if (definedNames.empty()) {
+        XMLNode calcPr = wbkNode.child("calcPr");
+        if (!calcPr.empty()) {
+            definedNames = wbkNode.insert_child_before("definedNames", calcPr);
+        } else {
+            definedNames = wbkNode.append_child("definedNames");
+        }
+    }
+    XMLNode definedName = definedNames.append_child("definedName");
+    definedName.append_attribute("name").set_value(std::string(name).c_str());
+    definedName.text().set("#N/A");
+
+    return filename;
+}
+
+std::string XLDocument::createSlicer(std::string_view name, std::string_view cacheName, std::string_view caption)
+{
+    using namespace std::literals::string_literals;
+
+    uint32_t num = 1;
+    std::string filename = fmt::format("xl/slicers/slicer{}.xml", num);
+    while (m_archive.hasEntry(filename)) {
+        ++num;
+        filename = fmt::format("xl/slicers/slicer{}.xml", num);
+    }
+
+    std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8"?>
+<slicers xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10">
+  <slicer name="{0}" cache="{1}" caption="{2}" rowHeight="251883"/>
+</slicers>)", name, cacheName, caption);
+
+    m_archive.addEntry(filename, templateStr);
+    m_contentTypes.addOverride("/" + filename, XLContentType::Slicer);
+    
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData* xmlData = getXmlData(filename, DO_NOT_THROW);
+    if (xmlData == nullptr) {
+        m_data.emplace_back(this, filename, templateStr, XLContentType::Slicer);
+    }
+
+    return filename;
+}
+
 XLPivotCacheRecords XLDocument::createPivotCacheRecords(std::string_view cacheDefPath)
 {
     using namespace std::literals::string_literals;

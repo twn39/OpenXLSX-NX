@@ -84,6 +84,8 @@ namespace OpenXLSX
         Hyperlink,
         Unknown,
         PivotTable,
+        Slicer,
+        SlicerCache,
         PivotCacheDefinition,
         PivotCacheRecords
     };

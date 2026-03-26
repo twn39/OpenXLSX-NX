@@ -105,6 +105,11 @@ namespace OpenXLSX
     bool XLTableCollection::valid() const { return m_sheetNode != nullptr; }
 
     XLTable::XLTable(XLXmlData* xmlData) : XLXmlFile(xmlData) {}
+    uint32_t XLTable::id() const
+    {
+        return xmlDocument().document_element().attribute("id").as_uint();
+    }
+
     std::string XLTable::name() const { return xmlDocument().document_element().attribute("name").value(); }
     /**
      * @brief The TableAttributeOrder defines the mandatory physical sequence of attributes in the <table> tag.

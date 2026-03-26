@@ -336,6 +336,16 @@ namespace OpenXLSX
          */
 
         void addShape(std::string_view cellReference, const XLVectorShapeOptions& options);
+
+        /**
+         * @brief Add a slicer connected to a table.
+         * @param cellReference The top-left cell where the slicer should be anchored (e.g. "D1").
+         * @param table The table to filter.
+         * @param columnName The exact name of the table column to filter.
+         * @param options The visual and naming options for the slicer.
+         */
+        void addTableSlicer(std::string_view cellReference, const XLTable& table, std::string_view columnName, const XLSlicerOptions& options = XLSlicerOptions());
+
         void insertImage(const std::string& cellReference, const std::string& imagePath);
 
         /**

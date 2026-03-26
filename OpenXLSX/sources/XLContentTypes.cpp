@@ -37,6 +37,8 @@ namespace
         if (typeString == "application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml") return XLContentType::CalculationChain;
         if (typeString == "application/vnd.ms-office.vbaProject") return XLContentType::VBAProject;
         if (typeString == "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml") return XLContentType::PivotTable;
+        if (typeString == "application/vnd.ms-excel.slicer+xml") return XLContentType::Slicer;
+        if (typeString == "application/vnd.ms-excel.slicerCache+xml") return XLContentType::SlicerCache;
         if (typeString == "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml") return XLContentType::PivotCacheDefinition;
         if (typeString == "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml") return XLContentType::PivotCacheRecords;
         if (typeString == "application/vnd.openxmlformats-package.core-properties+xml") return XLContentType::CoreProperties;
@@ -69,6 +71,8 @@ namespace
             case XLContentType::CalculationChain: return "application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml";
             case XLContentType::VBAProject: return "application/vnd.ms-office.vbaProject";
             case XLContentType::PivotTable: return "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml";
+            case XLContentType::Slicer: return "application/vnd.ms-excel.slicer+xml";
+            case XLContentType::SlicerCache: return "application/vnd.ms-excel.slicerCache+xml";
             case XLContentType::PivotCacheDefinition: return "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml";
             case XLContentType::PivotCacheRecords: return "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml";
             case XLContentType::CoreProperties: return "application/vnd.openxmlformats-package.core-properties+xml";

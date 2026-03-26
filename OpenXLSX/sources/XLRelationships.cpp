@@ -171,6 +171,10 @@ namespace OpenXLSX_XLRelationships
                 return "http://schemas.microsoft.com/office/2006/relationships/vbaProject";
             case XLRelationshipType::PivotTable:
                 return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable";
+            case XLRelationshipType::Slicer:
+                return "http://schemas.microsoft.com/office/2007/relationships/slicer";
+            case XLRelationshipType::SlicerCache:
+                return "http://schemas.microsoft.com/office/2007/relationships/slicerCache";
             case XLRelationshipType::PivotCacheDefinition:
                 return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition";
             case XLRelationshipType::PivotCacheRecords:

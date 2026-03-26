@@ -20,6 +20,16 @@ namespace OpenXLSX
 {
     class XLWorksheet;
     class XLCellRange;
+    
+    struct XLSlicerOptions {
+        std::string name = "";       // Defaults to column name if empty
+        std::string caption = "";    // Defaults to column name if empty
+        uint32_t width = 144;        // pixels
+        uint32_t height = 180;       // pixels
+        int32_t offsetX = 0;         // pixels
+        int32_t offsetY = 0;         // pixels
+    };
+
     class XLTable;
 
     /**
@@ -130,6 +140,12 @@ namespace OpenXLSX
          * @brief Move assignment operator.
          */
         XLTable& operator=(XLTable&& other) noexcept = default;
+
+        /**
+         * @brief Get the name of the table
+         * @return std::string The table name
+         */
+        uint32_t id() const;
 
         /**
          * @brief Get the name of the table

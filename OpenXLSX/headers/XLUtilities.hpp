@@ -213,6 +213,10 @@ namespace OpenXLSX
                 return "CalculationChain";
             case XLContentType::VBAProject:
                 return "VBAProject";
+            case XLContentType::Slicer:
+                return "Slicer";
+            case XLContentType::SlicerCache:
+                return "SlicerCache";
             case XLContentType::PivotTable:
                 return "PivotTable";
             case XLContentType::PivotCacheDefinition:
@@ -293,6 +297,10 @@ namespace OpenXLSX
                 return "PrinterSettings";
             case XLRelationshipType::VBAProject:
                 return "VBAProject";
+            case XLRelationshipType::Slicer:
+                return "Slicer";
+            case XLRelationshipType::SlicerCache:
+                return "SlicerCache";
             case XLRelationshipType::PivotTable:
                 return "PivotTable";
             case XLRelationshipType::PivotCacheDefinition:
