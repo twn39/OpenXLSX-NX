@@ -164,7 +164,7 @@ void XLDocument::open(std::string_view fileName)
             }
         }
         
-        if (!handled && entryName != "docProps/core.xml" && entryName != "docProps/app.xml" && entryName != "docProps/custom.xml") {
+        if (!handled && entryName != "docProps/core.xml" && entryName != "docProps/app.xml" && entryName != "docProps/custom.xml" && entryName != "[Content_Types].xml" && entryName != "_rels/.rels" && entryName != "xl/_rels/workbook.xml.rels") {
             // Wait, we need to extract from m_archive since the zip saveAs copies the original zip file, 
             // but if saveAs is called without the original zip (e.g. memory manipulation), it might not?
             // Actually XLZipArchive::save(path) handles this. So we just cache them so they can be explicitly added back if needed.
@@ -374,6 +374,26 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
         throw XLException("XLDocument::saveAs: refusing to overwrite existing file "s + std::string(fileName));
     }
 
+    // [CRITICAL FIX: Prevent source file corruption during saveAs]
+    // If the target filename is different from the currently opened file, we must clone the archive FIRST.
+    // Otherwise, libzip will commit all pending XML modifications into the original source file.
+    if (m_archive.isOpen() && std::string(fileName) != m_filePath && pathExists(m_filePath)) {
+        // 1. Close the current archive WITHOUT committing any changes. 
+        // Note: m_archive.close() might commit if isModified is true. We should ensure it doesn't, but currently we can't easily reset isModified.
+        // Actually, the modifications (m_archive.addEntry) are executed LATER in this function! 
+        // So at this exact moment, m_archive has NO pending zip_source_buffer modifications yet! 
+        // So it's perfectly safe to close it, copy the file, and reopen the new one.
+        m_archive.close();
+        
+        // 2. Safely copy the pure, untouched original file to the new destination.
+        std::filesystem::copy_file(std::filesystem::u8path(m_filePath),
+                                   std::filesystem::u8path(fileName),
+                                   std::filesystem::copy_options::overwrite_existing);
+                                   
+        // 3. Re-open the archive, now pointing exclusively to the new target file.
+        m_archive.open(std::string(fileName));
+    }
+
     m_filePath = std::string(fileName);
     workbook().updateWorksheetDimensions();
     
@@ -386,6 +406,14 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
 
     if (m_filePath.size() >= 5 && m_filePath.substr(m_filePath.size() - 5) == ".xlsm") {
         m_contentTypes.updateOverride("/xl/workbook.xml", XLContentType::WorkbookMacroEnabled);
+        if (hasMacro()) {
+            // Need to make sure bin is registered
+            m_contentTypes.addDefault("bin", "application/vnd.ms-office.vbaProject");
+            
+            // Note: some macros have a signature file (vbaProjectSignature.bin) but its type is application/vnd.ms-office.vbaProjectSignature
+            // The unhandled entries logic will preserve the file, but without the default type it might be ignored.
+            // Using Default Extension="bin" handles both.
+        }
     } else if (m_filePath.size() >= 5 && m_filePath.substr(m_filePath.size() - 5) == ".xlsx") {
         m_contentTypes.updateOverride("/xl/workbook.xml", XLContentType::Workbook);
     }
@@ -450,6 +478,22 @@ XLContentTypes& XLDocument::contentTypes() { return m_contentTypes; }
 /**
  * @details Provides access to custom properties, enabling the storage of application-specific metadata within the OOXML container.
  */
+
+bool XLDocument::hasMacro() const {
+    for (const auto& entry : m_unhandledEntries) {
+        if (entry.first.find("vbaProject.bin") != std::string::npos) {
+            return true;
+        }
+    }
+    for (const auto& entry : m_archive.entryNames()) {
+        if (entry.find("vbaProject.bin") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 XLCustomProperties& XLDocument::customProperties()
 {
     if (!hasXmlData("docProps/custom.xml")) execCommand(XLCommand(XLCommandType::CheckAndFixCustomProperties));

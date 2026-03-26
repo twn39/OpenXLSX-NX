@@ -177,7 +177,14 @@ namespace OpenXLSX
         /**
          * @brief Provides access to custom properties (metadata) that can be set for the document.
          */
-        [[nodiscard]] XLCustomProperties& customProperties();
+        [[nodiscard]] 
+        /**
+         * @brief Check if the loaded document contains a VBA macro project (e.g. xl/vbaProject.bin)
+         * @return true if macro project exists
+         */
+        bool hasMacro() const;
+
+        XLCustomProperties& customProperties();
 
         /**
          * @brief Atomic table ID generator to ensure workbook-wide uniqueness for Excel table structures.
