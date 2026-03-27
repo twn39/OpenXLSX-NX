@@ -125,6 +125,23 @@ namespace OpenXLSX
          */
         void deleteAll();
 
+        /**
+         * @brief Shift all merge regions by rowDelta for rows >= fromRow.
+         * @details Regions that shrink to zero height or are fully inside the
+         *          deleted band are removed. Regions straddling the boundary
+         *          are clipped/expanded as appropriate.
+         * @param delta  Positive = insert (push down), negative = delete (pull up).
+         * @param fromRow 1-based first affected row.
+         */
+        void shiftRows(int32_t delta, uint32_t fromRow);
+
+        /**
+         * @brief Shift all merge regions by colDelta for columns >= fromCol.
+         * @param delta    Positive = insert, negative = delete.
+         * @param fromCol  1-based first affected column.
+         */
+        void shiftCols(int32_t delta, uint16_t fromCol);
+
         void print(std::basic_ostream<char>& ostr) const;
 
     private:

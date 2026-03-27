@@ -240,6 +240,125 @@ void XLMergeCells::deleteAll()
 }
 
 /**
+ * @details Shift merge regions vertically.
+ * - Regions entirely above fromRow  → unchanged.
+ * - Regions entirely at/below fromRow → both top and bottom slide by delta.
+ * - Regions straddling fromRow (delta < 0 / delete):
+ *     top unchanged, bottom shrinks; if this makes height < 1 → deleteMerge.
+ * - Regions straddling fromRow (delta > 0 / insert): not possible because
+ *     insert never touches an existing row – we simply push everything down.
+ */
+void XLMergeCells::shiftRows(int32_t delta, uint32_t fromRow)
+{
+    if (delta == 0 || m_mergeCache.empty()) return;
+
+    // Iterate in reverse so that deleteMerge() index invalidation is safe
+    for (auto i = static_cast<int32_t>(m_mergeCache.size()) - 1; i >= 0; --i) {
+        auto idx  = static_cast<XLMergeIndex>(i);
+        auto& entry = m_mergeCache[static_cast<size_t>(i)];
+        XLRect& r = entry.rect;
+
+        if (r.bottom < fromRow) continue;  // entirely above → no change
+
+        if (delta < 0) {
+            // Deletion band: [fromRow, fromRow + |delta|)
+            uint32_t delEnd = fromRow + static_cast<uint32_t>(-delta) - 1;
+
+            if (r.top >= fromRow && r.bottom <= delEnd) {
+                // fully inside deleted band → remove
+                deleteMerge(idx);
+                continue;
+            }
+            if (r.top >= fromRow) {
+                // top is inside band, bottom is below → pull top to fromRow
+                r.top = fromRow;
+            }
+            // clip bottom if it falls inside the deleted band
+            if (r.bottom <= delEnd) {
+                r.bottom = fromRow;  // will be validated below
+            } else {
+                r.bottom = static_cast<uint32_t>(static_cast<int32_t>(r.bottom) + delta);
+            }
+            if (r.top >= r.bottom && !(r.top == r.bottom)) {
+                deleteMerge(idx);
+                continue;
+            }
+            // If top was below fromRow but not in band, slide it
+            if (r.top > fromRow && r.top > delEnd) {
+                r.top = static_cast<uint32_t>(static_cast<int32_t>(r.top) + delta);
+            }
+        } else {
+            // Insertion: push everything at/below fromRow down
+            if (r.top >= fromRow)
+                r.top  = static_cast<uint32_t>(static_cast<int32_t>(r.top)  + delta);
+            r.bottom = static_cast<uint32_t>(static_cast<int32_t>(r.bottom) + delta);
+        }
+
+        // Rebuild reference string and sync XML
+        entry.reference = XLCellReference(r.top, r.left).address() + ":" +
+                          XLCellReference(r.bottom, r.right).address();
+
+        // Walk XML to find and update the corresponding mergeCell node
+        XMLNode node = m_mergeCellsNode.first_child_of_type(pugi::node_element);
+        for (XLMergeIndex k = 0; k < idx && not node.empty(); ++k)
+            node = node.next_sibling_of_type(pugi::node_element);
+        if (not node.empty())
+            node.attribute("ref").set_value(entry.reference.c_str());
+    }
+}
+
+/**
+ * @details Mirror of shiftRows but operating on column (left/right) coordinates.
+ */
+void XLMergeCells::shiftCols(int32_t delta, uint16_t fromCol)
+{
+    if (delta == 0 || m_mergeCache.empty()) return;
+
+    for (auto i = static_cast<int32_t>(m_mergeCache.size()) - 1; i >= 0; --i) {
+        auto idx  = static_cast<XLMergeIndex>(i);
+        auto& entry = m_mergeCache[static_cast<size_t>(i)];
+        XLRect& r = entry.rect;
+
+        if (r.right < fromCol) continue;  // entirely left of affected zone
+
+        if (delta < 0) {
+            uint16_t delEnd = static_cast<uint16_t>(fromCol + static_cast<uint16_t>(-delta) - 1);
+
+            if (r.left >= fromCol && r.right <= delEnd) {
+                deleteMerge(idx);
+                continue;
+            }
+            if (r.left >= fromCol && r.left <= delEnd)
+                r.left = fromCol;
+            if (r.right <= delEnd) {
+                r.right = static_cast<uint16_t>(fromCol - 1);
+            } else {
+                r.right = static_cast<uint16_t>(static_cast<int16_t>(r.right) + static_cast<int16_t>(delta));
+            }
+            if (r.right < r.left) {
+                deleteMerge(idx);
+                continue;
+            }
+            if (r.left > fromCol && r.left > delEnd)
+                r.left = static_cast<uint16_t>(static_cast<int16_t>(r.left) + static_cast<int16_t>(delta));
+        } else {
+            if (r.left >= fromCol)
+                r.left  = static_cast<uint16_t>(static_cast<int16_t>(r.left)  + static_cast<int16_t>(delta));
+            r.right = static_cast<uint16_t>(static_cast<int16_t>(r.right) + static_cast<int16_t>(delta));
+        }
+
+        entry.reference = XLCellReference(r.top, r.left).address() + ":" +
+                          XLCellReference(r.bottom, r.right).address();
+
+        XMLNode node = m_mergeCellsNode.first_child_of_type(pugi::node_element);
+        for (XLMergeIndex k = 0; k < idx && not node.empty(); ++k)
+            node = node.next_sibling_of_type(pugi::node_element);
+        if (not node.empty())
+            node.attribute("ref").set_value(entry.reference.c_str());
+    }
+}
+
+/**
  * @details
  */
 void XLMergeCells::print(std::basic_ostream<char>& ostr) const { m_mergeCellsNode.print(ostr); }

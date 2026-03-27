@@ -198,6 +198,43 @@ namespace OpenXLSX
         uint32_t rowCount() const noexcept;
 
         bool deleteRow(uint32_t rowNumber);
+
+        /**
+         * @brief Insert one or more empty rows before the given row number.
+         * @details All rows at rowNumber and below are shifted down. Merged ranges,
+         *          formulas, drawing anchors, data validations and the autoFilter
+         *          reference are all updated to reflect the new layout.
+         * @param rowNumber 1-based row to insert before.
+         * @param count     Number of rows to insert (default 1).
+         * @return true on success.
+         */
+        bool insertRow(uint32_t rowNumber, uint32_t count = 1);
+
+        /**
+         * @brief Delete one or more rows and shift subsequent rows up.
+         * @details All subsystems (merges, formulas, drawings, validations, autoFilter)
+         *          are updated automatically.
+         * @param rowNumber 1-based first row to delete.
+         * @param count     Number of consecutive rows to delete (default 1).
+         * @return true on success.
+         */
+        bool deleteRow(uint32_t rowNumber, uint32_t count);
+
+        /**
+         * @brief Insert one or more empty columns before the given column number.
+         * @param colNumber 1-based column to insert before.
+         * @param count     Number of columns to insert (default 1).
+         * @return true on success.
+         */
+        bool insertColumn(uint16_t colNumber, uint16_t count = 1);
+
+        /**
+         * @brief Delete one or more columns and shift subsequent columns left.
+         * @param colNumber 1-based first column to delete.
+         * @param count     Number of consecutive columns to delete (default 1).
+         * @return true on success.
+         */
+        bool deleteColumn(uint16_t colNumber, uint16_t count = 1);
         void updateSheetName(const std::string& oldName, const std::string& newName);
         void updateDimension();
 
@@ -431,6 +468,43 @@ namespace OpenXLSX
         bool setActive_impl();
 
         XMLNode prepareSheetViewForPanes();
+
+        // ── Row/Column structural shift helpers ──────────────────────────────
+        // Each helper updates one subsystem for a row or column shift.
+        // rowDelta / colDelta > 0 means insert (push out); < 0 means delete (pull in).
+        // fromRow / fromCol is the 1-based first affected coordinate.
+
+        /// Rewrite a single cell address string (e.g. "B3") applying row/col offsets.
+        /// Absolute-reference components (prefixed with '$') are left unchanged.
+        [[nodiscard]] static std::string shiftCellRef(std::string_view ref,
+                                                       int32_t rowDelta, int32_t colDelta,
+                                                       uint32_t fromRow, uint16_t fromCol);
+
+        /// Tokenize a formula and rewrite every CellRef/Range token using shiftCellRef.
+        [[nodiscard]] static std::string shiftFormulaRefs(std::string_view formula,
+                                                           int32_t rowDelta, int32_t colDelta,
+                                                           uint32_t fromRow, uint16_t fromCol);
+
+        /// Shift <row r=N> and <c r="XN"> attributes in sheetData.
+        void shiftSheetDataRows(int32_t delta, uint32_t fromRow);
+
+        /// Shift column letters in all cell refs and update the <cols> node.
+        void shiftSheetDataCols(int32_t delta, uint16_t fromCol);
+
+        /// Update min/max attributes of each <col> element inside <cols>.
+        void shiftColsNode(int32_t delta, uint16_t fromCol);
+
+        /// Rewrite all formula cells in the sheet.
+        void shiftFormulas(int32_t rowDelta, int32_t colDelta, uint32_t fromRow, uint16_t fromCol);
+
+        /// Adjust xdr:oneCellAnchor / xdr:twoCellAnchor row+col indices in the drawing.
+        void shiftDrawingAnchors(int32_t rowDelta, int32_t colDelta, uint32_t fromRow, uint16_t fromCol);
+
+        /// Update sqref attributes in every <dataValidation> node.
+        void shiftDataValidations(int32_t rowDelta, int32_t colDelta, uint32_t fromRow, uint16_t fromCol);
+
+        /// Update the <autoFilter ref="…"> attribute if present.
+        void shiftAutoFilter(int32_t rowDelta, int32_t colDelta, uint32_t fromRow, uint16_t fromCol);
 
     private:
         XLRelationships   m_relationships{};
