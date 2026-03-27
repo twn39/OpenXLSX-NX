@@ -87,16 +87,22 @@ TEST_CASE("XLConcurrent Tests", "[XLConcurrent]")
             doc.close();
         }
 
-        // Concurrent reads
+        // Open the file and fetch worksheet handles in the main thread.
+        // XLWorkbook::sheet() traverses shared internal structures without any
+        // lock; calling it concurrently from multiple threads is a data race
+        // even for pure reads. Obtain both handles sequentially here, then let
+        // the reader threads do only cell-level reads in parallel.
         XLDocument       doc;
         doc.open(filename);
         std::atomic<int> errors{0};
 
+        auto wks1 = doc.workbook().worksheet("Sheet1");
+        auto wks2 = doc.workbook().worksheet("Sheet2");
+
         std::thread reader1([&]() {
             try {
-                auto wks = doc.workbook().worksheet("Sheet1");
                 for (int row = 1; row <= numRows; ++row) {
-                    int val = wks.cell(static_cast<uint32_t>(row), 1).value().get<int>();
+                    int val = wks1.cell(static_cast<uint32_t>(row), 1).value().get<int>();
                     if (val != row) ++errors;
                 }
             }
@@ -105,9 +111,8 @@ TEST_CASE("XLConcurrent Tests", "[XLConcurrent]")
 
         std::thread reader2([&]() {
             try {
-                auto wks = doc.workbook().worksheet("Sheet2");
                 for (int row = 1; row <= numRows; ++row) {
-                    int val = wks.cell(static_cast<uint32_t>(row), 1).value().get<int>();
+                    int val = wks2.cell(static_cast<uint32_t>(row), 1).value().get<int>();
                     if (val != row * 10) ++errors;
                 }
             }
