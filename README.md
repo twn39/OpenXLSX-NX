@@ -7,6 +7,10 @@ OpenXLSX is a high-performance C++ library for reading, writing, creating, and m
 ## 🚀 Key Features
 
 - **Modern C++**: Built with C++17, ensuring type safety and modern abstractions.
+- **Formula Engine**: Built-in lightweight AST parser and evaluation engine (`XLFormulaEngine`) supporting 45+ standard Excel functions (Math, Logic, Text, etc.) without requiring external Excel calculation.
+- **Advanced Charts**: Fluent Builder API for generating complex 2D/3D charts (`XLChart`), supporting series styling, legends, and strict OOXML schema compliance.
+- **Dynamic Structural Mutation**: Insert or delete rows and columns programmatically (`insertRow`, `deleteColumn`) with automatic coordinate shifting.
+- **Smart Style Deduplication**: O(1) hash-based global style pool prevents `styles.xml` bloat and file corruption when applying bulk formatting to massive datasets.
 - **High Performance**: Optimized for speed, capable of processing millions of cells per second.
 - **Stream Reading/Writing**: Support for true streaming workflows (`XLStreamReader` & `XLStreamWriter`) with tiny memory footprint to handle gigabyte-level reports.
 - **Zero-Dependency Core**: All dependencies (`libzip`, `pugixml`, `fmt`, `fast_float`) are integrated via CMake's `FetchContent` or standard library.
@@ -253,9 +257,43 @@ doc.save();
 ```
 *Note: The underlying Shared String Table is automatically protected by a dedicated mutex, making concurrent text insertions entirely thread-safe. Writing to the **same** worksheet from multiple threads is not supported.*
 
+### 8. Built-in Formula Evaluation Engine
+Evaluate formulas directly in C++ without needing MS Excel to recalculate the file.
+```cpp
+wks.cell("A1").value() = 10.5;
+wks.cell("A2").value() = 20.2;
+wks.cell("B1").formula() = "SUM(A1:A2)";
+wks.cell("B2").formula() = "IF(A1>10, "High", "Low")";
+
+XLFormulaEngine engine;
+auto resolver = XLFormulaEngine::makeResolver(wks);
+
+// Evaluates to 30.7
+double sumResult = engine.evaluate(wks.cell("B1").formula().get(), resolver).get<double>(); 
+// Evaluates to "High"
+std::string logicResult = engine.evaluate(wks.cell("B2").formula().get(), resolver).getString();
+```
+
+### 9. Dynamic Row/Column Insertion
+Insert or delete rows and columns on the fly. Existing data and coordinates shift automatically.
+```cpp
+// Insert 2 blank rows starting at row 5 (existing row 5 becomes row 7)
+wks.insertRow(5, 2); 
+
+// Delete column C (existing column D shifts left to become C)
+wks.deleteColumn(3, 1); 
+```
+
 ## 📜 Changelog
 <details>
 <summary><b>Detailed Change Log</b></summary>
+
+### 2026-03-27: Formula Engine, Advanced Charts, and Style Optimization
+- **Formula Engine (`XLFormulaEngine`)**: Introduced a standalone AST parser and evaluation engine supporting 45+ built-in functions (Math, Logic, Text). Calculates results in C++ without Excel.
+- **Chart Builder API**: Added robust support for creating complex charts with custom series styling and strictly compliant OOXML rendering.
+- **Dynamic Structural Mutation**: Implemented `insertRow`, `deleteRow`, `insertColumn`, and `deleteColumn` with full coordinate shifting logic.
+- **O(1) Style Deduplication**: Implemented a canonical XML fingerprinting and hash-based caching mechanism (`findOrCreateStyle`) across all format sub-pools (Fonts, Fills, Borders) to eliminate `styles.xml` bloat during bulk operations.
+- **Concurrency**: Fixed race conditions in multi-threaded read environments.
 
 ### 2026-03-18: Enhanced Data Tables & AutoFilter
 - **Table High-level API**: Implemented a comprehensive `XLTables` interface for creating and managing Excel Tables.
