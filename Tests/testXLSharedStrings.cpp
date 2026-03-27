@@ -69,3 +69,69 @@ TEST_CASE("Shared Strings Index Cache Coherency", "[SharedStrings][Bugfix]") {
     doc.close();
 }
 
+TEST_CASE("SharedStrings Lazy DOM and Reservation", "[XLSharedStrings]")
+{
+    SECTION("reserveStrings pre-allocates capacity")
+    {
+        XLDocument doc;
+        doc.create("./testXLSharedStrings_reserve.xlsx", XLForceOverwrite);
+        auto& ss = doc.sharedStrings();
+
+        constexpr int kCount = 1000;
+        ss.reserveStrings(kCount);
+
+        for (int i = 0; i < kCount; ++i) {
+            ss.getOrCreateStringIndex("Key " + std::to_string(i));
+        }
+
+        REQUIRE(ss.stringCount() == kCount);
+        REQUIRE(std::string(ss.getString(0)) == "Key 0");
+        REQUIRE(std::string(ss.getString(kCount - 1)) == "Key " + std::to_string(kCount - 1));
+
+        doc.close();
+    }
+
+    SECTION("memoryUsageBytes returns non-zero value after strings are added")
+    {
+        XLDocument doc;
+        doc.create("./testXLSharedStrings_mem.xlsx", XLForceOverwrite);
+        auto& ss = doc.sharedStrings();
+
+        ss.getOrCreateStringIndex("alpha");
+        ss.getOrCreateStringIndex("beta");
+
+        REQUIRE(ss.memoryUsageBytes() > 0);
+        doc.close();
+    }
+
+    SECTION("Lazy DOM: strings survive save/reopen cycle")
+    {
+        // The lazy DOM path does NOT write to the pugi DOM on each appendString.
+        // rewriteXmlFromCache() is called at save time and must produce a correct
+        // shared strings XML file.
+        {
+            XLDocument doc;
+            doc.create("./testXLSharedStrings_lazy.xlsx", XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            // Write strings via the cell API (goes through appendString/lazy DOM)
+            for (int i = 0; i < 50; ++i) {
+                wks.cell(1, i + 1).value() = "Cell " + std::to_string(i);
+            }
+
+            doc.save();
+            doc.close();
+        }
+
+        // Reopen and verify every string is correctly preserved
+        XLDocument doc;
+        doc.open("./testXLSharedStrings_lazy.xlsx");
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        for (int i = 0; i < 50; ++i) {
+            const std::string expected = "Cell " + std::to_string(i);
+            REQUIRE(wks.cell(1, i + 1).value().get<std::string>() == expected);
+        }
+        doc.close();
+    }
+}

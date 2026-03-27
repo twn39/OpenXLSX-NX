@@ -428,6 +428,13 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
         m_archive.addEntry("xl/_rels/workbook.xml.rels", m_wbkRelationships.xmlData(m_xmlSavingDeclaration));
     }
 
+    // Ensure the shared strings pugi DOM is in sync with the in-memory cache.
+    // appendString() uses a lazy-DOM path (skipping DOM mutation for performance),
+    // so we always rebuild the DOM here before serializing it to the ZIP archive.
+    if (m_sharedStrings.stringCount() > 0) {
+        m_sharedStrings.rewriteXmlFromCache();
+    }
+
     for (auto& item : m_data) {
         if (item.getXmlPath() == "[Content_Types].xml" or item.getXmlPath() == "_rels/.rels" ||
             item.getXmlPath() == "xl/_rels/workbook.xml.rels")

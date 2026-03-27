@@ -143,6 +143,20 @@ namespace OpenXLSX
         int32_t appendString(const std::string& str) const;
 
         /**
+         * @brief Pre-reserve capacity in the string cache and index for n strings.
+         * @details Call before bulk-inserting many strings to avoid incremental
+         *          reallocation.  Does not affect the pugi XML DOM.
+         * @param n Number of strings to reserve capacity for.
+         */
+        void reserveStrings(size_t n) const;
+
+        /**
+         * @brief Approximate memory used by the cache and hash index structures.
+         * @return Bytes consumed by m_stringCache and m_stringIndex (not the arena).
+         */
+        size_t memoryUsageBytes() const noexcept;
+
+        /**
          * @brief Get or create a string index in O(1) time.
          * @param str The string to look up or add.
          * @return The index of the string (existing or newly added).
@@ -176,6 +190,13 @@ namespace OpenXLSX
         std::vector<std::string_view>* m_stringCache{}; /** < Each string must have an unchanging memory address; hence the use of std::vector of views into arena */
         FlatHashMap<std::string_view, int32_t>* m_stringIndex{}; /** < O(1) string -> index lookup */
         std::shared_mutex* m_mutex{}; /** < Pointer to shared mutex for thread-safe operations */
+
+        /**
+         * @brief Tracks whether the pugi DOM is behind the string cache.
+         * @details When true, appendString() skips DOM mutation; the DOM is
+         *          rebuilt from the cache in rewriteXmlFromCache() at save time.
+         */
+        mutable bool m_domDirty{false};
     };
 }    // namespace OpenXLSX
 

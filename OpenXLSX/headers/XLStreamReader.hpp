@@ -3,6 +3,7 @@
 
 #include "OpenXLSX-Exports.hpp"
 #include "XLCellValue.hpp"
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -28,7 +29,9 @@ namespace OpenXLSX {
         bool hasNext();
 
         /**
-         * @brief Parses and returns the next row of data.
+         * @brief Parses and returns the next row of data using a SAX-style state machine.
+         * @details Does not allocate a DOM tree per row; instead, it scans the raw XML
+         *          bytes directly. This is the key optimization for large file streaming.
          * @return A vector of XLCellValue representing the row. Empty cells are filled as XLValueType::Empty.
          */
         std::vector<XLCellValue> nextRow();
@@ -45,15 +48,34 @@ namespace OpenXLSX {
         explicit XLStreamReader(const XLWorksheet* worksheet);
         
         void fetchMoreData();
-        std::string extractNextRowXml();
+
+        /**
+         * @brief SAX state machine states for parsing worksheet XML.
+         */
+        enum class SaxState : uint8_t {
+            Scanning,       // Scanning for an opening '<'
+            InTagName,      // Reading the tag name
+            InAttrName,     // Reading an attribute name
+            AfterAttrName,  // After attr name, waiting for '='
+            InAttrValue,    // Reading an attribute value (inside quotes)
+            InTextContent,  // Inside a tag's text content (e.g., <v>42</v>)
+            InClosingTag,   // Reading a closing tag (after '</')
+        };
+
         void cleanup();
 
         const XLWorksheet* m_worksheet{nullptr};
-        void* m_zipStream{nullptr};
+        void*              m_zipStream{nullptr};
         
         std::string m_buffer;
-        bool m_eof{false};
-        uint32_t m_currentRow{0};
+        bool        m_eof{false};
+        uint32_t    m_currentRow{0};
+
+        // Reusable scratch buffers to avoid per-row heap allocation
+        std::string m_tagNameBuf;
+        std::string m_attrNameBuf;
+        std::string m_attrValueBuf;
+        std::string m_textContentBuf;
     };
 
 }

@@ -127,3 +127,40 @@ TEST_CASE("Stream Writer Functional and OOXML Tests", "[XLStreamWriter]")
         REQUIRE(std::string(vC1.text().get()) == "1");
     }
 }
+
+TEST_CASE("Stream Writer Buffering – Large Write", "[XLStreamWriter]")
+{
+    // Write 100K rows; the write buffer must coalesce many small writes into
+    // efficient fstream writes and still produce a correct file on close.
+    constexpr int kRows = 100000;
+
+    {
+        XLDocument doc;
+        doc.create("./testXLStreamWriter_Large.xlsx", XLForceOverwrite);
+        auto wks    = doc.workbook().worksheet("Sheet1");
+        auto writer = wks.streamWriter();
+
+        for (int i = 0; i < kRows; ++i) {
+            writer.appendRow({i, "Item", i * 1.5, (i % 2 == 0)});
+        }
+        writer.close();
+        doc.save();
+        doc.close();
+    }
+
+    // Read back and verify row count + spot-check values
+    XLDocument doc;
+    doc.open("./testXLStreamWriter_Large.xlsx");
+    auto wks    = doc.workbook().worksheet("Sheet1");
+    auto reader = wks.streamReader();
+
+    int count = 0;
+    while (reader.hasNext()) {
+        auto row = reader.nextRow();
+        REQUIRE(row.size() >= 2);
+        REQUIRE(row[0].get<int>() == count);
+        ++count;
+    }
+    REQUIRE(count == kRows);
+    doc.close();
+}

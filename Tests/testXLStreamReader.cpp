@@ -113,3 +113,58 @@ TEST_CASE("Streaming Reader Large File Test", "[XLStreamReader]")
     REQUIRE(count == 10000);
     doc.close();
 }
+
+TEST_CASE("SAX Parser Edge Cases", "[XLStreamReader][SAX]")
+{
+    // Write a file with boolean, error cell, and column-skipping patterns
+    {
+        XLDocument doc;
+        doc.create("./testXLStreamReader_sax.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        // Row 1: bool true, bool false
+        wks.cell("A1").value() = true;
+        wks.cell("B1").value() = false;
+
+        // Row 2: gap at col B (only A and C set)
+        wks.cell("A2").value() = 10;
+        wks.cell("C2").value() = 30;
+
+        // Row 3: shared string via DOM path (sets a string value)
+        wks.cell("A3").value() = "SAX test";
+
+        doc.save();
+        doc.close();
+    }
+
+    XLDocument doc;
+    doc.open("./testXLStreamReader_sax.xlsx");
+    auto wks    = doc.workbook().worksheet("Sheet1");
+    auto reader = wks.streamReader();
+
+    // Row 1 — booleans
+    REQUIRE(reader.hasNext());
+    auto r1 = reader.nextRow();
+    REQUIRE(reader.currentRow() == 1);
+    REQUIRE(r1.size() == 2);
+    REQUIRE(r1[0].get<bool>() == true);
+    REQUIRE(r1[1].get<bool>() == false);
+
+    // Row 2 — gap: B is empty
+    REQUIRE(reader.hasNext());
+    auto r2 = reader.nextRow();
+    REQUIRE(reader.currentRow() == 2);
+    REQUIRE(r2.size() == 3);
+    REQUIRE(r2[0].get<int>() == 10);
+    REQUIRE(r2[1].type() == XLValueType::Empty);
+    REQUIRE(r2[2].get<int>() == 30);
+
+    // Row 3 — shared string read via SAX reader
+    REQUIRE(reader.hasNext());
+    auto r3 = reader.nextRow();
+    REQUIRE(reader.currentRow() == 3);
+    REQUIRE(r3[0].get<std::string>() == "SAX test");
+
+    REQUIRE_FALSE(reader.hasNext());
+    doc.close();
+}

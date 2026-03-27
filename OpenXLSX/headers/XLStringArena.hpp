@@ -1,79 +1,128 @@
 #ifndef OPENXLSX_XLSTRINGARENA_HPP
 #define OPENXLSX_XLSTRINGARENA_HPP
 
-#include <vector>
-#include <memory>
-#include <string_view>
 #include <algorithm>
 #include <cstdint>
+#include <memory>
+#include <string_view>
+#include <vector>
 
 namespace OpenXLSX {
 
 /**
- * @brief String memory pool (Arena Allocator)
+ * @brief String memory pool (Arena Allocator) with block recycling.
  * @details Adheres to C++ Core Guidelines:
  *          1. RAII resource management (no naked new/delete)
  *          2. No copy construction/assignment to prevent dangling pointers (Rule of 5)
  *          3. Provides zero-copy access via std::string_view
+ *          4. clear() recycles memory blocks instead of freeing them, eliminating
+ *             malloc/free churn when the arena is reused across save cycles.
  */
 class XLStringArena {
 public:
-    // Default block size set to 4MB to accommodate many short strings
-    explicit XLStringArena(size_t blockSize = 4 * 1024 * 1024) 
-        : m_blockSize(blockSize), m_currentOffset(blockSize) {}
+    // Default block size: 4 MB accommodates many short strings without fragmentation.
+    explicit XLStringArena(size_t blockSize = 4 * 1024 * 1024)
+        : m_blockSize(blockSize), m_currentOffset(blockSize)
+    {}
 
-    // Disable copy operations to prevent dangling string_view
-    XLStringArena(const XLStringArena&) = delete;
+    // Disable copy — string_view pointers would dangle after a copy
+    XLStringArena(const XLStringArena&)            = delete;
     XLStringArena& operator=(const XLStringArena&) = delete;
-    
-    // Allow move operations
-    XLStringArena(XLStringArena&&) noexcept = default;
+
+    XLStringArena(XLStringArena&&) noexcept            = default;
     XLStringArena& operator=(XLStringArena&&) noexcept = default;
 
     /**
-     * @brief Store string in the arena, returning a non-owning view
-     * @param str The string view to store
-     * @return std::string_view pointing to the stored characters in the arena
+     * @brief Store a string in the arena and return a non-owning view.
+     * @param str The string view to store (null-terminated in the arena).
+     * @return std::string_view pointing into the arena's storage.
      */
-    [[nodiscard]] std::string_view store(std::string_view str) {
+    [[nodiscard]] std::string_view store(std::string_view str)
+    {
         if (str.empty()) {
             static constexpr char emptyStr[] = "";
             return {emptyStr, 0};
         }
 
-        // Allocate a new block if the current one has insufficient capacity (+1 for null terminator)
-        if (m_currentOffset + str.size() + 1 > m_blockSize) {
-            // Handle edge case for extremely large strings
-            const size_t allocSize = std::max(m_blockSize, str.size() + 1);
-            m_blocks.push_back(std::make_unique<char[]>(allocSize));
+        const size_t needed = str.size() + 1;    // +1 for null terminator
+
+        if (m_currentOffset + needed > blockCapacity()) {
+            // Try to reuse a free block, otherwise allocate a new one
+            const size_t allocSize = std::max(m_blockSize, needed);
+            if (!m_freeBlocks.empty() && m_freeBlocks.back().capacity >= allocSize) {
+                m_activeBlocks.push_back(std::move(m_freeBlocks.back()));
+                m_freeBlocks.pop_back();
+            }
+            else {
+                m_activeBlocks.push_back({std::make_unique<char[]>(allocSize), allocSize});
+            }
             m_currentOffset = 0;
         }
 
-        // Get the destination pointer and copy data
-        char* destPtr = m_blocks.back().get() + m_currentOffset;
-        std::copy(str.begin(), str.end(), destPtr);
-        destPtr[str.size()] = '\0'; // ensure null-terminated
-        
-        std::string_view storedView(destPtr, str.size());
-        m_currentOffset += str.size() + 1; // advance offset including null terminator
+        char* dest = m_activeBlocks.back().data.get() + m_currentOffset;
+        std::copy(str.begin(), str.end(), dest);
+        dest[str.size()] = '\0';
 
-        return storedView;
+        m_currentOffset += needed;
+        return {dest, str.size()};
     }
 
     /**
-     * @brief Clear the arena, releasing all resources
+     * @brief Recycle all blocks for reuse without freeing heap memory.
+     * @details Moves active blocks to the free list so the next store() calls
+     *          can reuse them without malloc. Call reset() at shutdown to
+     *          actually release all memory.
      */
-    void clear() noexcept {
-        m_blocks.clear();
-        m_currentOffset = m_blockSize; // Force new allocation on next store
+    void clear() noexcept
+    {
+        for (auto& blk : m_activeBlocks)
+            m_freeBlocks.push_back(std::move(blk));
+        m_activeBlocks.clear();
+        m_currentOffset = m_blockSize;    // force new-block allocation on next store
     }
 
+    /**
+     * @brief Release all memory (active + free blocks). Use at shutdown.
+     */
+    void reset() noexcept
+    {
+        m_activeBlocks.clear();
+        m_freeBlocks.clear();
+        m_currentOffset = m_blockSize;
+    }
+
+    /**
+     * @brief Total bytes allocated (active blocks only).
+     */
+    [[nodiscard]] size_t capacity() const noexcept
+    {
+        size_t total = 0;
+        for (const auto& blk : m_activeBlocks) total += blk.capacity;
+        return total;
+    }
+
+    /**
+     * @brief Bytes used in the current active block.
+     */
+    [[nodiscard]] size_t used() const noexcept { return m_currentOffset; }
+
 private:
-    std::vector<std::unique_ptr<char[]>> m_blocks; // RAII memory blocks
-    size_t m_blockSize;                            // Default size per block
-    size_t m_currentOffset;                        // Write offset in current block
+    struct Block {
+        std::unique_ptr<char[]> data;
+        size_t                  capacity{0};
+    };
+
+    [[nodiscard]] size_t blockCapacity() const noexcept
+    {
+        return m_activeBlocks.empty() ? 0 : m_activeBlocks.back().capacity;
+    }
+
+    size_t        m_blockSize;       // target size for new blocks
+    size_t        m_currentOffset;   // write position within the current active block
+    std::vector<Block> m_activeBlocks;   // currently in-use blocks
+    std::vector<Block> m_freeBlocks;     // recycled blocks awaiting reuse
 };
 
-} // namespace OpenXLSX
+}    // namespace OpenXLSX
 
-#endif // OPENXLSX_XLSTRINGARENA_HPP
+#endif    // OPENXLSX_XLSTRINGARENA_HPP

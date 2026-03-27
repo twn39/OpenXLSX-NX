@@ -145,16 +145,17 @@ int32_t XLSharedStrings::appendString(const std::string& str) const
         using namespace std::literals::string_literals;
         throw XLInternalError("XLSharedStrings::"s + __func__ + ": exceeded max strings count "s + std::to_string(XLMaxSharedStrings));
     }
-    auto textNode = xmlDocument().document_element().append_child("si").append_child("t");
-    if ((!str.empty()) and (str.front() == ' ' or str.back() == ' '))
-        textNode.append_attribute("xml:space").set_value("preserve");    // pull request #161
-    textNode.text().set(str.c_str());
+    // Lazy DOM path: store the string in the arena and cache only, then mark the DOM
+    // as out-of-sync.  The full pugi DOM is rebuilt from the cache in
+    // rewriteXmlFromCache() at save time.  Skipping DOM mutation here prevents a
+    // potentially 10M-node tree from growing in RAM during large write sessions.
+    std::string_view persistentView = m_stringArena->store(str);
+    m_stringCache->emplace_back(persistentView);
 
-    std::string_view persistentView = m_stringArena->store(textNode.text().get());
-    m_stringCache->emplace_back(persistentView);    // index of this element = previous stringCacheSize
-
-    // Update the hash index for O(1) lookup
     if (m_stringIndex) { m_stringIndex->emplace(persistentView, static_cast<int32_t>(stringCacheSize)); }
+
+    // Signal that the pugi DOM no longer reflects the full cache
+    m_domDirty = true;
 
     return static_cast<int32_t>(stringCacheSize);
 }
@@ -185,6 +186,30 @@ int32_t XLSharedStrings::getOrCreateStringIndex(const std::string& str) const
 
     // String doesn't exist, append it (which handles double-checking and unique locking)
     return appendString(str);
+}
+
+/**
+ * @details Pre-reserve capacity in the string cache vector and hash index for n strings.
+ * Avoids repeated incremental reallocations when bulk-inserting many strings.
+ */
+void XLSharedStrings::reserveStrings(size_t n) const
+{
+    if (m_stringCache)  m_stringCache->reserve(n);
+    if (m_stringIndex)  m_stringIndex->reserve(n);
+}
+
+/**
+ * @details Returns the approximate heap memory used by the string cache vector and
+ * the hash index buckets.  Does not include the arena itself.
+ */
+size_t XLSharedStrings::memoryUsageBytes() const noexcept
+{
+    size_t total = 0;
+    if (m_stringCache)
+        total += m_stringCache->capacity() * sizeof(std::string_view);
+    if (m_stringIndex)
+        total += m_stringIndex->bucket_count() * (sizeof(void*) + sizeof(std::pair<std::string_view, int32_t>));
+    return total;
 }
 
 /**
