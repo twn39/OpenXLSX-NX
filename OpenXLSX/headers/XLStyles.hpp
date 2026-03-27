@@ -11,6 +11,7 @@
 #include <cstdint>    // uint32_t etc
 #include <string>
 #include <string_view>    // std::string_view
+#include <unordered_map>
 #include <vector>
 #include <optional>
 
@@ -23,6 +24,9 @@
 namespace OpenXLSX
 {
     using namespace std::literals::string_view_literals;    // enables sv suffix only
+
+    // Forward declaration to avoid circular includes (XLStyle.hpp uses enums from this header)
+    struct XLStyle;
 
     using XLStyleIndex = size_t;    // custom data type for XLStyleIndex
 
@@ -607,9 +611,20 @@ namespace OpenXLSX
          */
         XLStyleIndex create(XLFont copyFrom = XLFont{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
+        /**
+         * @brief Find an existing font matching copyFrom's properties, or create a new one.
+         * @details Uses a canonical XML fingerprint for O(1) cache lookups after the first call.
+         *          Prevents duplicate font entries when the same style is applied to many cells.
+         * @param copyFrom The font descriptor to match or create.
+         * @param styleEntriesPrefix XML indentation prefix for newly created nodes.
+         * @return The index of the matching or newly created font.
+         */
+        XLStyleIndex findOrCreate(XLFont copyFrom, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+
     private:                                  // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode> m_fontsNode; /**< An XMLNode object with the fonts item */
         std::vector<XLFont>      m_fonts;
+        mutable std::unordered_map<std::string, XLStyleIndex> m_fingerprintCache; /**< fingerprint -> index dedup cache */
     };
 
     // XLDataBarColor Class
@@ -1072,9 +1087,16 @@ namespace OpenXLSX
          */
         XLStyleIndex create(XLFill copyFrom = XLFill{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
+        /**
+         * @brief Find an existing fill matching copyFrom's properties, or create a new one.
+         * @details Uses a canonical XML fingerprint for O(1) cache lookups after the first call.
+         */
+        XLStyleIndex findOrCreate(XLFill copyFrom, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+
     private:                                  // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode> m_fillsNode; /**< An XMLNode object with the fills item */
         std::vector<XLFill>      m_fills;
+        mutable std::unordered_map<std::string, XLStyleIndex> m_fingerprintCache; /**< fingerprint -> index dedup cache */
     };
 
     // XLBorders Class
@@ -1373,9 +1395,16 @@ namespace OpenXLSX
          */
         XLStyleIndex create(XLBorder copyFrom = XLBorder{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
+        /**
+         * @brief Find an existing border matching copyFrom's properties, or create a new one.
+         * @details Uses a canonical XML fingerprint for O(1) cache lookups after the first call.
+         */
+        XLStyleIndex findOrCreate(XLBorder copyFrom, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+
     private:                                    // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode> m_bordersNode; /**< An XMLNode object with the borders item */
         std::vector<XLBorder>    m_borders;
+        mutable std::unordered_map<std::string, XLStyleIndex> m_fingerprintCache; /**< fingerprint -> index dedup cache */
     };
 
     // XLCellFormats Class
@@ -1792,10 +1821,18 @@ namespace OpenXLSX
          */
         XLStyleIndex create(XLCellFormat copyFrom = XLCellFormat{}, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
 
+        /**
+         * @brief Find an existing cell format matching copyFrom's properties, or create a new one.
+         * @details Uses a canonical XML fingerprint for O(1) cache lookups after the first call.
+         *          This is the key deduplication point for bulk formatting operations.
+         */
+        XLStyleIndex findOrCreate(XLCellFormat copyFrom, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+
     private:                                         // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode>  m_cellFormatsNode; /**< An XMLNode object with the cell formats item */
         std::vector<XLCellFormat> m_cellFormats;
         bool                      m_permitXfId{false};
+        mutable std::unordered_map<std::string, XLStyleIndex> m_fingerprintCache; /**< fingerprint -> index dedup cache */
     };
 
     // XLCellStyles Class
@@ -2348,6 +2385,18 @@ namespace OpenXLSX
          * @return The XLStyleIndex in cellXfs, or XLInvalidStyleIndex if not found.
          */
         XLStyleIndex namedStyle(std::string_view name) const;
+
+        /**
+         * @brief Apply an XLStyle descriptor, deduplicating every sub-pool entry
+         *        (font, fill, border, numFmt, cellXf) and returning the cellXfs index.
+         * @details This is the primary high-level entry point for bulk formatting:
+         *          call it once per distinct visual style; pass the returned index to
+         *          every cell that should share that style.  Repeated calls with an
+         *          identical descriptor return the same index in O(1) time.
+         * @param style A fully populated XLStyle descriptor.
+         * @return The XLStyleIndex (in cellXfs) suitable for the cell's 's' attribute.
+         */
+        XLStyleIndex findOrCreateStyle(const XLStyle& style);
 
         // ---------- Protected Member Functions ---------- //
     private:

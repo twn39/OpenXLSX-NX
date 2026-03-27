@@ -385,3 +385,26 @@ XLStyleIndex XLCellFormats::create(XLCellFormat copyFrom, std::string_view style
     return index;
 }
 
+XLStyleIndex XLCellFormats::findOrCreate(XLCellFormat copyFrom, std::string_view styleEntriesPrefix)
+{
+    // Compute the fingerprint of the requested cell format
+    std::string key = xmlNodeFingerprint(*copyFrom.m_cellFormatNode);
+
+    // Fast path: cache hit
+    auto it = m_fingerprintCache.find(key);
+    if (it != m_fingerprintCache.end()) return it->second;
+
+    // Cold path: scan all existing formats (covers formats loaded from an existing file).
+    // Start from index 1: index 0 is the reserved default format, never reused.
+    for (size_t i = 1; i < m_cellFormats.size(); ++i) {
+        if (xmlNodeFingerprint(*m_cellFormats[i].m_cellFormatNode) == key) {
+            m_fingerprintCache.emplace(key, i);
+            return i;
+        }
+    }
+
+    // No match found — create and cache
+    XLStyleIndex idx = create(copyFrom, styleEntriesPrefix);
+    m_fingerprintCache.emplace(key, idx);
+    return idx;
+}

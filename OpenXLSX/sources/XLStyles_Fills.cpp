@@ -523,3 +523,25 @@ XLStyleIndex XLFills::create(XLFill copyFrom, std::string_view styleEntriesPrefi
     return index;
 }
 
+XLStyleIndex XLFills::findOrCreate(XLFill copyFrom, std::string_view styleEntriesPrefix)
+{
+    // Compute the fingerprint of the requested fill
+    std::string key = xmlNodeFingerprint(*copyFrom.m_fillNode);
+
+    // Fast path: cache hit
+    auto it = m_fingerprintCache.find(key);
+    if (it != m_fingerprintCache.end()) return it->second;
+
+    // Cold path: scan all existing fills (covers fills loaded from an existing file)
+    for (size_t i = 0; i < m_fills.size(); ++i) {
+        if (xmlNodeFingerprint(*m_fills[i].m_fillNode) == key) {
+            m_fingerprintCache.emplace(key, i);
+            return i;
+        }
+    }
+
+    // No match found — create and cache
+    XLStyleIndex idx = create(copyFrom, styleEntriesPrefix);
+    m_fingerprintCache.emplace(key, idx);
+    return idx;
+}

@@ -255,3 +255,26 @@ XLStyleIndex XLFonts::create(XLFont copyFrom, std::string_view styleEntriesPrefi
     appendAndSetAttribute(*m_fontsNode, "count", std::to_string(m_fonts.size()));   
     return index;
 }
+
+XLStyleIndex XLFonts::findOrCreate(XLFont copyFrom, std::string_view styleEntriesPrefix)
+{
+    // Compute the fingerprint of the requested font
+    std::string key = xmlNodeFingerprint(*copyFrom.m_fontNode);
+
+    // Fast path: cache hit
+    auto it = m_fingerprintCache.find(key);
+    if (it != m_fingerprintCache.end()) return it->second;
+
+    // Cold path: scan all existing fonts (covers fonts loaded from an existing file)
+    for (size_t i = 0; i < m_fonts.size(); ++i) {
+        if (xmlNodeFingerprint(*m_fonts[i].m_fontNode) == key) {
+            m_fingerprintCache.emplace(key, i);
+            return i;
+        }
+    }
+
+    // No match found — create and cache
+    XLStyleIndex idx = create(copyFrom, styleEntriesPrefix);
+    m_fingerprintCache.emplace(key, idx);
+    return idx;
+}

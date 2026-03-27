@@ -226,4 +226,69 @@ TEST_CASE("XLStyles Tests", "[XLStyles]")
         doc.close();
         std::filesystem::remove("./testXLStylesDiffCellFormats.xlsx");
     }
+
+    SECTION("Style Deduplication - findOrCreate on sub-pools")
+    {
+        XLDocument doc;
+        doc.create("./testXLStylesDedup.xlsx", XLForceOverwrite);
+        auto styles    = doc.styles();
+        auto& fontsRef = styles.fonts();
+
+        // ===== Fonts: identical descriptors must return the same index =====
+        size_t idxA = fontsRef.create();
+        fontsRef[idxA].setFontName("Helvetica").setFontSize(14).setBold(true);
+
+        size_t idxB = fontsRef.findOrCreate(fontsRef[idxA]);    // same content as idxA
+        REQUIRE(idxB == idxA);                                  // deduplication must succeed
+        REQUIRE(fontsRef.count() == idxA + 1);                  // no extra node was added
+
+        // ===== Fonts: different descriptor must get a new index =====
+        size_t idxC = fontsRef.create();
+        fontsRef[idxC].setFontName("Courier").setFontSize(12);
+        size_t idxD = fontsRef.findOrCreate(fontsRef[idxC]);
+        REQUIRE(idxD == idxC);      // Courier 12 is distinct from Helvetica 14
+        REQUIRE(idxD != idxA);
+
+        // ===== Cell Formats: identical xf must deduplicate =====
+        auto& cellFmts = styles.cellFormats();
+        size_t xfA = cellFmts.create();
+        cellFmts[xfA].setFontIndex(idxA).setApplyFont(true);
+
+        size_t xfB = cellFmts.findOrCreate(cellFmts[xfA]);
+        REQUIRE(xfB == xfA);                    // same structure → same index
+        REQUIRE(cellFmts.count() == xfA + 1);  // pool size is stable
+
+        doc.close();
+        std::filesystem::remove("./testXLStylesDedup.xlsx");
+    }
+
+    SECTION("Style Deduplication - findOrCreateStyle facade")
+    {
+        XLDocument doc;
+        doc.create("./testXLStylesFacadeDedup.xlsx", XLForceOverwrite);
+        auto styles = doc.styles();
+
+        XLStyle s;
+        s.font.name = "Arial";
+        s.font.bold = true;
+        s.fill.pattern = XLPatternSolid;
+        s.fill.fgColor = XLColor("FFFF0000");    // red
+
+        // Repeated calls with the identical descriptor must return the same index
+        XLStyleIndex idx1 = styles.findOrCreateStyle(s);
+        XLStyleIndex idx2 = styles.findOrCreateStyle(s);
+        REQUIRE(idx1 == idx2);
+        REQUIRE(idx1 != XLDefaultCellFormat);    // style was created (not the reserved default)
+
+        // A different descriptor must produce a distinct index
+        XLStyle s2;
+        s2.font.name = "Courier New";
+        s2.font.italic = true;
+        XLStyleIndex idx3 = styles.findOrCreateStyle(s2);
+        REQUIRE(idx3 != idx1);
+
+        doc.save();
+        doc.close();
+        std::filesystem::remove("./testXLStylesFacadeDedup.xlsx");
+    }
 }

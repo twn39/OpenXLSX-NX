@@ -17,6 +17,7 @@
 #include "headers/XLRichText.hpp"
 #include "headers/XLRow.hpp"
 #include "headers/XLSheet.hpp"
+#include "headers/XLStyle.hpp"
 #include "headers/XLWorkbook.hpp"
 #include "headers/XLZipArchive.hpp"
 

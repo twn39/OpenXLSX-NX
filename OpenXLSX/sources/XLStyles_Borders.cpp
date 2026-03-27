@@ -264,3 +264,25 @@ XLStyleIndex XLBorders::create(XLBorder copyFrom, std::string_view styleEntriesP
     return index;
 }
 
+XLStyleIndex XLBorders::findOrCreate(XLBorder copyFrom, std::string_view styleEntriesPrefix)
+{
+    // Compute the fingerprint of the requested border
+    std::string key = xmlNodeFingerprint(*copyFrom.m_borderNode);
+
+    // Fast path: cache hit
+    auto it = m_fingerprintCache.find(key);
+    if (it != m_fingerprintCache.end()) return it->second;
+
+    // Cold path: scan all existing borders (covers borders loaded from an existing file)
+    for (size_t i = 0; i < m_borders.size(); ++i) {
+        if (xmlNodeFingerprint(*m_borders[i].m_borderNode) == key) {
+            m_fingerprintCache.emplace(key, i);
+            return i;
+        }
+    }
+
+    // No match found — create and cache
+    XLStyleIndex idx = create(copyFrom, styleEntriesPrefix);
+    m_fingerprintCache.emplace(key, idx);
+    return idx;
+}
