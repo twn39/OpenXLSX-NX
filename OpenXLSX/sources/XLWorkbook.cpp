@@ -3,6 +3,8 @@
 #include <fmt/format.h>
 #include <gsl/gsl>
 #include <iterator>
+#include <mutex>
+#include <shared_mutex>
 #include <pugixml.hpp>
 #include <vector>
 

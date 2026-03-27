@@ -6,6 +6,8 @@
 #    include <random>
 #endif
 #include <fstream>
+#include <mutex>
+#include <shared_mutex>
 #include <pugixml.hpp>
 #include <sys/stat.h>    // for stat, to test if a file exists and if a file is a directory
 #include <vector>        // std::vector

@@ -1,5 +1,7 @@
 // ===== External Includes ===== //
 #include <algorithm>
+#include <mutex>
+#include <shared_mutex>
 #include <gsl/gsl>
 #include <pugixml.hpp>
 
