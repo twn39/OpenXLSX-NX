@@ -138,7 +138,7 @@ endif()
 if(OPENXLSX_BUILD_TESTS)
     file(GLOB TEST_SOURCES Tests/testXL*.cpp)
     add_executable(OpenXLSXTests ${TEST_SOURCES})
-    target_link_libraries(OpenXLSXTests PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2WithMain)
+    target_link_libraries(OpenXLSXTests PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2)
 
     # Copy test data to build directory
     add_custom_command(TARGET OpenXLSXTests POST_BUILD
@@ -164,6 +164,6 @@ endif()
 #=======================================================================================================================
 if(OPENXLSX_BUILD_BENCHMARKS)
     add_executable(OpenXLSXBenchmark Benchmarks/Benchmark.cpp)
-    target_link_libraries(OpenXLSXBenchmark PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2WithMain)
+    target_link_libraries(OpenXLSXBenchmark PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2)
 endif()
 

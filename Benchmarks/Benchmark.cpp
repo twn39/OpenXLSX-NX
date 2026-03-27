@@ -186,3 +186,25 @@ TEST_CASE("OpenXLSX Benchmarks", "[.benchmark]")
     }
 
 }
+
+// Override Catch2's default main to force a lower benchmark sample rate
+#define CATCH_CONFIG_RUNNER
+#include <catch2/catch_session.hpp>
+
+int main(int argc, char* argv[]) {
+    Catch::Session session;
+
+    // Build the default configuration
+    auto configData = session.configData();
+    // Default benchmark samples is 100, which takes forever. Hardcode to 5.
+    configData.benchmarkSamples = 5;
+    
+    session.useConfigData(configData);
+
+    // Let the user override via command line if they really want to
+    int returnCode = session.applyCommandLine(argc, argv);
+    if(returnCode != 0) // Indicates a command line error
+        return returnCode;
+
+    return session.run();
+}
