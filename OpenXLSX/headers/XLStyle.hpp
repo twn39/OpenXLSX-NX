@@ -4,16 +4,13 @@
 #include "OpenXLSX-Exports.hpp"
 #include "XLColor.hpp"
 #include "XLConstants.hpp"
+#include "XLStyles.hpp"
 #include <cstdint>
 #include <optional>
 #include <string>
 
 namespace OpenXLSX
 {
-    enum XLLineStyle : uint8_t;
-    enum XLPatternType : uint8_t;
-    enum XLAlignmentStyle : uint8_t;
-
     /**
      * @brief A high-level, human-ergonomic structure representing the styling of a cell or range.
      * This acts as a builder and facade over the complex underlying OpenXLSX XLStyles system.
