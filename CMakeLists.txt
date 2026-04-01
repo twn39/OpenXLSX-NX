@@ -78,8 +78,11 @@ set(LIBZIP_DO_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(libzip GIT_REPOSITORY https://github.com/nih-at/libzip.git GIT_TAG v1.11.4)
 FetchContent_MakeAvailable(libzip)
 
-# Find OpenSSL for encryption
-find_package(OpenSSL REQUIRED)
+# Set up mbedtls for cryptography (AES, SHA)
+set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(mbedtls GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git GIT_TAG v3.6.0)
+FetchContent_MakeAvailable(mbedtls)
 
 # Third-party subdirectories
 
@@ -100,7 +103,7 @@ target_include_directories(OpenXLSX
         $<BUILD_INTERFACE:${fmt_SOURCE_DIR}/include>
 )
 
-target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip zlib Microsoft.GSL::GSL OpenSSL::Crypto)
+target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip zlib Microsoft.GSL::GSL mbedcrypto)
 target_compile_definitions(OpenXLSX PUBLIC FMT_HEADER_ONLY)
 
 if ("${OPENXLSX_LIBRARY_TYPE}" STREQUAL "STATIC")

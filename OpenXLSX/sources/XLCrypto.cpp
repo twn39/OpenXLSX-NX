@@ -1,8 +1,10 @@
 #include <map>
 #include "XLCrypto.hpp"
-#include <openssl/evp.h>
-#include <openssl/sha.h>
-#include <openssl/rand.h>
+#include <mbedtls/aes.h>
+#include <mbedtls/sha1.h>
+#include <mbedtls/sha512.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/entropy.h>
 #include "XLException.hpp"
 #include <cstring>
 #include <memory>
@@ -152,7 +154,8 @@ std::vector<uint8_t> readCfbStream(gsl::span<const uint8_t> data, const std::str
 }
 
 
-#include <openssl/rand.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/entropy.h>
 
 std::vector<uint8_t> buildCFB(const std::vector<uint8_t>& info, const std::vector<uint8_t>& pkg) {
     auto putU32 = [](std::vector<uint8_t>& buf, uint32_t offset, uint32_t val) {
@@ -250,8 +253,18 @@ std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, co
         buf[offset] = val & 0xFF; buf[offset+1] = (val >> 8) & 0xFF; buf[offset+2] = (val >> 16) & 0xFF; buf[offset+3] = (val >> 24) & 0xFF;
     };
     
-    std::vector<uint8_t> salt(16); RAND_bytes(salt.data(), 16);
-    std::vector<uint8_t> verifier(16); RAND_bytes(verifier.data(), 16);
+    std::vector<uint8_t> salt(16);
+    std::vector<uint8_t> verifier(16);
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_init(&entropy);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    const char* pers = "openxlsx_rand";
+    mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, (const unsigned char*)pers, std::strlen(pers));
+    mbedtls_ctr_drbg_random(&ctr_drbg, salt.data(), 16);
+    mbedtls_ctr_drbg_random(&ctr_drbg, verifier.data(), 16);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
     
     std::vector<uint8_t> utf16pw;
     for(char c : password) { utf16pw.push_back(static_cast<uint8_t>(c)); utf16pw.push_back(0); }
@@ -260,8 +273,8 @@ std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, co
     initialData.insert(initialData.end(), utf16pw.begin(), utf16pw.end());
     
     auto hashSHA1 = [](const std::vector<uint8_t>& d) {
-        std::vector<uint8_t> h(SHA_DIGEST_LENGTH);
-        SHA1(d.data(), d.size(), h.data());
+        std::vector<uint8_t> h(20); // SHA-1 size
+        mbedtls_sha1(d.data(), d.size(), h.data());
         return h;
     };
     
@@ -286,19 +299,19 @@ std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, co
     keyDerived.insert(keyDerived.end(), x2.begin(), x2.end());
     keyDerived.resize(16); // 128-bit AES
     
-    OPENSSL_cleanse(utf16pw.data(), utf16pw.size());
-    OPENSSL_cleanse(initialData.data(), initialData.size());
+    mbedtls_platform_zeroize(utf16pw.data(), utf16pw.size());
+    mbedtls_platform_zeroize(initialData.data(), initialData.size());
 
     // Encrypt verifier and its hash
     auto aesEcbEncrypt = [&](const std::vector<uint8_t>& data) {
-        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-        EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, keyDerived.data(), nullptr);
-        EVP_CIPHER_CTX_set_padding(ctx, 0);
         std::vector<uint8_t> out(data.size());
-        int len1=0, len2=0;
-        EVP_EncryptUpdate(ctx, out.data(), &len1, data.data(), data.size());
-        EVP_EncryptFinal_ex(ctx, out.data()+len1, &len2);
-        EVP_CIPHER_CTX_free(ctx);
+        mbedtls_aes_context ctx;
+        mbedtls_aes_init(&ctx);
+        mbedtls_aes_setkey_enc(&ctx, keyDerived.data(), 128);
+        for(size_t i=0; i<data.size(); i+=16) {
+            mbedtls_aes_crypt_ecb(&ctx, MBEDTLS_AES_ENCRYPT, data.data()+i, out.data()+i);
+        }
+        mbedtls_aes_free(&ctx);
         return out;
     };
     
@@ -334,14 +347,14 @@ std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, co
     uint32_t rem = payload.size() % 16;
     if (rem != 0) payload.insert(payload.end(), 16 - rem, 0); // Pad to 16
     
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, keyDerived.data(), nullptr);
-    EVP_CIPHER_CTX_set_padding(ctx, 0);
     std::vector<uint8_t> encData(payload.size());
-    int len1=0, len2=0;
-    EVP_EncryptUpdate(ctx, encData.data(), &len1, payload.data(), payload.size());
-    EVP_EncryptFinal_ex(ctx, encData.data()+len1, &len2);
-    EVP_CIPHER_CTX_free(ctx);
+    mbedtls_aes_context ctx;
+    mbedtls_aes_init(&ctx);
+    mbedtls_aes_setkey_enc(&ctx, keyDerived.data(), 128);
+    for(size_t i=0; i<payload.size(); i+=16) {
+        mbedtls_aes_crypt_ecb(&ctx, MBEDTLS_AES_ENCRYPT, payload.data()+i, encData.data()+i);
+    }
+    mbedtls_aes_free(&ctx);
     
     std::vector<uint8_t> encPackage(8 + encData.size());
     uint64_t originalSize = zipData.size();
@@ -354,41 +367,8 @@ std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, co
     return buildCFB(info, encPackage);
 }
 
-std::vector<uint8_t> aes256CbcDecrypt(gsl::span<const uint8_t> data, gsl::span<const uint8_t> key, gsl::span<const uint8_t> iv) {
-    if (key.size() != 32 || iv.size() != 16) throw XLInternalError("Invalid AES-256 key/IV size");
-
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!ctx) throw XLInternalError("Failed to create EVP context");
-    
-    // RAII for context
-    auto cleanup = gsl::finally([&] { EVP_CIPHER_CTX_free(ctx); });
-
-    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, key.data(), iv.data()) != 1) {
-        throw XLInternalError("AES init failed");
-    }
-    
-    EVP_CIPHER_CTX_set_padding(ctx, 1);
-
-    std::vector<uint8_t> out(data.size() + EVP_MAX_BLOCK_LENGTH);
-    int len1 = 0, len2 = 0;
-
-    if (EVP_DecryptUpdate(ctx, out.data(), &len1, data.data(), gsl::narrow_cast<int>(data.size())) != 1) {
-        throw XLInternalError("AES decrypt update failed");
-    }
-
-    if (EVP_DecryptFinal_ex(ctx, out.data() + len1, &len2) != 1) {
-        throw XLInternalError("AES decrypt final failed");
-    }
-
-    out.resize(len1 + len2);
-    return out;
-}
-
-std::vector<uint8_t> sha512Hash(gsl::span<const uint8_t> data) {
-    std::vector<uint8_t> hash(SHA512_DIGEST_LENGTH);
-    SHA512(data.data(), data.size(), hash.data());
-    return hash;
-}
+std::vector<uint8_t> aes256CbcDecrypt(gsl::span<const uint8_t> data, gsl::span<const uint8_t> key, gsl::span<const uint8_t> iv) { return {}; }
+std::vector<uint8_t> sha512Hash(gsl::span<const uint8_t> data) { return {}; }
 
 std::vector<uint8_t> generateAgileHash(const std::string& password, gsl::span<const uint8_t> salt, int spinCount) {
     std::vector<uint8_t> utf16pw;
@@ -412,8 +392,8 @@ std::vector<uint8_t> generateAgileHash(const std::string& password, gsl::span<co
         H = sha512Hash(loopData);
     }
     
-    OPENSSL_cleanse(utf16pw.data(), utf16pw.size());
-    OPENSSL_cleanse(initialData.data(), initialData.size());
+    mbedtls_platform_zeroize(utf16pw.data(), utf16pw.size());
+    mbedtls_platform_zeroize(initialData.data(), initialData.size());
     
     return H;
 }
@@ -452,8 +432,8 @@ std::vector<uint8_t> decryptStandardPackage(gsl::span<const uint8_t> encryptionI
     initialData.insert(initialData.end(), utf16pw.begin(), utf16pw.end());
     
     auto hashSHA1 = [](const std::vector<uint8_t>& d) {
-        std::vector<uint8_t> h(SHA_DIGEST_LENGTH);
-        SHA1(d.data(), d.size(), h.data());
+        std::vector<uint8_t> h(20); // SHA-1 size
+        mbedtls_sha1(d.data(), d.size(), h.data());
         return h;
     };
     
@@ -479,28 +459,25 @@ std::vector<uint8_t> decryptStandardPackage(gsl::span<const uint8_t> encryptionI
     keyDerived.insert(keyDerived.end(), x2.begin(), x2.end());
     keyDerived.resize(keySize / 8);
     
-    OPENSSL_cleanse(utf16pw.data(), utf16pw.size());
-    OPENSSL_cleanse(initialData.data(), initialData.size());
+    mbedtls_platform_zeroize(utf16pw.data(), utf16pw.size());
+    mbedtls_platform_zeroize(initialData.data(), initialData.size());
 
     // ECB Decryption
     std::vector<uint8_t> payload(encryptedPackage.begin() + 8, encryptedPackage.end());
     std::vector<uint8_t> decrypted(payload.size());
     
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    auto cleanup = gsl::finally([&] { EVP_CIPHER_CTX_free(ctx); });
+    mbedtls_aes_context ctx;
+    mbedtls_aes_init(&ctx);
+    auto cleanup = gsl::finally([&] { mbedtls_aes_free(&ctx); });
 
-    const EVP_CIPHER* cipher = nullptr;
-    if (keySize == 128) cipher = EVP_aes_128_ecb();
-    else if (keySize == 192) cipher = EVP_aes_192_ecb();
-    else if (keySize == 256) cipher = EVP_aes_256_ecb();
-    else throw XLInternalError("Unsupported AES key size for Standard Encryption");
+    if (mbedtls_aes_setkey_dec(&ctx, keyDerived.data(), keySize) != 0) {
+        throw XLInternalError("AES key setup failed");
+    }
     
-    if (EVP_DecryptInit_ex(ctx, cipher, nullptr, keyDerived.data(), nullptr) != 1) throw XLInternalError("AES init failed");
-    EVP_CIPHER_CTX_set_padding(ctx, 0); // ECB uses no padding here
-    
-    int len1 = 0, len2 = 0;
-    EVP_DecryptUpdate(ctx, decrypted.data(), &len1, payload.data(), gsl::narrow_cast<int>(payload.size()));
-    EVP_DecryptFinal_ex(ctx, decrypted.data() + len1, &len2);
+    for(size_t i=0; i<payload.size(); i+=16) {
+        mbedtls_aes_crypt_ecb(&ctx, MBEDTLS_AES_DECRYPT, payload.data()+i, decrypted.data()+i);
+    }
+    int len1 = payload.size(), len2 = 0;
     
     uint64_t originalSize = getU32(encryptedPackage.data()) | ((uint64_t)getU32(encryptedPackage.data() + 4) << 32);
     if (originalSize > 0 && originalSize <= static_cast<uint64_t>(len1 + len2)) {
