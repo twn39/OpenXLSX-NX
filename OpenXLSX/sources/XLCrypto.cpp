@@ -192,16 +192,28 @@ std::vector<uint8_t> buildCFB(const std::vector<uint8_t>& info, const std::vecto
     
     for (int i=0; i<109; i++) putU32(cfb, 0x4C + i*4, i < fatSectors ? fatLocs[i] : 0xFFFFFFFF);
     
+
     auto writeChain = [&](uint32_t startSec, uint32_t numSecs) {
         for (uint32_t i=0; i<numSecs; i++) {
             uint32_t sec = startSec + i;
             putU32(cfb, 512 + fatLocs[sec / 128] * 512 + (sec % 128) * 4, i == numSecs - 1 ? 0xFFFFFFFE : sec + 1);
         }
     };
+    
+    // Initialize FAT with FREESECT (0xFFFFFFFF)
+    for (uint32_t sec : fatLocs) {
+        for (int i=0; i<128; i++) putU32(cfb, 512 + sec*512 + i*4, 0xFFFFFFFF);
+    }
+    
     for (uint32_t sec : fatLocs) putU32(cfb, 512 + fatLocs[sec/128]*512 + (sec%128)*4, 0xFFFFFFFD);
     writeChain(miniFatLoc, miniFatSectors); writeChain(dirLoc, dirSectors); writeChain(miniStreamLoc, miniStreamSectors); writeChain(pkgLoc, pkgSectors);
     
+    // Initialize MiniFAT with FREESECT (0xFFFFFFFF)
+    for (uint32_t i=0; i<miniFatSectors*128; i++) {
+        putU32(cfb, 512 + miniFatLoc*512 + i*4, 0xFFFFFFFF);
+    }
     for (uint32_t i=0; i<miniSectors; i++) putU32(cfb, 512 + miniFatLoc*512 + i*4, i == miniSectors - 1 ? 0xFFFFFFFE : i + 1);
+
     
     std::memcpy(cfb.data() + 512 + miniStreamLoc*512, info.data(), info.size());
     std::memcpy(cfb.data() + 512 + pkgLoc*512, pkg.data(), pkg.size());
@@ -211,14 +223,25 @@ std::vector<uint8_t> buildCFB(const std::vector<uint8_t>& info, const std::vecto
         int nameLen = std::strlen(name);
         for (int i=0; i<nameLen; i++) cfb[offset + i*2] = name[i];
         putU16(cfb, offset + 64, (nameLen+1)*2);
-        cfb[offset + 66] = type; cfb[offset + 67] = (type == 5) ? 0 : 1;
+        cfb[offset + 66] = type; cfb[offset + 67] = 1; // Always Black (1)
         putU32(cfb, offset + 68, left); putU32(cfb, offset + 72, right); putU32(cfb, offset + 76, child);
         putU32(cfb, offset + 116, start); putU32(cfb, offset + 120, size);
     };
     
+    // CFB Directory RB-Tree Rules: Compare by Name Length (including null byte), then String.
+    // EncryptionInfo (15) < EncryptedPackage (17).
+    // Therefore, EncryptionInfo MUST be the left child of EncryptedPackage.
     writeDir(0, "Root Entry", 5, 0xFFFFFFFF, 0xFFFFFFFF, 1, miniStreamLoc, miniStreamSize);
-    writeDir(1, "EncryptedPackage", 2, 0xFFFFFFFF, 2, 0xFFFFFFFF, pkgLoc, pkg.size());
+    writeDir(1, "EncryptedPackage", 2, 2, 0xFFFFFFFF, 0xFFFFFFFF, pkgLoc, pkg.size());
     writeDir(2, "EncryptionInfo", 2, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0, info.size());
+    
+    // Unused directory entries should have pointers = 0xFFFFFFFF
+    for (uint32_t i=3; i<dirSectors*4; i++) {
+        uint32_t offset = 512 + dirLoc*512 + i*128;
+        putU32(cfb, offset + 68, 0xFFFFFFFF); // left
+        putU32(cfb, offset + 72, 0xFFFFFFFF); // right
+        putU32(cfb, offset + 76, 0xFFFFFFFF); // child
+    }
     return cfb;
 }
 
