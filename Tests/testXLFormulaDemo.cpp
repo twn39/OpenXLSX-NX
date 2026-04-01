@@ -60,33 +60,34 @@ TEST_CASE("Generate Formula Test Document", "[FormulaEngine]")
         "G1", "G2", "G3", "G4"
     };
 
-    std::cout << "--- Formula Evaluation Results ---" << std::endl;
+    INFO("--- Formula Evaluation Results ---");
     for (const auto& ref : targetCells) {
         auto cell = wks.cell(ref);
         std::string formulaStr = cell.formula().get();
-        
+
         // Evaluate
         XLCellValue result = engine.evaluate(formulaStr, resolver);
-        
-        // Output to console
-        std::cout << ref << " [" << formulaStr << "] = ";
-        if (result.type() == XLValueType::Float) std::cout << result.get<double>();
-        else if (result.type() == XLValueType::Integer) std::cout << result.get<int64_t>();
-        else if (result.type() == XLValueType::Boolean) std::cout << (result.get<bool>() ? "TRUE" : "FALSE");
-        else if (result.type() == XLValueType::String) std::cout << result.getString();
-        else if (result.type() == XLValueType::Error) std::cout << "ERROR";
-        else std::cout << "UNKNOWN";
-        std::cout << std::endl;
+
+        // Prepare info string
+        std::string resultStr = ref + " [" + formulaStr + "] = ";
+        if (result.type() == XLValueType::Float) resultStr += std::to_string(result.get<double>());
+        else if (result.type() == XLValueType::Integer) resultStr += std::to_string(result.get<int64_t>());
+        else if (result.type() == XLValueType::Boolean) resultStr += (result.get<bool>() ? "TRUE" : "FALSE");
+        else if (result.type() == XLValueType::String) resultStr += result.getString();
+        else if (result.type() == XLValueType::Error) resultStr += "ERROR";
+        else resultStr += "UNKNOWN";
+
+        INFO(resultStr);
+        REQUIRE(result.type() != XLValueType::Empty); // Ensure evaluation gave some result
 
         // Note: setting the value caches the result in the <v> node!
         // cell.value() = result; 
         // We shouldn't set cell.value() blindly because the current proxy logic might overwrite the formula.
         // Usually caching is done differently or you let Excel do it on open.
-        // Let's just keep the formula as is.
     }
 
     doc.save();
     doc.close();
 
-    std::cout << "--- Successfully generated FormulaDemo.xlsx ---" << std::endl;
+    // Successfully generated FormulaDemo.xlsx
 }

@@ -219,7 +219,7 @@ TEST_CASE("Conditional Formatting Excel Generation", "[ConditionalFormattingGen]
 
     doc.save();
     doc.close();
-    std::cout << "\nSuccessfully created ConditionalFormatting_Verification.xlsx" << std::endl;
+    // No success output needed for quiet tests
     
     REQUIRE(true); // Dummy requirement to make Catch2 happy
 }
