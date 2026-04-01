@@ -176,10 +176,14 @@ if(OPENXLSX_BUILD_TESTS)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different 
             ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/openpyxl_generated.xlsx
             ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/excelize_generated.xlsx
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/google_spreadsheets.xlsx
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/tencent_sheet.xlsx
             $<TARGET_FILE_DIR:OpenXLSXTests>/Tests/Fixtures/
         COMMAND ${CMAKE_COMMAND} -E copy_if_different 
             ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/openpyxl_generated.xlsx
             ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/excelize_generated.xlsx
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/google_spreadsheets.xlsx
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/tencent_sheet.xlsx
             ${CMAKE_BINARY_DIR}/Tests/Fixtures/
     )
 endif()
