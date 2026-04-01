@@ -41,6 +41,7 @@ namespace OpenXLSX {
         std::vector<uint8_t> decryptAgilePackage(gsl::span<const uint8_t> encryptionInfo,
                                                  gsl::span<const uint8_t> encryptedPackage,
                                                  const std::string& password);
+        std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, const std::string& password);
         std::vector<uint8_t> decryptStandardPackage(gsl::span<const uint8_t> encryptionInfo,
                                                     gsl::span<const uint8_t> encryptedPackage,
                                                     const std::string& password);

@@ -20,9 +20,7 @@ bool OpenXLSX::isEncryptedDocument(gsl::span<const uint8_t> data) {
 }
 
 std::vector<uint8_t> OpenXLSX::encryptDocument(gsl::span<const uint8_t> zipData, const std::string& password) {
-    // Phase 3: Writing an OLE CFB Container
-    // This requires generating EncryptionInfo XML and encrypting the package in 4096-byte chunks.
-    throw XLInternalError("Encryption feature not fully implemented in this prototype.");
+    return Crypto::encryptStandardPackage(zipData, password);
 }
 
 std::vector<uint8_t> OpenXLSX::decryptDocument(gsl::span<const uint8_t> data, const std::string& password) {
@@ -151,6 +149,185 @@ std::vector<uint8_t> readCfbStream(gsl::span<const uint8_t> data, const std::str
     
     if (out.size() > d.size) out.resize(d.size);
     return out;
+}
+
+
+#include <openssl/rand.h>
+
+std::vector<uint8_t> buildCFB(const std::vector<uint8_t>& info, const std::vector<uint8_t>& pkg) {
+    auto putU32 = [](std::vector<uint8_t>& buf, uint32_t offset, uint32_t val) {
+        buf[offset] = val & 0xFF; buf[offset+1] = (val >> 8) & 0xFF; buf[offset+2] = (val >> 16) & 0xFF; buf[offset+3] = (val >> 24) & 0xFF;
+    };
+    auto putU16 = [](std::vector<uint8_t>& buf, uint32_t offset, uint16_t val) {
+        buf[offset] = val & 0xFF; buf[offset+1] = (val >> 8) & 0xFF;
+    };
+
+    uint32_t pkgSectors = (pkg.size() + 511) / 512;
+    uint32_t miniSectors = (info.size() + 63) / 64;
+    uint32_t miniStreamSize = miniSectors * 64;
+    uint32_t miniStreamSectors = (miniStreamSize + 511) / 512;
+    uint32_t miniFatSectors = (miniSectors * 4 + 511) / 512;
+    uint32_t dirSectors = 1;
+    
+    uint32_t dataSectors = dirSectors + miniFatSectors + miniStreamSectors + pkgSectors;
+    uint32_t fatSectors = 1;
+    while ((dataSectors + fatSectors) * 4 > fatSectors * 512) fatSectors++;
+    
+    std::vector<uint8_t> cfb(512 + (fatSectors + dataSectors) * 512, 0);
+    const uint8_t magic[] = {0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1};
+    std::memcpy(cfb.data(), magic, 8);
+    putU16(cfb, 0x18, 0x003E); putU16(cfb, 0x1A, 0x0003); putU16(cfb, 0x1C, 0xFFFE); putU16(cfb, 0x1E, 0x0009); putU16(cfb, 0x20, 0x0006);
+    putU32(cfb, 0x2C, fatSectors);
+    
+    uint32_t currentSec = 0;
+    std::vector<uint32_t> fatLocs;
+    for (uint32_t i=0; i<fatSectors; i++) fatLocs.push_back(currentSec++);
+    uint32_t miniFatLoc = currentSec; currentSec += miniFatSectors;
+    uint32_t dirLoc = currentSec; currentSec += dirSectors;
+    uint32_t miniStreamLoc = currentSec; currentSec += miniStreamSectors;
+    uint32_t pkgLoc = currentSec; currentSec += pkgSectors;
+    
+    putU32(cfb, 0x30, dirLoc); putU32(cfb, 0x38, 0x1000); 
+    putU32(cfb, 0x3C, miniFatSectors > 0 ? miniFatLoc : 0xFFFFFFFE); putU32(cfb, 0x40, miniFatSectors); putU32(cfb, 0x44, 0xFFFFFFFE);
+    
+    for (int i=0; i<109; i++) putU32(cfb, 0x4C + i*4, i < fatSectors ? fatLocs[i] : 0xFFFFFFFF);
+    
+    auto writeChain = [&](uint32_t startSec, uint32_t numSecs) {
+        for (uint32_t i=0; i<numSecs; i++) {
+            uint32_t sec = startSec + i;
+            putU32(cfb, 512 + fatLocs[sec / 128] * 512 + (sec % 128) * 4, i == numSecs - 1 ? 0xFFFFFFFE : sec + 1);
+        }
+    };
+    for (uint32_t sec : fatLocs) putU32(cfb, 512 + fatLocs[sec/128]*512 + (sec%128)*4, 0xFFFFFFFD);
+    writeChain(miniFatLoc, miniFatSectors); writeChain(dirLoc, dirSectors); writeChain(miniStreamLoc, miniStreamSectors); writeChain(pkgLoc, pkgSectors);
+    
+    for (uint32_t i=0; i<miniSectors; i++) putU32(cfb, 512 + miniFatLoc*512 + i*4, i == miniSectors - 1 ? 0xFFFFFFFE : i + 1);
+    
+    std::memcpy(cfb.data() + 512 + miniStreamLoc*512, info.data(), info.size());
+    std::memcpy(cfb.data() + 512 + pkgLoc*512, pkg.data(), pkg.size());
+    
+    auto writeDir = [&](int idx, const char* name, int type, int left, int right, int child, uint32_t start, uint32_t size) {
+        uint32_t offset = 512 + dirLoc*512 + idx*128;
+        int nameLen = std::strlen(name);
+        for (int i=0; i<nameLen; i++) cfb[offset + i*2] = name[i];
+        putU16(cfb, offset + 64, (nameLen+1)*2);
+        cfb[offset + 66] = type; cfb[offset + 67] = (type == 5) ? 0 : 1;
+        putU32(cfb, offset + 68, left); putU32(cfb, offset + 72, right); putU32(cfb, offset + 76, child);
+        putU32(cfb, offset + 116, start); putU32(cfb, offset + 120, size);
+    };
+    
+    writeDir(0, "Root Entry", 5, 0xFFFFFFFF, 0xFFFFFFFF, 1, miniStreamLoc, miniStreamSize);
+    writeDir(1, "EncryptedPackage", 2, 0xFFFFFFFF, 2, 0xFFFFFFFF, pkgLoc, pkg.size());
+    writeDir(2, "EncryptionInfo", 2, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0, info.size());
+    return cfb;
+}
+
+std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, const std::string& password) {
+    auto putU32 = [](std::vector<uint8_t>& buf, uint32_t offset, uint32_t val) {
+        buf[offset] = val & 0xFF; buf[offset+1] = (val >> 8) & 0xFF; buf[offset+2] = (val >> 16) & 0xFF; buf[offset+3] = (val >> 24) & 0xFF;
+    };
+    
+    std::vector<uint8_t> salt(16); RAND_bytes(salt.data(), 16);
+    std::vector<uint8_t> verifier(16); RAND_bytes(verifier.data(), 16);
+    
+    std::vector<uint8_t> utf16pw;
+    for(char c : password) { utf16pw.push_back(static_cast<uint8_t>(c)); utf16pw.push_back(0); }
+    
+    std::vector<uint8_t> initialData = salt;
+    initialData.insert(initialData.end(), utf16pw.begin(), utf16pw.end());
+    
+    auto hashSHA1 = [](const std::vector<uint8_t>& d) {
+        std::vector<uint8_t> h(SHA_DIGEST_LENGTH);
+        SHA1(d.data(), d.size(), h.data());
+        return h;
+    };
+    
+    auto H = hashSHA1(initialData);
+    for(int i = 0; i < 50000; ++i) {
+        std::vector<uint8_t> iterData = {static_cast<uint8_t>(i&0xFF), static_cast<uint8_t>((i>>8)&0xFF), static_cast<uint8_t>((i>>16)&0xFF), static_cast<uint8_t>((i>>24)&0xFF)};
+        iterData.insert(iterData.end(), H.begin(), H.end());
+        H = hashSHA1(iterData);
+    }
+    
+    std::vector<uint8_t> finalData = H;
+    finalData.insert(finalData.end(), {0, 0, 0, 0});
+    auto H_final = hashSHA1(finalData);
+    
+    std::vector<uint8_t> buf1(64, 0x36), buf2(64, 0x5C);
+    for(int i=0; i<20; ++i) { buf1[i] ^= H_final[i]; buf2[i] ^= H_final[i]; }
+    
+    auto x1 = hashSHA1(buf1);
+    auto x2 = hashSHA1(buf2);
+    
+    std::vector<uint8_t> keyDerived = x1;
+    keyDerived.insert(keyDerived.end(), x2.begin(), x2.end());
+    keyDerived.resize(16); // 128-bit AES
+    
+    OPENSSL_cleanse(utf16pw.data(), utf16pw.size());
+    OPENSSL_cleanse(initialData.data(), initialData.size());
+
+    // Encrypt verifier and its hash
+    auto aesEcbEncrypt = [&](const std::vector<uint8_t>& data) {
+        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, keyDerived.data(), nullptr);
+        EVP_CIPHER_CTX_set_padding(ctx, 0);
+        std::vector<uint8_t> out(data.size());
+        int len1=0, len2=0;
+        EVP_EncryptUpdate(ctx, out.data(), &len1, data.data(), data.size());
+        EVP_EncryptFinal_ex(ctx, out.data()+len1, &len2);
+        EVP_CIPHER_CTX_free(ctx);
+        return out;
+    };
+    
+    auto encVerifier = aesEcbEncrypt(verifier);
+    auto verifierHash = hashSHA1(verifier);
+    verifierHash.resize(32, 0);
+    auto encVerifierHash = aesEcbEncrypt(verifierHash);
+    
+    // Construct EncryptionInfo
+    std::vector<uint8_t> info(248, 0);
+    putU32(info, 0, 0x00020003); // Version
+    putU32(info, 4, 0x00000024); // Flags
+    putU32(info, 8, 164); // HeaderSize
+    putU32(info, 12, 0x00000024); // Flags
+    putU32(info, 16, 0x00000000); // SizeExtra
+    putU32(info, 20, 0x0000660E); // AlgID (AES-128)
+    putU32(info, 24, 0x00008004); // AlgHash (SHA1)
+    putU32(info, 28, 128); // KeySize
+    putU32(info, 32, 0x00000018); // ProviderType
+    
+    std::string csp = "Microsoft Enhanced RSA and AES Cryptographic Provider (Prototype)";
+    for(size_t i=0; i<csp.size(); i++) { info[44 + i*2] = csp[i]; }
+    
+    uint32_t headerEnd = 12 + 164;
+    putU32(info, headerEnd, 16); // SaltSize
+    std::memcpy(info.data() + headerEnd + 4, salt.data(), 16);
+    std::memcpy(info.data() + headerEnd + 20, encVerifier.data(), 16);
+    putU32(info, headerEnd + 36, 20); // VerifierHashSize
+    std::memcpy(info.data() + headerEnd + 40, encVerifierHash.data(), 32);
+    
+    // Construct EncryptedPackage
+    std::vector<uint8_t> payload(8 + zipData.size());
+    payload[0] = zipData.size() & 0xFF; payload[1] = (zipData.size() >> 8) & 0xFF;
+    payload[2] = (zipData.size() >> 16) & 0xFF; payload[3] = (zipData.size() >> 24) & 0xFF;
+    payload[4] = (zipData.size() >> 32) & 0xFF; payload[5] = (zipData.size() >> 40) & 0xFF;
+    payload[6] = (zipData.size() >> 48) & 0xFF; payload[7] = (zipData.size() >> 56) & 0xFF;
+    std::memcpy(payload.data() + 8, zipData.data(), zipData.size());
+    
+    uint32_t rem = payload.size() % 16;
+    if (rem != 0) payload.insert(payload.end(), 16 - rem, 0); // Pad to 16
+    
+    // ECB Encrypt payload
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, keyDerived.data(), nullptr);
+    EVP_CIPHER_CTX_set_padding(ctx, 0);
+    std::vector<uint8_t> encPayload(payload.size());
+    int len1=0, len2=0;
+    EVP_EncryptUpdate(ctx, encPayload.data(), &len1, payload.data(), payload.size());
+    EVP_EncryptFinal_ex(ctx, encPayload.data()+len1, &len2);
+    EVP_CIPHER_CTX_free(ctx);
+    
+    return buildCFB(info, encPayload);
 }
 
 std::vector<uint8_t> aes256CbcDecrypt(gsl::span<const uint8_t> data, gsl::span<const uint8_t> key, gsl::span<const uint8_t> iv) {
