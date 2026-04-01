@@ -20,13 +20,6 @@ CTestTestfile.cmake
 *.dll
 *.dylib
 
-# Test and Benchmark outputs
-*.xlsx
-*.xlsm
-*.xlsb
-*.xltx
-*.xltm
-
 # IDE and System Specific
 .idea/
 .vscode/
@@ -60,3 +53,5 @@ pyproject.toml
 .venv
 .crush
 venv
+build_asan
+/Tests/Fixtures/Generators
