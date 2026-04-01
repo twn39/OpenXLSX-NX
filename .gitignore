@@ -54,4 +54,5 @@ pyproject.toml
 .crush
 venv
 build_asan
+build_fuzz
 /Tests/Fixtures/Generators
