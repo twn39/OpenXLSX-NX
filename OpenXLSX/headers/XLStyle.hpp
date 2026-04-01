@@ -10,6 +10,9 @@
 
 namespace OpenXLSX
 {
+    enum XLLineStyle : uint8_t;
+    enum XLPatternType : uint8_t;
+    enum XLAlignmentStyle : uint8_t;
 
     /**
      * @brief A high-level, human-ergonomic structure representing the styling of a cell or range.
