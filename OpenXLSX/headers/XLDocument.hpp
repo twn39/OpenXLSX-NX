@@ -186,6 +186,12 @@ namespace OpenXLSX
          */
         bool hasMacro() const;
 
+        /**
+         * @brief Deletes the VBA macro project and all macro-related signatures/relationships from the document.
+         *        This is typically used to sanitize a file before saving it as a standard .xlsx.
+         */
+        void deleteMacro();
+
         XLCustomProperties& customProperties();
 
         /**

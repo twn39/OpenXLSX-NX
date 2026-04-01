@@ -58,3 +58,5 @@ __pycache__/
 uv.lock
 pyproject.toml
 .venv
+.crush
+venv
