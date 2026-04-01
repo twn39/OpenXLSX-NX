@@ -11,8 +11,10 @@ TEST_CASE("Advanced Print Layout", "[PrintLayout]")
     wks.setName("My Sheet");
 
     // Fill some data
-    for (int r = 1; r <= 20; ++r) {
-        for (int c = 1; c <= 10; ++c) { wks.cell(r, c).value() = r * c; }
+    for (uint32_t r = 1; r <= 20; ++r) {
+        for (uint16_t c = 1; c <= 10; ++c) {
+            wks.cell(r, c).value() = r * c;
+        }
     }
 
     // Set Print Area and Titles

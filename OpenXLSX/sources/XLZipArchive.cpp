@@ -47,8 +47,7 @@ void XLZipArchive::open(std::string_view fileName)
     if (!m_archive) m_archive = std::make_shared<LibZipApp>();
     m_archive->isModified = false;    // Reset modification flag on open
 
-    int err = 0;
-#if defined(_WIN32)
+    #if defined(_WIN32)
     zip_error_t zerr;
     zip_error_init(&zerr);
     // Use wide string for Windows to support UTF-8 paths
@@ -67,16 +66,17 @@ void XLZipArchive::open(std::string_view fileName)
         throw XLInternalError("Failed to open zip archive from source: " + msg);
     }
     zip_error_fini(&zerr);
-#else
+    #else
+    int err = 0;
     m_archive->archive = zip_open(std::string(fileName).c_str(), ZIP_CREATE, &err);
     if (!m_archive->archive) {
-        zip_error_t zerr;
-        zip_error_init_with_code(&zerr, err);
-        std::string msg = zip_error_strerror(&zerr);
-        zip_error_fini(&zerr);
+        zip_error_t error;
+        zip_error_init_with_code(&error, err);
+        std::string msg = zip_error_strerror(&error);
+        zip_error_fini(&error);
         throw XLInternalError("Failed to open zip archive: " + msg);
     }
-#endif
+    #endif
     m_archive->currentPath = std::string(fileName);
 }
 

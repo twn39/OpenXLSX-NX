@@ -212,7 +212,7 @@ namespace OpenXLSX
         std::string cellValue;
         bool        inVTag      = false;
         bool        inIsTTag    = false;    // inside <is><t> (inline string)
-        uint32_t    expectedCol = 1;
+        uint16_t    expectedCol = 1;
 
         // Commit a parsed cell into result, filling column gaps with empties
         auto flushCell = [&]() {

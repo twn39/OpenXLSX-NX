@@ -28,16 +28,16 @@ TEST_CASE("XLRow Tests", "[XLRow]")
 
         XLRow copy3;
         copy3 = copy2;
-        copy3.setHeight(height * 3.0f);
-        REQUIRE(copy3.height() == height * 3.0f);
-        copy3.setHeight(height * 4.0f);
-        REQUIRE(copy3.height() == height * 4.0f);
+        copy3.setHeight(static_cast<float>(height) * 3.0f);
+        REQUIRE(copy3.height() == height * 3.0);
+        copy3.setHeight(static_cast<float>(height) * 4.0f);
+        REQUIRE(copy3.height() == height * 4.0);
 
         XLRow copy4;
         copy4 = std::move(copy3);
-        copy4.setDescent(descent * 2.0f);
+        copy4.setDescent(static_cast<float>(descent) * 2.0f);
         REQUIRE(copy4.descent() == descent * 2.0f);
-        copy4.setDescent(descent * 3.0f);
+        copy4.setDescent(static_cast<float>(descent) * 3.0f);
         REQUIRE(copy4.descent() == descent * 3.0f);
 
         REQUIRE(copy4.isHidden() == false);

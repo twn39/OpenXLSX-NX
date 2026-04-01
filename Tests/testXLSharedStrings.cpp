@@ -114,7 +114,7 @@ TEST_CASE("SharedStrings Lazy DOM and Reservation", "[XLSharedStrings]")
             auto wks = doc.workbook().worksheet("Sheet1");
 
             // Write strings via the cell API (goes through appendString/lazy DOM)
-            for (int i = 0; i < 50; ++i) { wks.cell(1, i + 1).value() = "Cell " + std::to_string(i); }
+            for (uint16_t i = 0; i < 50; ++i) { wks.cell(1, i + 1).value() = "Cell " + std::to_string(i); }
 
             doc.save();
             doc.close();
@@ -125,7 +125,7 @@ TEST_CASE("SharedStrings Lazy DOM and Reservation", "[XLSharedStrings]")
         doc.open("./testXLSharedStrings_lazy.xlsx");
         auto wks = doc.workbook().worksheet("Sheet1");
 
-        for (int i = 0; i < 50; ++i) {
+        for (uint16_t i = 0; i < 50; ++i) {
             const std::string expected = "Cell " + std::to_string(i);
             REQUIRE(wks.cell(1, i + 1).value().get<std::string>() == expected);
         }

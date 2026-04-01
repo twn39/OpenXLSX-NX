@@ -132,7 +132,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
     auto findFieldIndex = [&](const std::string& name) -> int {
         auto it = std::find(headers.begin(), headers.end(), name);
-        if (it != headers.end()) return std::distance(headers.begin(), it);
+        if (it != headers.end()) return static_cast<int>(std::distance(headers.begin(), it));
         return -1;
     };
 

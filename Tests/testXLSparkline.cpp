@@ -12,7 +12,7 @@ TEST_CASE("Sparkline Creation", "[XLSparkline]")
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // Add some sample data
-    for (int col = 1; col <= 5; ++col) {
+    for (uint16_t col = 1; col <= 5; ++col) {
         wks.cell(1, col).value() = col * 10;
         wks.cell(2, col).value() = col * -5;
     }

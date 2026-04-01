@@ -280,7 +280,7 @@ XLStyleIndex XLStyles::addNamedStyle(std::string_view            name,
         styleXf.setApplyBorder(true);
     }
     if (numFmtId) {
-        styleXf.setNumberFormatId(*numFmtId);
+        styleXf.setNumberFormatId(static_cast<uint32_t>(*numFmtId));
         styleXf.setApplyNumberFormat(true);
     }
 
@@ -310,7 +310,7 @@ XLStyleIndex XLStyles::addNamedStyle(std::string_view            name,
         cellXf.setApplyBorder(true);
     }
     if (numFmtId) {
-        cellXf.setNumberFormatId(*numFmtId);
+        cellXf.setNumberFormatId(static_cast<uint32_t>(*numFmtId));
         cellXf.setApplyNumberFormat(true);
     }
 
