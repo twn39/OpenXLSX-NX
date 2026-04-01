@@ -107,6 +107,55 @@ TEST_CASE("Cross-Engine Compatibility", "[Compatibility]")
             
             auto wks = doc.workbook().worksheet(sheetNames[0]);
             
+            // If this is the specific Google Spreadsheets fixture we know about, do targeted assertions
+            if (file == "google_spreadsheets.xlsx") {
+                INFO("Performing targeted assertions for Google Sheets layout");
+                
+                // Dates/Headers row (Row 3 and 4)
+                // Google Sheets exports dates as floats (serial numbers) if they are true dates
+                auto c3_val = wks.cell("C3").value().type();
+                if (c3_val == XLValueType::String) {
+                    REQUIRE(wks.cell("C3").value().get<std::string>().find("9月") != std::string::npos);
+                } else if (c3_val == XLValueType::Float) {
+                    REQUIRE(wks.cell("C3").value().get<double>() > 40000.0); // Simple date sanity check
+                }
+
+                auto c4_val = wks.cell("C4").value().type();
+                if (c4_val == XLValueType::String) {
+                    // It might be a formula or calculated rich text, so just check it exists
+                    auto str = wks.cell("C4").value().get<std::string>();
+                    REQUIRE(!str.empty());
+                } else {
+                     // In some cases Google Sheets uses styles or custom formats for weekdays, we just ensure it parses.
+                     REQUIRE(wks.cell("C4").value().type() != XLValueType::Error);
+                }
+                
+                auto i3_val = wks.cell("I3").value().type();
+                if (i3_val == XLValueType::String) {
+                    REQUIRE(wks.cell("I3").value().get<std::string>().find("9月") != std::string::npos);
+                } else if (i3_val == XLValueType::Float) {
+                    REQUIRE(wks.cell("I3").value().get<double>() > 40000.0);
+                }
+                
+                auto b5_val = wks.cell("B5").value().type();
+                if (b5_val == XLValueType::String) {
+                    auto str = wks.cell("B5").value().get<std::string>();
+                    REQUIRE(!str.empty());
+                } else {
+                    REQUIRE(b5_val == XLValueType::Float);
+                }
+
+                // Footer areas (Row 28)
+                auto b28_val = wks.cell("B28").value().type();
+                if (b28_val == XLValueType::String) {
+                    REQUIRE(wks.cell("B28").value().get<std::string>().find("备注") != std::string::npos);
+                }
+                auto g28_val = wks.cell("G28").value().type();
+                if (g28_val == XLValueType::String) {
+                    REQUIRE(wks.cell("G28").value().get<std::string>().find("待办事项") != std::string::npos);
+                }
+            }
+
             // Perform a safe modification
             wks.cell("ZZ99").value() = "OpenXLSX Compatibility Mark";
 
