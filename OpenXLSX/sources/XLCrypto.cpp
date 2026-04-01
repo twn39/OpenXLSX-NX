@@ -1,3 +1,5 @@
+#include <fstream>
+
 #include <map>
 #include "XLCrypto.hpp"
 #include <mbedtls/aes.h>
@@ -30,6 +32,11 @@ std::vector<uint8_t> OpenXLSX::decryptDocument(gsl::span<const uint8_t> data, co
     auto encryptedPackage = Crypto::readCfbStream(data, "EncryptedPackage");
     
     if (encryptionInfo.size() >= 4) {
+        auto dec = Crypto::decryptStandardPackage(encryptionInfo, encryptedPackage, password);
+        std::ofstream out("debug.zip", std::ios::binary);
+        out.write((char*)dec.data(), dec.size());
+        out.close();
+        return dec;
         uint32_t version = encryptionInfo[0] | (encryptionInfo[1]<<8) | (encryptionInfo[2]<<16) | (encryptionInfo[3]<<24);
         if (version == 0x00020003) {
             return Crypto::decryptStandardPackage(encryptionInfo, encryptedPackage, password);
@@ -187,8 +194,16 @@ std::vector<uint8_t> buildCFB(const std::vector<uint8_t>& info, const std::vecto
     for (uint32_t i=0; i<fatSectors; i++) fatLocs.push_back(currentSec++);
     uint32_t miniFatLoc = currentSec; currentSec += miniFatSectors;
     uint32_t dirLoc = currentSec; currentSec += dirSectors;
-    uint32_t miniStreamLoc = currentSec; currentSec += miniStreamSectors;
+    
+    // EXCELIZE LAYOUT:
+    // 0: FAT
+    // 1: MiniFAT
+    // 2: Directory
+    // 3..14: EncryptedPackage
+    // 15: MiniStream (Root Entry)
+    
     uint32_t pkgLoc = currentSec; currentSec += pkgSectors;
+    uint32_t miniStreamLoc = currentSec; currentSec += miniStreamSectors;
     
     putU32(cfb, 0x30, dirLoc); putU32(cfb, 0x38, 0x1000); 
     putU32(cfb, 0x3C, miniFatSectors > 0 ? miniFatLoc : 0xFFFFFFFE); putU32(cfb, 0x40, miniFatSectors); putU32(cfb, 0x44, 0xFFFFFFFE);
@@ -205,17 +220,19 @@ std::vector<uint8_t> buildCFB(const std::vector<uint8_t>& info, const std::vecto
     
     // Initialize FAT with FREESECT (0xFFFFFFFF)
     for (uint32_t sec : fatLocs) {
-        for (int i=0; i<128; i++) putU32(cfb, 512 + sec*512 + i*4, 0xFFFFFFFF);
+        for (int i=0; i<128; i++) putU32(cfb, 512 + sec*512 + i*4, 0xFFFFFFFE);
     }
     
     for (uint32_t sec : fatLocs) putU32(cfb, 512 + fatLocs[sec/128]*512 + (sec%128)*4, 0xFFFFFFFD);
     writeChain(miniFatLoc, miniFatSectors); writeChain(dirLoc, dirSectors); writeChain(miniStreamLoc, miniStreamSectors); writeChain(pkgLoc, pkgSectors);
     
-    // Initialize MiniFAT with FREESECT (0xFFFFFFFF)
+
+    // Initialize MiniFAT with ENDOFCHAIN (0xFFFFFFFE) to match Excelize
     for (uint32_t i=0; i<miniFatSectors*128; i++) {
-        putU32(cfb, 512 + miniFatLoc*512 + i*4, 0xFFFFFFFF);
+        putU32(cfb, 512 + miniFatLoc*512 + i*4, 0xFFFFFFFE);
     }
     for (uint32_t i=0; i<miniSectors; i++) putU32(cfb, 512 + miniFatLoc*512 + i*4, i == miniSectors - 1 ? 0xFFFFFFFE : i + 1);
+
 
     
     std::memcpy(cfb.data() + 512 + miniStreamLoc*512, info.data(), info.size());
@@ -235,8 +252,8 @@ std::vector<uint8_t> buildCFB(const std::vector<uint8_t>& info, const std::vecto
     // EncryptionInfo (15) < EncryptedPackage (17).
     // Therefore, EncryptionInfo MUST be the left child of EncryptedPackage.
     writeDir(0, "Root Entry", 5, 0xFFFFFFFF, 0xFFFFFFFF, 1, miniStreamLoc, miniStreamSize);
-    writeDir(1, "EncryptedPackage", 2, 2, 0xFFFFFFFF, 0xFFFFFFFF, pkgLoc, pkg.size());
-    writeDir(2, "EncryptionInfo", 2, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0, info.size());
+    writeDir(1, "EncryptionInfo", 2, 0xFFFFFFFF, 2, 0xFFFFFFFF, 0, info.size());
+    writeDir(2, "EncryptedPackage", 2, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, pkgLoc, pkg.size());
     
     // Unused directory entries should have pointers = 0xFFFFFFFF
     for (uint32_t i=3; i<dirSectors*4; i++) {
