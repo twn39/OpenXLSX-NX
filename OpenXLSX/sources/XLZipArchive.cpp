@@ -230,12 +230,18 @@ std::vector<std::string> XLZipArchive::entryNames() const
 
     std::vector<std::string> result;
     result.reserve(static_cast<size_t>(numEntries));
-    for (zip_int64_t i = 0; i < numEntries; ++i) { 
-        result.emplace_back(zip_get_name(m_archive->archive, i, 0)); 
+    for (zip_int64_t i = 0; i < numEntries; ++i) {
+        // zip_get_name() returns nullptr for entries marked for deletion (pending delete).
+        // Constructing std::string from nullptr is UB and causes SIGSEGV on some platforms.
+        const char* name = zip_get_name(m_archive->archive, i, 0);
+        if (name != nullptr) {
+            result.emplace_back(name);
+        }
     }
 
     return result;
 }
+
 
 void XLZipArchive::addEntryFromFile(std::string_view name, std::string_view filePath)
 {

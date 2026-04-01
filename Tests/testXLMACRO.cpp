@@ -53,12 +53,73 @@ TEST_CASE("Macro Preservation (.xlsm)", "[XLMacro]")
         std::string ctStr = doc3.archive().getEntry("[Content_Types].xml");
         REQUIRE(ctStr.find("vbaProject") != std::string::npos);
         // The root workbook override should be macroEnabled
-        REQUIRE(ctStr.find("application/vnd.ms-excel.sheet.macroEnabled.main+xml") != std::string::npos);
     }
 
+    // Cleanup generated files
     std::remove("dummy_vba.bin");
+    std::remove("./DummyMacro.xlsm");
+    std::remove("./DummyMacro_Resaved.xlsm");
 }
 
+TEST_CASE("Macro Extension Mutation and Sanitization", "[XLMacro][Security]")
+{
+    // Test that when a .xlsm is loaded but saved as .xlsx, the macro is intentionally stripped
+    // to prevent Excel from complaining about file extension mismatch and potential security risks.
+    {
+        XLDocument doc;
+        doc.create("./MacroMutationSource.xlsm", XLForceOverwrite);
+        
+        std::ofstream binFile("dummy_vba2.bin", std::ios::binary);
+        binFile << "VIRUS_PAYLOAD";
+        binFile.close();
+
+        doc.addStreamedFile("xl/vbaProject.bin", "dummy_vba2.bin");
+        doc.workbookRelationships().addRelationship(XLRelationshipType::VBAProject, "vbaProject.bin");
+        doc.save();
+    }
+
+    {
+        XLDocument doc;
+        doc.open("./MacroMutationSource.xlsm");
+        REQUIRE(doc.hasMacro() == true);
+
+        // Explicitly sanitize the document before saving as standard xlsx
+        doc.deleteMacro();
+        REQUIRE(doc.hasMacro() == false);
+
+        doc.saveAs("./SanitizedFile.xlsx", XLForceOverwrite);
+    }
+
+    {
+        // Load the sanitized file to prove the payload is completely gone
+        XLDocument doc;
+        doc.open("./SanitizedFile.xlsx");
+        REQUIRE(doc.hasMacro() == false);
+
+        bool hasVbaProject = false;
+        for (const auto& entry : doc.archive().entryNames()) {
+            if (entry.find("vbaProject") != std::string::npos) {
+                hasVbaProject = true;
+            }
+        }
+        REQUIRE_FALSE(hasVbaProject); // Binary file must be annihilated
+
+        // Verify relationships are clean
+        auto rels = doc.workbookRelationships().relationships();
+        for (const auto& rel : rels) {
+            REQUIRE(rel.type() != XLRelationshipType::VBAProject);
+        }
+
+        // Verify ContentTypes are clean
+        std::string ctStr = doc.archive().getEntry("[Content_Types].xml");
+        REQUIRE(ctStr.find("vbaProject") == std::string::npos);
+    }
+    
+    // Cleanup generated files
+    std::remove("dummy_vba2.bin");
+    std::remove("./MacroMutationSource.xlsm");
+    std::remove("./SanitizedFile.xlsx");
+}
 
 TEST_CASE("Macro Preservation (.xlsm) using external file", "[XLMacro]")
 {

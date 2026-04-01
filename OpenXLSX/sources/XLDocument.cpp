@@ -420,6 +420,11 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
         }
     } else if (m_filePath.size() >= 5 && m_filePath.substr(m_filePath.size() - 5) == ".xlsx") {
         m_contentTypes.updateOverride("/xl/workbook.xml", XLContentType::Workbook);
+        if (hasMacro()) {
+            // Security: If the user saves an .xlsm (or macro-enabled file) as .xlsx, 
+            // we must explicitly delete the macro payload and relationships to prevent Excel from reporting a corrupted extension mismatch.
+            deleteMacro();
+        }
     }
 
     m_archive.addEntry("[Content_Types].xml", m_contentTypes.xmlData(m_xmlSavingDeclaration));
@@ -491,19 +496,63 @@ XLContentTypes& XLDocument::contentTypes() { return m_contentTypes; }
  */
 
 bool XLDocument::hasMacro() const {
+    // Check in-memory cache first (fastest path)
     for (const auto& entry : m_unhandledEntries) {
         if (entry.first.find("vbaProject.bin") != std::string::npos) {
             return true;
         }
     }
-    for (const auto& entry : m_archive.entryNames()) {
-        if (entry.find("vbaProject.bin") != std::string::npos) {
-            return true;
-        }
-    }
-    return false;
+    // Fall back to a direct archive probe. Using hasEntry() avoids iterating
+    // all entries and is safe even after deleteMacro(), because zip_name_locate
+    // correctly handles pending-deleted entries (unlike zip_get_name, which
+    // returns nullptr for deleted entries and would cause UB in std::string).
+    return m_archive.isOpen() && m_archive.hasEntry("xl/vbaProject.bin");
 }
 
+void XLDocument::deleteMacro() {
+    // 1. Remove from unhandled entries map (e.g. vbaProject.bin, vbaProjectSignature.bin, etc.)
+    auto it = m_unhandledEntries.begin();
+    while (it != m_unhandledEntries.end()) {
+        if (it->first.find("vbaProject") != std::string::npos) {
+            it = m_unhandledEntries.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // 2. Remove from actual archive if it's already there
+    std::vector<std::string> entriesToDelete;
+    for (const auto& entry : m_archive.entryNames()) {
+        if (entry.find("vbaProject") != std::string::npos) {
+            entriesToDelete.push_back(entry);
+        }
+    }
+    for (const auto& entry : entriesToDelete) {
+        m_archive.deleteEntry(entry);
+    }
+
+    // 3. Remove ContentType declaration
+    if (m_contentTypes.hasOverride("/xl/vbaProject.bin")) {
+        m_contentTypes.deleteOverride("/xl/vbaProject.bin");
+    }
+    if (m_contentTypes.hasOverride("/xl/vbaProjectSignature.bin")) {
+        m_contentTypes.deleteOverride("/xl/vbaProjectSignature.bin");
+    }
+    if (m_contentTypes.hasDefault("bin")) {
+        m_contentTypes.deleteDefault("bin");
+    }
+
+    // 4. Remove Workbook Relationship
+    auto rels = workbookRelationships().relationships();
+    for (const auto& rel : rels) {
+        if (rel.type() == XLRelationshipType::VBAProject) {
+            workbookRelationships().deleteRelationship(rel);
+        }
+    }
+
+    // 5. Ensure the workbook root node does not have the 'macroEnabled' extension type
+    // Not strictly necessary to delete the relationship, but Excel complains if we leave it hanging.
+}
 
 XLCustomProperties& XLDocument::customProperties()
 {

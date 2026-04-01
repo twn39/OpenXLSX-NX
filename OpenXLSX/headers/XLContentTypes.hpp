@@ -152,6 +152,12 @@ namespace OpenXLSX
 
         void deleteOverride(const XLContentItem& item);
 
+        /**
+         * @brief Delete a default extension from the content types.
+         * @param extension The extension to remove (e.g. "bin").
+         */
+        void deleteDefault(std::string_view extension);
+
         XLContentItem contentItem(std::string_view path);
 
         std::vector<XLContentItem> getContentItems();

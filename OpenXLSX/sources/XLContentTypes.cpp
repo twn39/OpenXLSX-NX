@@ -209,6 +209,17 @@ void XLContentTypes::deleteOverride(std::string_view path)
 
 void XLContentTypes::deleteOverride(const XLContentItem& item) { deleteOverride(item.path()); }
 
+void XLContentTypes::deleteDefault(std::string_view extension)
+{
+    // Remove the <Default Extension="..."> node with the given extension name.
+    // This is needed when stripping VBA macros: the Default entry for "bin" must
+    // be removed alongside the archive file and workbook relationships.
+    XMLNode node = xmlDocument().document_element().find_child_by_attribute("Default", "Extension", std::string(extension).c_str());
+    if (!node.empty()) {
+        xmlDocument().document_element().remove_child(node);
+    }
+}
+
 XLContentItem XLContentTypes::contentItem(std::string_view path)
 { return XLContentItem(xmlDocument().document_element().find_child_by_attribute("PartName", std::string(path).c_str())); }
 
