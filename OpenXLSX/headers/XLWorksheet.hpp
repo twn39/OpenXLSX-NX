@@ -81,6 +81,31 @@ namespace OpenXLSX
         "extLst"};
 
     /**
+     * @brief A structure defining all granular sheet protection options.
+     * @details Default values are aligned with the OOXML standard for a protected sheet.
+     */
+    struct OPENXLSX_EXPORT XLSheetProtectionOptions {
+        bool sheet = true;
+        bool objects = false;
+        bool scenarios = false;
+
+        bool formatCells = false;
+        bool formatColumns = false;
+        bool formatRows = false;
+        bool insertColumns = false;
+        bool insertRows = false;
+        bool insertHyperlinks = false;
+        bool deleteColumns = false;
+        bool deleteRows = false;
+        bool sort = false;
+        bool autoFilter = false;
+        bool pivotTables = false;
+
+        bool selectLockedCells = true;
+        bool selectUnlockedCells = true;
+    };
+
+    /**
      * @brief A class encapsulating an Excel worksheet. Access to XLWorksheet objects should be via the workbook object.
      */
     class OPENXLSX_EXPORT XLWorksheet final : public XLSheetBase<XLWorksheet>
@@ -283,6 +308,14 @@ namespace OpenXLSX
          * @param lastCol The last column to repeat (1-based).
          */
         void setPrintTitleCols(uint16_t firstCol, uint16_t lastCol);
+
+        /**
+         * @brief Protect the worksheet with granular options.
+         * @param options A structure containing specific protection flags.
+         * @param password Optional password to protect the sheet.
+         * @return true if successful.
+         */
+        bool protect(const XLSheetProtectionOptions& options, std::string_view password = "");
 
         bool protectSheet(bool set = true);
         bool protectObjects(bool set = true);

@@ -6,6 +6,82 @@
 
 using namespace OpenXLSX;
 
+bool XLWorksheet::protect(const XLSheetProtectionOptions& options, std::string_view password)
+{
+    XMLNode sheetNode = xmlDocument().document_element();
+    auto    node      = sheetNode.child("sheetProtection");
+    if (!node.empty()) sheetNode.remove_child("sheetProtection");
+
+    XMLNode protNode = sheetNode.insert_child_before("sheetProtection", sheetNode.child("protectedRanges"));
+    if (protNode.empty()) {    // If protectedRanges is missing, try inserting before sheetData or something valid... but m_nodeOrder handles appending.
+        protNode = sheetNode.append_child("sheetProtection"); // Temporarily, we will use appendAndSetNodeAttribute to fix order
+    }
+    
+    // We will build attributes dynamically, but simpler is to use the existing `appendAndSetNodeAttribute` utility
+    // to guarantee correct node placement according to `m_nodeOrder`.
+    
+    sheetNode.remove_child("sheetProtection"); // ensure it's clean
+    
+    // The OOXML attributes:
+    // If option is true, meaning "allowed/true", we set it according to defaults. 
+    // Wait, the OOXML specification uses '1' or 'true' to indicate the restriction is ON for some, and OFF for others.
+    // Let's be precise:
+    // sheet="1" means sheet protection is ON.
+    // objects="1" means objects protection is ON.
+    // scenarios="1" means scenarios protection is ON.
+    // formatCells="0" means formatting cells is NOT allowed (restriction is ON).
+    
+    // Default of attributes in OOXML if omitted:
+    // sheet=false, objects=false, scenarios=false, 
+    // formatCells=true (allowed), formatColumns=true, formatRows=true, 
+    // insertColumns=true, insertRows=true, insertHyperlinks=true,
+    // deleteColumns=true, deleteRows=true, sort=true, autoFilter=true, pivotTables=true
+    // selectLockedCells=false (actually the default is false if sheet is protected? No, MS Excel defaults to true for selection if protected).
+    
+    // Actually, in OpenXLSX: allowFormatCells(false) sets formatCells="true".
+    // Wait, let's look at the current implementation:
+    // allowInsertColumns(false) -> "true"
+    // So formatCells="true" means RESTRICTED (not allowed).
+    
+    // Wait! Let's check `allowInsertColumns(bool set)`:
+    // `(!set ? "true" : "false")` -> if set=true (allowed), the attribute is "false" (not restricted).
+    // So the XML attribute means "is_restricted".
+    
+    // To keep it clean, let's just use appendAndSetNodeAttribute.
+    auto setAttr = [&](const char* name, bool restricted) {
+        appendAndSetNodeAttribute(sheetNode, "sheetProtection", name, restricted ? "1" : "0", XLKeepAttributes, m_nodeOrder);
+    };
+
+    // For sheet, objects, scenarios: true means protected (restricted)
+    setAttr("sheet", options.sheet);
+    setAttr("objects", options.objects);
+    setAttr("scenarios", options.scenarios);
+
+    // For others, true means allowed, so restricted is !options.xxx
+    setAttr("formatCells", !options.formatCells);
+    setAttr("formatColumns", !options.formatColumns);
+    setAttr("formatRows", !options.formatRows);
+    setAttr("insertColumns", !options.insertColumns);
+    setAttr("insertRows", !options.insertRows);
+    setAttr("insertHyperlinks", !options.insertHyperlinks);
+    setAttr("deleteColumns", !options.deleteColumns);
+    setAttr("deleteRows", !options.deleteRows);
+    setAttr("sort", !options.sort);
+    setAttr("autoFilter", !options.autoFilter);
+    setAttr("pivotTables", !options.pivotTables);
+
+    // selectLockedCells / selectUnlockedCells are also "allow" options
+    setAttr("selectLockedCells", !options.selectLockedCells);
+    setAttr("selectUnlockedCells", !options.selectUnlockedCells);
+
+    if (!password.empty()) {
+        std::string hash = ExcelPasswordHashAsString(password);
+        appendAndSetNodeAttribute(sheetNode, "sheetProtection", "password", hash, XLKeepAttributes, m_nodeOrder);
+    }
+
+    return true;
+}
+
 bool XLWorksheet::protectSheet(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
