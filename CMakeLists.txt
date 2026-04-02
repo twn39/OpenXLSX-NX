@@ -177,14 +177,12 @@ if(OPENXLSX_BUILD_TESTS)
             ${CMAKE_CURRENT_LIST_DIR}/Tests/test.jpg
             ${CMAKE_CURRENT_LIST_DIR}/Tests/shared_formula_test.xlsx
             ${CMAKE_CURRENT_LIST_DIR}/Tests/excelize_macro.xlsm
-            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/Encrypted_Agile.xlsx
             $<TARGET_FILE_DIR:OpenXLSXTests>/Tests/
         COMMAND ${CMAKE_COMMAND} -E copy_if_different 
             ${CMAKE_CURRENT_LIST_DIR}/Tests/test.png 
             ${CMAKE_CURRENT_LIST_DIR}/Tests/test.jpg
             ${CMAKE_CURRENT_LIST_DIR}/Tests/shared_formula_test.xlsx
             ${CMAKE_CURRENT_LIST_DIR}/Tests/excelize_macro.xlsm
-            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/Encrypted_Agile.xlsx
             ${CMAKE_BINARY_DIR}/Tests/
         COMMAND ${CMAKE_COMMAND} -E copy_if_different 
             ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/openpyxl_generated.xlsx
@@ -193,6 +191,13 @@ if(OPENXLSX_BUILD_TESTS)
             ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/tencent_sheet.xlsx
             ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/Encrypted_Agile.xlsx
             ${CMAKE_BINARY_DIR}/Tests/Fixtures/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/openpyxl_generated.xlsx
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/excelize_generated.xlsx
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/google_spreadsheets.xlsx
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/tencent_sheet.xlsx
+            ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/Encrypted_Agile.xlsx
+            $<TARGET_FILE_DIR:OpenXLSXTests>/Tests/Fixtures/
     )
 
 
