@@ -97,12 +97,14 @@ XLThreadedComment XLThreadedComments::addComment(const std::string& ref, const s
     XMLNode root = xmlDocument().document_element();
     if (!root) {
         root = xmlDocument().append_child("ThreadedComments");
-        root.append_attribute("xmlns").set_value("http://schemas.microsoft.com/office/2017/10/threadedcomments");
+        root.append_attribute("xmlns").set_value("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments");
+        root.append_attribute("xmlns:x").set_value("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
     }
     XMLNode commentNode = root.append_child("threadedComment");
     commentNode.append_attribute("ref").set_value(ref.c_str());
-    commentNode.append_attribute("id").set_value(GenerateGUID().c_str());
+    commentNode.append_attribute("dT").set_value("2024-01-01T12:00:00.00");
     commentNode.append_attribute("personId").set_value(personId.c_str());
+    commentNode.append_attribute("id").set_value(GenerateGUID().c_str());
     
     XMLNode textNode = commentNode.append_child("text");
     textNode.text().set(text.c_str());
@@ -115,7 +117,8 @@ XLThreadedComment XLThreadedComments::addReply(const std::string& parentId, cons
     XMLNode root = xmlDocument().document_element();
     if (!root) {
         root = xmlDocument().append_child("ThreadedComments");
-        root.append_attribute("xmlns").set_value("http://schemas.microsoft.com/office/2017/10/threadedcomments");
+        root.append_attribute("xmlns").set_value("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments");
+        root.append_attribute("xmlns:x").set_value("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
     }
     
     // Attempt to find the parent to inherit the ref attribute (though OOXML typically omits or matches it)
@@ -131,9 +134,10 @@ XLThreadedComment XLThreadedComments::addReply(const std::string& parentId, cons
     if (!refStr.empty()) {
         commentNode.append_attribute("ref").set_value(refStr.c_str());
     }
-    commentNode.append_attribute("parentId").set_value(parentId.c_str());
-    commentNode.append_attribute("id").set_value(GenerateGUID().c_str());
+    commentNode.append_attribute("dT").set_value("2024-01-01T12:00:00.00");
     commentNode.append_attribute("personId").set_value(personId.c_str());
+    commentNode.append_attribute("id").set_value(GenerateGUID().c_str());
+    commentNode.append_attribute("parentId").set_value(parentId.c_str());
     
     XMLNode textNode = commentNode.append_child("text");
     textNode.text().set(text.c_str());
@@ -175,7 +179,8 @@ std::string XLPersons::addPerson(const std::string& displayName)
     XMLNode root = xmlDocument().document_element();
     if (!root) {
         root = xmlDocument().append_child("personList");
-        root.append_attribute("xmlns").set_value("http://schemas.microsoft.com/office/2017/10/person");
+        root.append_attribute("xmlns").set_value("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments");
+        root.append_attribute("xmlns:x").set_value("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
     }
 
     // Check if exists

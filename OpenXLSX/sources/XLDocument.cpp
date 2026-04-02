@@ -931,7 +931,7 @@ XLThreadedComments XLDocument::sheetThreadedComments(uint16_t sheetXmlNo)
     std::string commentsFilename = fmt::format("xl/threadedComments/threadedComment{}.xml", sheetXmlNo);
 
     if (!m_archive.hasEntry(commentsFilename)) {
-        m_archive.addEntry(commentsFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+        m_archive.addEntry(commentsFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<ThreadedComments xmlns=\"http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments\" xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"/>");
         m_contentTypes.addOverride("/" + commentsFilename, XLContentType::ThreadedComments);
     }
     constexpr bool DO_NOT_THROW = true;
@@ -1021,7 +1021,7 @@ XLPersons& XLDocument::persons() {
     if (!m_persons.valid()) {
         std::string personsFilename = "xl/persons/person.xml";
         if (!m_archive.hasEntry(personsFilename)) {
-            m_archive.addEntry(personsFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<personList xmlns=\"http://schemas.microsoft.com/office/2017/10/person\"/>");
+            m_archive.addEntry(personsFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<personList xmlns=\"http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments\" xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"/>");
             m_contentTypes.addOverride("/" + personsFilename, XLContentType::Persons);
             m_wbkRelationships.addRelationship(XLRelationshipType::Person, "persons/person.xml");
         }
