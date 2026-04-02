@@ -208,7 +208,7 @@ std::vector<uint8_t> buildCFB(const std::vector<uint8_t>& info, const std::vecto
     putU32(cfb, 0x30, dirLoc); putU32(cfb, 0x38, 0x1000); 
     putU32(cfb, 0x3C, miniFatSectors > 0 ? miniFatLoc : 0xFFFFFFFE); putU32(cfb, 0x40, miniFatSectors); putU32(cfb, 0x44, 0xFFFFFFFE);
     
-    for (int i=0; i<109; i++) putU32(cfb, 0x4C + i*4, i < fatSectors ? fatLocs[i] : 0xFFFFFFFF);
+    for (uint32_t i=0; i<109; i++) putU32(cfb, 0x4C + i*4, i < fatSectors ? fatLocs[i] : 0xFFFFFFFF);
     
 
     auto writeChain = [&](uint32_t startSec, uint32_t numSecs) {
@@ -384,8 +384,8 @@ std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, co
     return buildCFB(info, encPackage);
 }
 
-std::vector<uint8_t> aes256CbcDecrypt(gsl::span<const uint8_t> data, gsl::span<const uint8_t> key, gsl::span<const uint8_t> iv) { return {}; }
-std::vector<uint8_t> sha512Hash(gsl::span<const uint8_t> data) { return {}; }
+std::vector<uint8_t> aes256CbcDecrypt(gsl::span<const uint8_t> /*data*/, gsl::span<const uint8_t> /*key*/, gsl::span<const uint8_t> /*iv*/) { return {}; }
+std::vector<uint8_t> sha512Hash(gsl::span<const uint8_t> /*data*/) { return {}; }
 
 std::vector<uint8_t> generateAgileHash(const std::string& password, gsl::span<const uint8_t> salt, int spinCount) {
     std::vector<uint8_t> utf16pw;
@@ -417,7 +417,7 @@ std::vector<uint8_t> generateAgileHash(const std::string& password, gsl::span<co
 
 std::vector<uint8_t> decryptAgilePackage(gsl::span<const uint8_t> encryptionInfo,
                                          gsl::span<const uint8_t> encryptedPackage,
-                                         const std::string& password) {
+                                         const std::string& /*password*/) {
     if (encryptionInfo.empty() || encryptedPackage.empty()) return std::vector<uint8_t>();
     
     pugi::xml_document doc;
