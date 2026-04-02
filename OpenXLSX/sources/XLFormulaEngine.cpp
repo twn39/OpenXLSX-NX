@@ -846,6 +846,16 @@ void XLFormulaEngine::registerBuiltins()
     m_functions["ROUNDUP"]     = fnRoundup;
     m_functions["ROUNDDOWN"]   = fnRounddown;
     m_functions["SQRT"]        = fnSqrt;
+    m_functions["PI"]          = fnPi;
+    m_functions["SIN"]         = fnSin;
+    m_functions["COS"]         = fnCos;
+    m_functions["TAN"]         = fnTan;
+    m_functions["ASIN"]        = fnAsin;
+    m_functions["ACOS"]        = fnAcos;
+    m_functions["DEGREES"]     = fnDegrees;
+    m_functions["RADIANS"]     = fnRadians;
+    m_functions["RAND"]        = fnRand;
+    m_functions["RANDBETWEEN"] = fnRandbetween;
     m_functions["INT"]         = fnInt;
     m_functions["MOD"]         = fnMod;
     m_functions["POWER"]       = fnPower;
@@ -873,14 +883,20 @@ void XLFormulaEngine::registerBuiltins()
     m_functions["TODAY"]       = fnToday;
     m_functions["NOW"]         = fnNow;
     m_functions["DATE"]        = fnDate;
+    m_functions["TIME"]        = fnTime;
     m_functions["YEAR"]        = fnYear;
     m_functions["MONTH"]       = fnMonth;
     m_functions["DAY"]         = fnDay;
-    m_functions["WEEKDAY"]     = fnWeekday;
-    m_functions["EDATE"]       = fnEdate;
-    m_functions["EOMONTH"]     = fnEomonth;
-    m_functions["WORKDAY"]     = fnWorkday;
-    m_functions["NETWORKDAYS"] = fnNetworkdays;
+    m_functions["HOUR"]        = fnHour;
+    m_functions["MINUTE"]      = fnMinute;
+    m_functions["SECOND"]      = fnSecond;
+    m_functions["DAYS"]         = fnDays;
+    m_functions["_xlfn.DAYS"]   = fnDays;
+    m_functions["WEEKDAY"]      = fnWeekday;
+    m_functions["EDATE"]        = fnEdate;
+    m_functions["EOMONTH"]      = fnEomonth;
+    m_functions["WORKDAY"]      = fnWorkday;
+    m_functions["NETWORKDAYS"]  = fnNetworkdays;
 
     // ---- Financial ----
     m_functions["PMT"] = fnPmt;
@@ -908,15 +924,20 @@ void XLFormulaEngine::registerBuiltins()
     m_functions["T"]          = fnT;
     m_functions["VALUE"]      = fnValue;
     m_functions["TEXTJOIN"]   = fnTextjoin;
+    m_functions["_xlfn.TEXTJOIN"] = fnTextjoin;
     m_functions["CLEAN"]      = fnClean;
     m_functions["PROPER"]     = fnProper;
 
     // ---- Statistical / Conditional ----
-    m_functions["SUMIF"]      = fnSumif;
-    m_functions["COUNTIF"]    = fnCountif;
-    m_functions["SUMIFS"]     = fnSumifs;
-    m_functions["COUNTIFS"]   = fnCountifs;
-    m_functions["AVERAGEIF"]  = fnAverageif;
+    m_functions["SUMIF"]        = fnSumif;
+    m_functions["COUNTIF"]      = fnCountif;
+    m_functions["SUMIFS"]       = fnSumifs;
+    m_functions["COUNTIFS"]     = fnCountifs;
+    m_functions["MAXIFS"]       = fnMaxifs;
+    m_functions["_xlfn.MAXIFS"] = fnMaxifs;
+    m_functions["MINIFS"]       = fnMinifs;
+    m_functions["_xlfn.MINIFS"] = fnMinifs;
+    m_functions["AVERAGEIF"]    = fnAverageif;
     m_functions["RANK"]       = fnRank;
     m_functions["RANK.EQ"]    = fnRank;
     m_functions["LARGE"]      = fnLarge;
@@ -1004,6 +1025,73 @@ XLCellValue XLFormulaEngine::fnSqrt(const std::vector<XLFormulaArg>& args)
     double d = toDouble(args[0][0]);
     if (d < 0.0) return errNum();
     return XLCellValue(std::sqrt(d));
+}
+
+XLCellValue XLFormulaEngine::fnPi(const std::vector<XLFormulaArg>& args)
+{
+    (void)args;
+    return XLCellValue(3.14159265358979323846);
+}
+
+XLCellValue XLFormulaEngine::fnSin(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    return XLCellValue(std::sin(toDouble(args[0][0])));
+}
+
+XLCellValue XLFormulaEngine::fnCos(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    return XLCellValue(std::cos(toDouble(args[0][0])));
+}
+
+XLCellValue XLFormulaEngine::fnTan(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    return XLCellValue(std::tan(toDouble(args[0][0])));
+}
+
+XLCellValue XLFormulaEngine::fnAsin(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    double v = toDouble(args[0][0]);
+    if (v < -1.0 || v > 1.0) return errNum();
+    return XLCellValue(std::asin(v));
+}
+
+XLCellValue XLFormulaEngine::fnAcos(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    double v = toDouble(args[0][0]);
+    if (v < -1.0 || v > 1.0) return errNum();
+    return XLCellValue(std::acos(v));
+}
+
+XLCellValue XLFormulaEngine::fnDegrees(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    return XLCellValue(toDouble(args[0][0]) * 180.0 / 3.14159265358979323846);
+}
+
+XLCellValue XLFormulaEngine::fnRadians(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    return XLCellValue(toDouble(args[0][0]) * 3.14159265358979323846 / 180.0);
+}
+
+XLCellValue XLFormulaEngine::fnRand(const std::vector<XLFormulaArg>& args)
+{
+    (void)args;
+    return XLCellValue(static_cast<double>(std::rand()) / RAND_MAX);
+}
+
+XLCellValue XLFormulaEngine::fnRandbetween(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() < 2 || args[0].empty() || args[1].empty() || !isNumeric(args[0][0]) || !isNumeric(args[1][0])) return errValue();
+    int64_t low = static_cast<int64_t>(std::ceil(toDouble(args[0][0])));
+    int64_t high = static_cast<int64_t>(std::floor(toDouble(args[1][0])));
+    if (low > high) return errNum();
+    return XLCellValue(low + (std::rand() % (high - low + 1)));
 }
 
 XLCellValue XLFormulaEngine::fnInt(const std::vector<XLFormulaArg>& args)
@@ -1731,6 +1819,53 @@ XLCellValue XLFormulaEngine::fnDay(const std::vector<XLFormulaArg>& args)
     return XLCellValue(static_cast<int64_t>(serialToTm(toDouble(args[0][0])).tm_mday));
 }
 
+XLCellValue XLFormulaEngine::fnHour(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    return XLCellValue(static_cast<int64_t>(serialToTm(toDouble(args[0][0])).tm_hour));
+}
+
+XLCellValue XLFormulaEngine::fnMinute(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    return XLCellValue(static_cast<int64_t>(serialToTm(toDouble(args[0][0])).tm_min));
+}
+
+XLCellValue XLFormulaEngine::fnSecond(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty() || !isNumeric(args[0][0])) return errValue();
+    return XLCellValue(static_cast<int64_t>(serialToTm(toDouble(args[0][0])).tm_sec));
+}
+
+XLCellValue XLFormulaEngine::fnTime(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() < 3 || args[0].empty() || args[1].empty() || args[2].empty()) return errValue();
+    if (!isNumeric(args[0][0]) || !isNumeric(args[1][0]) || !isNumeric(args[2][0])) return errValue();
+    
+    int64_t h = static_cast<int64_t>(toDouble(args[0][0]));
+    int64_t m = static_cast<int64_t>(toDouble(args[1][0]));
+    int64_t s = static_cast<int64_t>(toDouble(args[2][0]));
+    
+    double fraction = (h * 3600.0 + m * 60.0 + s) / 86400.0;
+    
+    // Normalize to 0-1
+    fraction = fraction - std::floor(fraction);
+    if (fraction < 0) fraction += 1.0;
+    
+    return XLCellValue(fraction);
+}
+
+XLCellValue XLFormulaEngine::fnDays(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() < 2 || args[0].empty() || args[1].empty()) return errValue();
+    if (!isNumeric(args[0][0]) || !isNumeric(args[1][0])) return errValue();
+    
+    double end_date = toDouble(args[0][0]);
+    double start_date = toDouble(args[1][0]);
+    
+    return XLCellValue(end_date - start_date);
+}
+
 XLCellValue XLFormulaEngine::fnWeekday(const std::vector<XLFormulaArg>& args)
 {
     // WEEKDAY(serial, [return_type])
@@ -2227,6 +2362,76 @@ XLCellValue XLFormulaEngine::fnCountifs(const std::vector<XLFormulaArg>& args)
         if (match) ++cnt;
     }
     return XLCellValue(cnt);
+}
+
+XLCellValue XLFormulaEngine::fnMaxifs(const std::vector<XLFormulaArg>& args)
+{
+    // MAXIFS(max_range, crit_range1, crit1, crit_range2, crit2, ...)
+    if (args.size() < 3 || args[0].empty()) return errValue();
+    const auto& maxRange = args[0];
+    double      maxVal   = -std::numeric_limits<double>::infinity();
+    bool        found    = false;
+    for (std::size_t i = 0; i < maxRange.size(); ++i) {
+        bool match = true;
+        for (std::size_t p = 1; p + 1 < args.size(); p += 2) {
+            if (args[p].empty() || args[p + 1].empty()) {
+                match = false;
+                break;
+            }
+            if (i >= args[p].size()) {
+                match = false;
+                break;
+            }
+            if (!matchesCriteria(args[p][i], toString(args[p + 1][0]))) {
+                match = false;
+                break;
+            }
+        }
+        if (match && isNumeric(maxRange[i])) {
+            double v = toDouble(maxRange[i]);
+            if (!found || v > maxVal) {
+                maxVal = v;
+                found  = true;
+            }
+        }
+    }
+    if (!found) return XLCellValue(0.0);
+    return XLCellValue(maxVal);
+}
+
+XLCellValue XLFormulaEngine::fnMinifs(const std::vector<XLFormulaArg>& args)
+{
+    // MINIFS(min_range, crit_range1, crit1, crit_range2, crit2, ...)
+    if (args.size() < 3 || args[0].empty()) return errValue();
+    const auto& minRange = args[0];
+    double      minVal   = std::numeric_limits<double>::infinity();
+    bool        found    = false;
+    for (std::size_t i = 0; i < minRange.size(); ++i) {
+        bool match = true;
+        for (std::size_t p = 1; p + 1 < args.size(); p += 2) {
+            if (args[p].empty() || args[p + 1].empty()) {
+                match = false;
+                break;
+            }
+            if (i >= args[p].size()) {
+                match = false;
+                break;
+            }
+            if (!matchesCriteria(args[p][i], toString(args[p + 1][0]))) {
+                match = false;
+                break;
+            }
+        }
+        if (match && isNumeric(minRange[i])) {
+            double v = toDouble(minRange[i]);
+            if (!found || v < minVal) {
+                minVal = v;
+                found  = true;
+            }
+        }
+    }
+    if (!found) return XLCellValue(0.0);
+    return XLCellValue(minVal);
 }
 
 XLCellValue XLFormulaEngine::fnAverageif(const std::vector<XLFormulaArg>& args)
