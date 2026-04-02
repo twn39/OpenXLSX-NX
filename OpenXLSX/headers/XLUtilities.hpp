@@ -236,6 +236,10 @@ namespace OpenXLSX
                 return "Comments";
             case XLContentType::Table:
                 return "Table";
+            case XLContentType::ThreadedComments:
+                return "ThreadedComments";
+            case XLContentType::Persons:
+                return "Persons";
             case XLContentType::Hyperlink:
                 return "Hyperlink";
             case XLContentType::Unknown:
@@ -314,6 +318,10 @@ namespace OpenXLSX
                 return "Comments";
             case XLRelationshipType::Table:
                 return "Table";
+            case XLRelationshipType::ThreadedComments:
+                return "ThreadedComments";
+            case XLRelationshipType::Person:
+                return "Person";
             case XLRelationshipType::Hyperlink:
                 return "Hyperlink";
             case XLRelationshipType::Unknown:

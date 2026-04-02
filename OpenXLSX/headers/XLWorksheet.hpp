@@ -29,6 +29,7 @@
 #    include "XLStreamReader.hpp"
 #    include "XLStreamWriter.hpp"
 #    include "XLTables.hpp"
+#    include "XLThreadedComments.hpp"
 
 namespace OpenXLSX
 {
@@ -388,6 +389,7 @@ namespace OpenXLSX
         bool hasDrawing() const;
         bool hasVmlDrawing() const;
         bool hasComments() const;
+        bool hasThreadedComments() const;
         bool hasTables() const;
 
         XLDrawing& drawing();
@@ -455,6 +457,7 @@ namespace OpenXLSX
 
         XLVmlDrawing& vmlDrawing();
         XLComments&   comments();
+        XLThreadedComments& threadedComments();
         /**
          * @brief Add a comment to a cell seamlessly.
          * @param cellRef The cell reference (e.g. A1).
@@ -547,6 +550,7 @@ namespace OpenXLSX
         XLDrawing                                          m_drawing{};
         XLVmlDrawing                                       m_vmlDrawing{};
         XLComments                                         m_comments{};
+        XLThreadedComments                                 m_threadedComments{};
         XLTableCollection                                  m_tables{};
         inline static const std::vector<std::string_view>& m_nodeOrder = XLWorksheetNodeOrder;
     };

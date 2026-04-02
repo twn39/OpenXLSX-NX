@@ -87,7 +87,9 @@ namespace OpenXLSX
         Slicer,
         SlicerCache,
         PivotCacheDefinition,
-        PivotCacheRecords
+        PivotCacheRecords,
+        ThreadedComments,
+        Person
     };
 }    //     namespace OpenXLSX
 

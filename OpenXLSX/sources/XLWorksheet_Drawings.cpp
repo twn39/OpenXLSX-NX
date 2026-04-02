@@ -11,6 +11,7 @@ bool XLWorksheet::hasRelationships() const { return parentDoc().hasSheetRelation
 bool XLWorksheet::hasDrawing() const { return parentDoc().hasSheetDrawing(sheetXmlNumber()); }
 bool XLWorksheet::hasVmlDrawing() const { return parentDoc().hasSheetVmlDrawing(sheetXmlNumber()); }
 bool XLWorksheet::hasComments() const { return parentDoc().hasSheetComments(sheetXmlNumber()); }
+bool XLWorksheet::hasThreadedComments() const { return parentDoc().hasSheetThreadedComments(sheetXmlNumber()); }
 bool XLWorksheet::hasTables() const { return parentDoc().hasSheetTables(sheetXmlNumber()); }
 
 XLRelationships& XLWorksheet::relationships()
@@ -174,6 +175,23 @@ XLComments& XLWorksheet::comments()
     }
 
     return m_comments;
+}
+
+XLThreadedComments& XLWorksheet::threadedComments()
+{
+    if (!m_threadedComments.valid()) {
+        std::ignore        = relationships();
+        uint16_t sheetXmlNo = sheetXmlNumber();
+        m_threadedComments  = parentDoc().sheetThreadedComments(sheetXmlNo);
+        if (!m_threadedComments.valid()) throw XLException("XLWorksheet::threadedComments(): could not create threadedComments XML");
+
+        std::string commentsPath         = m_threadedComments.getXmlPath();
+        std::string commentsRelativePath = getPathARelativeToPathB(commentsPath, getXmlPath());
+
+        if (!m_relationships.targetExists(commentsRelativePath))
+            m_relationships.addRelationship(XLRelationshipType::ThreadedComments, commentsRelativePath);
+    }
+    return m_threadedComments;
 }
 
 XLTableCollection& XLWorksheet::tables()

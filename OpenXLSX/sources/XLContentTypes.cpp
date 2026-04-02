@@ -46,6 +46,8 @@ namespace
             return XLContentType::PivotCacheDefinition;
         if (typeString == "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml")
             return XLContentType::PivotCacheRecords;
+        if (typeString == "application/vnd.ms-excel.threadedcomments+xml") return XLContentType::ThreadedComments;
+        if (typeString == "application/vnd.ms-excel.person+xml") return XLContentType::Persons;
         if (typeString == "application/vnd.openxmlformats-package.core-properties+xml") return XLContentType::CoreProperties;
         if (typeString == "application/vnd.openxmlformats-officedocument.extended-properties+xml") return XLContentType::ExtendedProperties;
         if (typeString == "application/vnd.openxmlformats-officedocument.custom-properties+xml") return XLContentType::CustomProperties;
@@ -101,7 +103,10 @@ namespace
                 return "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml";
             case XLContentType::PivotCacheRecords:
                 return "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml";
-            case XLContentType::CoreProperties:
+            case XLContentType::ThreadedComments:
+                return "application/vnd.ms-excel.threadedcomments+xml";
+            case XLContentType::Persons:
+                return "application/vnd.ms-excel.person+xml";            case XLContentType::CoreProperties:
                 return "application/vnd.openxmlformats-package.core-properties+xml";
             case XLContentType::ExtendedProperties:
                 return "application/vnd.openxmlformats-officedocument.extended-properties+xml";

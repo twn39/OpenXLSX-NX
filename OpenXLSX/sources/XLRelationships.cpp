@@ -73,6 +73,7 @@ namespace
     const std::string relationshipDomainOpenXml2006CoreProps = "http://schemas.openxmlformats.org/package/2006";
     const std::string relationshipDomainMicrosoft2006        = "http://schemas.microsoft.com/office/2006";
     const std::string relationshipDomainMicrosoft2011        = "http://schemas.microsoft.com/office/2011";
+    const std::string relationshipDomainMicrosoft2017        = "http://schemas.microsoft.com/office/2017/10";
 
     /**
      * @note 2024-08-31: Included a "dumb" fallback solution in relationship tests to support
@@ -120,6 +121,9 @@ namespace
         if (matches(relationshipDomainMicrosoft2011, "/relationships/chartColorStyle")) return XLRelationshipType::ChartColorStyle;
         if (matches(relationshipDomainOpenXml2006, "/relationships/comments")) return XLRelationshipType::Comments;
         if (matches(relationshipDomainOpenXml2006, "/relationships/table")) return XLRelationshipType::Table;
+
+        if (matches(relationshipDomainMicrosoft2017, "/relationships/threadedComment")) return XLRelationshipType::ThreadedComments;
+        if (matches(relationshipDomainMicrosoft2017, "/relationships/person")) return XLRelationshipType::Person;
 
         return XLRelationshipType::Unknown;
     }
@@ -180,6 +184,10 @@ namespace OpenXLSX_XLRelationships
                 return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition";
             case XLRelationshipType::PivotCacheRecords:
                 return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords";
+            case XLRelationshipType::ThreadedComments:
+                return "http://schemas.microsoft.com/office/2017/10/relationships/threadedComment";
+            case XLRelationshipType::Person:
+                return "http://schemas.microsoft.com/office/2017/10/relationships/person";
             case XLRelationshipType::ChartStyle:
                 return "http://schemas.microsoft.com/office/2011/relationships/chartStyle";
             case XLRelationshipType::ChartColorStyle:

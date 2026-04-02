@@ -57,6 +57,7 @@ XLWorksheet::XLWorksheet(const XLWorksheet& other) : XLSheetBase<XLWorksheet>(ot
     m_drawing         = other.m_drawing;
     m_vmlDrawing      = other.m_vmlDrawing;
     m_comments        = other.m_comments;
+    m_threadedComments = other.m_threadedComments;
     m_tables          = other.m_tables;
 }
 
@@ -68,6 +69,7 @@ XLWorksheet::XLWorksheet(XLWorksheet&& other) : XLSheetBase<XLWorksheet>(std::mo
     m_drawing         = std::move(other.m_drawing);
     m_vmlDrawing      = std::move(other.m_vmlDrawing);
     m_comments        = std::move(other.m_comments);
+    m_threadedComments = std::move(other.m_threadedComments);
     m_tables          = std::move(other.m_tables);
 }
 
@@ -81,6 +83,7 @@ XLWorksheet& XLWorksheet::operator=(const XLWorksheet& other)
         m_drawing         = other.m_drawing;
         m_vmlDrawing      = other.m_vmlDrawing;
         m_comments        = other.m_comments;
+        m_threadedComments = other.m_threadedComments;
         m_tables          = other.m_tables;
     }
     return *this;
@@ -96,6 +99,7 @@ XLWorksheet& XLWorksheet::operator=(XLWorksheet&& other)
         m_drawing         = std::move(other.m_drawing);
         m_vmlDrawing      = std::move(other.m_vmlDrawing);
         m_comments        = std::move(other.m_comments);
+        m_threadedComments = std::move(other.m_threadedComments);
         m_tables          = std::move(other.m_tables);
     }
     return *this;

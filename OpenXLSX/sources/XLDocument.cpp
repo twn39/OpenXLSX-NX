@@ -170,13 +170,14 @@ void XLDocument::open(std::string_view fileName)
 
         bool isWorkbookPath = (item.path().substr(1) == workbookPath);    // determine once, use thrice
         if (!isWorkbookPath and item.path().substr(0, 4) == "/xl/") {
-            if ((item.path().substr(4, 7) == "comment") or (item.path().substr(4, 12) == "tables/table") ||
+            if ((item.path().substr(4, 7) == "comment") or (item.path().substr(4, 15) == "threadedComment") or (item.path().substr(4, 12) == "tables/table") ||
                 (item.path().substr(4, 19) == "drawings/vmlDrawing") or (item.path().substr(4, 22) == "worksheets/_rels/sheet"))
             {
                 // no-op - worksheet dependencies will be loaded on access through the worksheet
             }
             else if ((item.path().substr(4, 16) == "worksheets/sheet") or (item.path().substr(4) == "sharedStrings.xml") ||
-                     (item.path().substr(4) == "styles.xml") or (item.path().substr(4, 11) == "theme/theme"))
+                     (item.path().substr(4) == "styles.xml") or (item.path().substr(4, 11) == "theme/theme") ||
+                     (item.path().substr(4, 14) == "persons/person"))
             {
                 m_data.emplace_back(/* parentDoc */ this,
                                     /* xmlPath   */ item.path().substr(1),
@@ -303,6 +304,11 @@ void XLDocument::open(std::string_view fileName)
     else {
         m_sharedStrings = XLSharedStrings();
     }
+
+    if (getXmlData("xl/persons/person.xml", true)) {
+        m_persons = XLPersons(getXmlData("xl/persons/person.xml"));
+    }
+
     m_styles = XLStyles(getXmlData("xl/styles.xml"), m_suppressWarnings);    // 2024-10-14: forward supress warnings setting to XLStyles
 }
 
@@ -403,6 +409,7 @@ void XLDocument::close()
     m_sharedStringCache.clear();
     m_sharedStringIndex.clear();
     m_sharedStrings    = XLSharedStrings();
+    m_persons          = XLPersons();
     m_docRelationships = XLRelationships();
     m_wbkRelationships = XLRelationships();
     m_contentTypes     = XLContentTypes();
@@ -716,6 +723,12 @@ bool XLDocument::hasSheetComments(uint16_t sheetXmlNo) const
     return m_archive.hasEntry(fmt::format("xl/comments{}.xml", sheetXmlNo));
 }
 
+bool XLDocument::hasSheetThreadedComments(uint16_t sheetXmlNo) const
+{
+    using namespace std::literals::string_literals;
+    return m_archive.hasEntry(fmt::format("xl/threadedComments/threadedComment{}.xml", sheetXmlNo));
+}
+
 /**
  * @details Probes the archive index for table definitions, delaying XML parsing until table data is explicitly requested.
  */
@@ -912,6 +925,22 @@ XLComments XLDocument::sheetComments(uint16_t sheetXmlNo)
 /**
  * @details Bootstraps or retrieves the table registry for a sheet, facilitating structured data manipulation and formatting.
  */
+XLThreadedComments XLDocument::sheetThreadedComments(uint16_t sheetXmlNo)
+{
+    using namespace std::literals::string_literals;
+    std::string commentsFilename = fmt::format("xl/threadedComments/threadedComment{}.xml", sheetXmlNo);
+
+    if (!m_archive.hasEntry(commentsFilename)) {
+        m_archive.addEntry(commentsFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+        m_contentTypes.addOverride("/" + commentsFilename, XLContentType::ThreadedComments);
+    }
+    constexpr bool DO_NOT_THROW = true;
+    XLXmlData*     xmlData      = getXmlData(commentsFilename, DO_NOT_THROW);
+    if (xmlData == nullptr) xmlData = &m_data.emplace_back(this, commentsFilename, "", XLContentType::ThreadedComments);
+
+    return XLThreadedComments(xmlData);
+}
+
 XLTableCollection XLDocument::sheetTables(uint16_t sheetXmlNo)
 {
     using namespace std::literals::string_literals;
@@ -986,6 +1015,9 @@ bool XLDocument::validateSheetName(std::string_view sheetName, bool throwOnInval
  * @details Overrides the default XML header attributes, allowing consumers to dictate XML standalone status or encoding during
  * serialization.
  */
+bool XLDocument::hasPersons() const { return m_persons.valid(); }
+XLPersons& XLDocument::persons() { return m_persons; }
+
 void XLDocument::setSavingDeclaration(XLXmlSavingDeclaration const& savingDeclaration) { m_xmlSavingDeclaration = savingDeclaration; }
 
 /**

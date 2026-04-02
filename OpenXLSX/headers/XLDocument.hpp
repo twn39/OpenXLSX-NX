@@ -32,6 +32,7 @@
 #include "XLStringArena.hpp"
 #include "XLStyles.hpp"
 #include "XLTables.hpp"
+#include "XLThreadedComments.hpp"
 #include "XLWorkbook.hpp"
 #include "XLXmlData.hpp"
 #include "XLZipArchive.hpp"
@@ -259,6 +260,7 @@ namespace OpenXLSX
         [[nodiscard]] bool hasSheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false) const;
         [[nodiscard]] bool hasSheetVmlDrawing(uint16_t sheetXmlNo) const;
         [[nodiscard]] bool hasSheetComments(uint16_t sheetXmlNo) const;
+        [[nodiscard]] bool hasSheetThreadedComments(uint16_t sheetXmlNo) const;
         [[nodiscard]] bool hasSheetDrawing(uint16_t sheetXmlNo) const;
         [[nodiscard]] bool hasSheetTables(uint16_t sheetXmlNo) const;
 
@@ -268,6 +270,7 @@ namespace OpenXLSX
         XLDrawing       drawing(std::string_view path);
         XLVmlDrawing    sheetVmlDrawing(uint16_t sheetXmlNo);
         XLComments      sheetComments(uint16_t sheetXmlNo);
+        XLThreadedComments sheetThreadedComments(uint16_t sheetXmlNo);
         XLTables        sheetTables(uint16_t sheetXmlNo);
 
         class XLChart createChart(XLChartType type = XLChartType::Bar);
@@ -353,6 +356,16 @@ namespace OpenXLSX
         [[nodiscard]] const XLSharedStrings& sharedStrings() const { return m_sharedStrings; }
 
         /**
+         * @brief Check if the document has a persons metadata file.
+         */
+        bool hasPersons() const;
+
+        /**
+         * @brief Access the persons metadata for threaded comments.
+         */
+        XLPersons& persons();
+
+        /**
          * @brief Prune unused strings from the SST and reindex referencing cells.
          * Essential for minimizing file size and memory footprint in long-lived or large documents.
          */
@@ -421,6 +434,7 @@ namespace OpenXLSX
         XLCustomProperties m_customProperties{};
         XLStyles           m_styles{};
         XLWorkbook         m_workbook{};
+        XLPersons          m_persons{};
         IZipArchive        m_archive{};
     };
 
