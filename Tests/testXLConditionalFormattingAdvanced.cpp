@@ -108,3 +108,85 @@ TEST_CASE("Conditional Formatting Advanced Features and OOXML Validation", "[Con
 
     doc.close();
 }
+
+TEST_CASE("Conditional Formatting Advanced DataBar Extensions", "[ConditionalFormatting][OOXML]")
+{
+    XLDocument doc;
+    doc.create("CF_DataBar_Advanced_Test.xlsx", XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    auto rule = XLDataBarRule(XLColor(0, 255, 0));
+    auto dataBar = rule.dataBar();
+    dataBar.setGradient(false);
+    dataBar.setBorder(true);
+    dataBar.setBorderColor(XLColor(0, 0, 255));
+    dataBar.setDirection(XLDataBarDirection::RightToLeft);
+    dataBar.setMinLength(15);
+    dataBar.setMaxLength(85);
+    dataBar.setNegativeFillColor(XLColor(255, 0, 0));
+    dataBar.setNegativeBorderColor(XLColor(255, 255, 0));
+    dataBar.setAxisPosition(XLDataBarAxisPosition::Middle);
+    dataBar.setAxisColor(XLColor(128, 128, 128));
+
+    wks.addConditionalFormatting("A1:A10", rule);
+    
+    // Now verify
+    auto cfList = wks.conditionalFormats();
+    REQUIRE(cfList.count() == 1);
+    auto ruleNode = cfList[0].cfRules()[0].node();
+    
+    // Check local extLst (fake GUID insertion)
+    auto localExtLst = ruleNode.child("extLst");
+    REQUIRE(localExtLst.empty() == false);
+    auto localExt = localExtLst.child("ext");
+    REQUIRE(std::string(localExt.attribute("uri").value()) == "{B025F937-C7B1-47D3-B67F-A62EFF666E3E}");
+    auto x14id = localExt.child("x14:id");
+    REQUIRE(x14id.empty() == false);
+    std::string assignedId = x14id.text().get();
+    
+    // Check worksheet-level extLst
+    auto wsNode = wks.xmlDocument().document_element();
+    auto wsExtLst = wsNode.child("extLst");
+    REQUIRE(wsExtLst.empty() == false);
+    
+    XMLNode wsExt;
+    for (auto e = wsExtLst.child("ext"); e; e = e.next_sibling("ext")) {
+        if (std::string(e.attribute("uri").value()) == "{78C0D931-6437-407d-A8EE-F0AAD7539E65}") {
+            wsExt = e;
+            break;
+        }
+    }
+    REQUIRE(wsExt.empty() == false);
+    
+    auto condFmts = wsExt.child("x14:conditionalFormattings");
+    auto condFmt = condFmts.child("x14:conditionalFormatting");
+    REQUIRE(condFmt.empty() == false);
+    REQUIRE(std::string(condFmt.child("xm:sqref").text().get()) == "A1:A10");
+    
+    auto x14cfRule = condFmt.child("x14:cfRule");
+    REQUIRE(std::string(x14cfRule.attribute("id").value()) == assignedId);
+    
+    auto x14DataBar = x14cfRule.child("x14:dataBar");
+    REQUIRE(x14DataBar.empty() == false);
+    REQUIRE(std::string(x14DataBar.attribute("gradient").value()) == "0");
+    REQUIRE(std::string(x14DataBar.attribute("border").value()) == "1");
+    REQUIRE(std::string(x14DataBar.attribute("direction").value()) == "rightToLeft");
+    REQUIRE(x14DataBar.attribute("minLength").as_int() == 15);
+    REQUIRE(x14DataBar.attribute("maxLength").as_int() == 85);
+    REQUIRE(std::string(x14DataBar.attribute("axisPosition").value()) == "middle");
+    
+    auto borderColor = x14DataBar.child("x14:borderColor");
+    REQUIRE(std::string(borderColor.attribute("rgb").value()) == "FF0000FF");
+    
+    auto negativeFill = x14DataBar.child("x14:negativeFillColor");
+    REQUIRE(std::string(negativeFill.attribute("rgb").value()) == "FFFF0000");
+
+    auto negativeBorder = x14DataBar.child("x14:negativeBorderColor");
+    REQUIRE(std::string(negativeBorder.attribute("rgb").value()) == "FFFFFF00");
+
+    auto axisColor = x14DataBar.child("x14:axisColor");
+    REQUIRE(std::string(axisColor.attribute("rgb").value()) == "FF808080");
+
+    doc.save();
+    doc.close();
+}
