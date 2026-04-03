@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
-project(OpenXLSX-NX VERSION 1.6.1 LANGUAGES CXX)
+project(OpenXLSX-NX VERSION 1.7.0 LANGUAGES CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)

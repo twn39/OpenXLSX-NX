@@ -341,7 +341,7 @@ void XLAppProperties::createFromTemplate(XMLDocument const& workbookXml)
     props.append_child("LinksUpToDate").text().set(false);
     props.append_child("SharedDoc").text().set(false);
     props.append_child("HyperlinksChanged").text().set(false);
-    props.append_child("AppVersion").text().set("1.0");
+    props.append_child("AppVersion").text().set("1.7");
 }
 
 /**
