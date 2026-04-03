@@ -1003,10 +1003,8 @@ void XLDrawing::addShape(uint32_t row, uint32_t col, const XLVectorShapeOptions&
     }
 
     XMLNode sp = anchor.append_child("xdr:sp");
-    if (!options.macro.empty()) {
-        sp.append_attribute("macro").set_value(options.macro.c_str());
-        sp.append_attribute("textlink").set_value("");
-    }
+    sp.append_attribute("macro").set_value(options.macro.empty() ? "" : options.macro.c_str());
+    sp.append_attribute("textlink").set_value("");
 
     XMLNode nvSpPr     = sp.append_child("xdr:nvSpPr");
     XMLNode cNvPr      = nvSpPr.append_child("xdr:cNvPr");
@@ -1104,7 +1102,11 @@ void XLDrawing::addShape(uint32_t row, uint32_t col, const XLVectorShapeOptions&
                 
                 if (run.fontColor().has_value()) {
                     XMLNode solidFill = rPrNode.append_child("a:solidFill");
-                    solidFill.append_child("a:srgbClr").append_attribute("val").set_value(run.fontColor()->hex().c_str());
+                    std::string hexColor = run.fontColor()->hex();
+                    if (hexColor.length() == 8) {
+                        hexColor = hexColor.substr(2); // Strip ARGB alpha channel -> RGB
+                    }
+                    solidFill.append_child("a:srgbClr").append_attribute("val").set_value(hexColor.c_str());
                 }
                 
                 XMLNode tNode = rNode.append_child("a:t");
