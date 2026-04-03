@@ -964,7 +964,7 @@ std::string vectorShapeTypeToString(XLVectorShapeType type)
         case XLVectorShapeType::FlowChartDocument:
             return "flowChartDocument";
         case XLVectorShapeType::FlowChartData:
-            return "flowChartData";
+            return "flowChartInputOutput";
         default:
             return "rect";
     }
