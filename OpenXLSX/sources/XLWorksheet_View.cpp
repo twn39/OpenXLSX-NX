@@ -268,3 +268,125 @@ XLHeaderFooter XLWorksheet::headerFooter() const
     if (node.empty()) node = appendAndGetNode(rootNode, "headerFooter", m_nodeOrder);
     return XLHeaderFooter(node);
 }
+
+void XLWorksheet::insertColBreak(uint16_t col)
+{
+    auto docElement = xmlDocument().document_element();
+    auto colBreaks  = docElement.child("colBreaks");
+    if (colBreaks.empty()) {
+        colBreaks = appendAndGetNode(docElement, "colBreaks", m_nodeOrder);
+        colBreaks.append_attribute("count").set_value(0);
+        colBreaks.append_attribute("manualBreakCount").set_value(0);
+    }
+    for (auto brk : colBreaks.children("brk"))
+        if (brk.attribute("id").as_uint() == col) return;
+    auto brk = colBreaks.append_child("brk");
+    brk.append_attribute("id").set_value(col);
+    brk.append_attribute("max").set_value(1048575);
+    brk.append_attribute("man").set_value("1");
+    uint32_t count = colBreaks.attribute("count").as_uint(0) + 1;
+    colBreaks.attribute("count").set_value(count);
+    uint32_t manualCount = colBreaks.attribute("manualBreakCount").as_uint(0) + 1;
+    colBreaks.attribute("manualBreakCount").set_value(manualCount);
+}
+
+void XLWorksheet::removeColBreak(uint16_t col)
+{
+    auto docElement = xmlDocument().document_element();
+    auto colBreaks  = docElement.child("colBreaks");
+    if (colBreaks.empty()) return;
+    for (auto brk : colBreaks.children("brk")) {
+        if (brk.attribute("id").as_uint() == col) {
+            colBreaks.remove_child(brk);
+            uint32_t count = colBreaks.attribute("count").as_uint(1) - 1;
+            colBreaks.attribute("count").set_value(count);
+            uint32_t manualCount = colBreaks.attribute("manualBreakCount").as_uint(1) - 1;
+            colBreaks.attribute("manualBreakCount").set_value(manualCount);
+            if (count == 0) docElement.remove_child(colBreaks);
+            return;
+        }
+    }
+}
+
+void XLWorksheet::setSheetViewMode(std::string_view mode)
+{
+    auto docElement = xmlDocument().document_element();
+    auto sheetViews = docElement.child("sheetViews");
+    if (sheetViews.empty()) { sheetViews = appendAndGetNode(docElement, "sheetViews", m_nodeOrder); }
+    auto sheetView = sheetViews.child("sheetView");
+    if (sheetView.empty()) {
+        sheetView = sheetViews.append_child("sheetView");
+        sheetView.append_attribute("workbookViewId").set_value(0);
+    }
+    appendAndSetAttribute(sheetView, "view", std::string(mode));
+}
+
+std::string XLWorksheet::sheetViewMode() const
+{
+    auto docElement = xmlDocument().document_element();
+    auto sheetView = docElement.child("sheetViews").child("sheetView");
+    auto attr = sheetView.attribute("view");
+    return attr.empty() ? "normal" : attr.value();
+}
+
+void XLWorksheet::setShowGridLines(bool show)
+{
+    auto docElement = xmlDocument().document_element();
+    auto sheetViews = docElement.child("sheetViews");
+    if (sheetViews.empty()) { sheetViews = appendAndGetNode(docElement, "sheetViews", m_nodeOrder); }
+    auto sheetView = sheetViews.child("sheetView");
+    if (sheetView.empty()) {
+        sheetView = sheetViews.append_child("sheetView");
+        sheetView.append_attribute("workbookViewId").set_value(0);
+    }
+    appendAndSetAttribute(sheetView, "showGridLines", show ? "1" : "0");
+}
+
+bool XLWorksheet::showGridLines() const
+{
+    auto docElement = xmlDocument().document_element();
+    auto attr = docElement.child("sheetViews").child("sheetView").attribute("showGridLines");
+    return attr.empty() ? true : attr.as_bool();
+}
+
+void XLWorksheet::setShowRowColHeaders(bool show)
+{
+    auto docElement = xmlDocument().document_element();
+    auto sheetViews = docElement.child("sheetViews");
+    if (sheetViews.empty()) { sheetViews = appendAndGetNode(docElement, "sheetViews", m_nodeOrder); }
+    auto sheetView = sheetViews.child("sheetView");
+    if (sheetView.empty()) {
+        sheetView = sheetViews.append_child("sheetView");
+        sheetView.append_attribute("workbookViewId").set_value(0);
+    }
+    appendAndSetAttribute(sheetView, "showRowColHeaders", show ? "1" : "0");
+}
+
+bool XLWorksheet::showRowColHeaders() const
+{
+    auto docElement = xmlDocument().document_element();
+    auto attr = docElement.child("sheetViews").child("sheetView").attribute("showRowColHeaders");
+    return attr.empty() ? true : attr.as_bool();
+}
+
+void XLWorksheet::fitToPages(uint32_t fitToWidth, uint32_t fitToHeight)
+{
+    auto docElement = xmlDocument().document_element();
+    
+    // Enable fitToPage in sheetPr -> pageSetUpPr
+    auto sheetPr = docElement.child("sheetPr");
+    if (sheetPr.empty()) { sheetPr = docElement.prepend_child("sheetPr"); }
+    auto pageSetUpPr = sheetPr.child("pageSetUpPr");
+    if (pageSetUpPr.empty()) { pageSetUpPr = sheetPr.append_child("pageSetUpPr"); }
+    appendAndSetAttribute(pageSetUpPr, "fitToPage", "1");
+    
+    // Set actual values in pageSetup and remove scale to prevent conflict
+    auto ps = pageSetup();
+    ps.setFitToWidth(fitToWidth);
+    ps.setFitToHeight(fitToHeight);
+    
+    auto pageSetupNode = docElement.child("pageSetup");
+    if (!pageSetupNode.empty()) {
+        pageSetupNode.remove_attribute("scale");
+    }
+}

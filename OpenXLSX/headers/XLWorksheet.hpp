@@ -519,7 +519,20 @@ namespace OpenXLSX
         [[nodiscard]] uint16_t zoom() const;
 
         void insertRowBreak(uint32_t row);
+        void insertColBreak(uint16_t col);
         void removeRowBreak(uint32_t row);
+        void removeColBreak(uint16_t col);
+
+        void                   setSheetViewMode(std::string_view mode);
+        [[nodiscard]] std::string sheetViewMode() const;
+
+        void                   setShowGridLines(bool show);
+        [[nodiscard]] bool     showGridLines() const;
+
+        void                   setShowRowColHeaders(bool show);
+        [[nodiscard]] bool     showRowColHeaders() const;
+
+        void fitToPages(uint32_t fitToWidth, uint32_t fitToHeight);
 
         [[nodiscard]] static std::string makeInternalLocation(std::string_view sheetName, std::string_view cellRef);
 
