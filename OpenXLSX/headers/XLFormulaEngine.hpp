@@ -472,6 +472,50 @@ namespace OpenXLSX
         static XLCellValue fnIsna(const std::vector<XLFormulaArg>& args);
         static XLCellValue fnIfna(const std::vector<XLFormulaArg>& args);
         static XLCellValue fnIslogical(const std::vector<XLFormulaArg>& args);
+
+        // ---- Easy Additions (Logical, Math, Stat, Text, Financial) ----
+        static XLCellValue fnTrue(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnFalse(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnIseven(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnIsodd(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnMround(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnCeilingMath(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnFloorMath(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnVarp(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnStdevp(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnVara(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnVarpa(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnStdeva(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnStdevpa(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnPermut(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnPermutationa(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnFisher(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnFisherinv(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnStandardize(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnPearson(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnRsq(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnAverageifs(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnIsoweeknum(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnWeeknum(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnDays360(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnNper(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnDb(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnDdb(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnIserr(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnTrunc(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnSumsq(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnSumx2my2(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnSumx2py2(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnSumxmy2(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnAvedev(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnDevsq(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnAveragea(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnSln(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnSyd(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnChar(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnUnichar(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnCode(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnUnicode(const std::vector<XLFormulaArg>& args);
     };
 
 }    // namespace OpenXLSX

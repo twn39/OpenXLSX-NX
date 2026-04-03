@@ -953,6 +953,54 @@ void XLFormulaEngine::registerBuiltins()
     m_functions["ISNA"]      = fnIsna;
     m_functions["IFNA"]      = fnIfna;
     m_functions["ISLOGICAL"] = fnIslogical;
+
+    // ---- Easy Additions ----
+    m_functions["TRUE"]            = fnTrue;
+    m_functions["FALSE"]           = fnFalse;
+    m_functions["ISEVEN"]          = fnIseven;
+    m_functions["ISODD"]           = fnIsodd;
+    m_functions["MROUND"]          = fnMround;
+    m_functions["CEILING.MATH"]    = fnCeilingMath;
+    m_functions["_xlfn.CEILING.MATH"] = fnCeilingMath;
+    m_functions["FLOOR.MATH"]      = fnFloorMath;
+    m_functions["_xlfn.FLOOR.MATH"]= fnFloorMath;
+    m_functions["VAR.P"]           = fnVarp;
+    m_functions["_xlfn.VAR.P"]     = fnVarp;
+    m_functions["VARP"]            = fnVarp;
+    m_functions["STDEV.P"]         = fnStdevp;
+    m_functions["_xlfn.STDEV.P"]   = fnStdevp;
+    m_functions["STDEVP"]          = fnStdevp;
+    m_functions["VARA"]            = fnVara;
+    m_functions["VARPA"]           = fnVarpa;
+    m_functions["STDEVA"]          = fnStdeva;
+    m_functions["STDEVPA"]         = fnStdevpa;
+    m_functions["PERMUT"]          = fnPermut;
+    m_functions["PERMUTATIONA"]    = fnPermutationa;
+    m_functions["_xlfn.PERMUTATIONA"] = fnPermutationa;
+    m_functions["FISHER"]          = fnFisher;
+    m_functions["FISHERINV"]       = fnFisherinv;
+    m_functions["STANDARDIZE"]     = fnStandardize;
+    m_functions["PEARSON"]         = fnPearson;
+    m_functions["RSQ"]             = fnRsq;
+    m_functions["AVERAGEIFS"]      = fnAverageifs;
+    m_functions["ISOWEEKNUM"]      = fnIsoweeknum;
+    m_functions["_xlfn.ISOWEEKNUM"]= fnIsoweeknum;
+    m_functions["WEEKNUM"]         = fnWeeknum;
+    m_functions["DAYS360"]         = fnDays360;
+    m_functions["NPER"]            = fnNper;
+    m_functions["DB"]              = fnDb;
+    m_functions["DDB"]             = fnDdb;
+
+    // Fix mapped functions from earlier additions
+    m_functions["ISERR"]           = fnIserr;
+    m_functions["TRUNC"]           = fnTrunc;
+    m_functions["SUMSQ"]           = fnSumsq;
+    m_functions["SUMX2MY2"]        = fnSumx2my2;
+    m_functions["SUMX2PY2"]        = fnSumx2py2;
+    m_functions["SUMXMY2"]         = fnSumxmy2;
+    m_functions["AVEDEV"]          = fnAvedev;
+    m_functions["DEVSQ"]           = fnDevsq;
+    m_functions["AVERAGEA"]        = fnAveragea;
 }
 
 // =============================================================================
@@ -2560,3 +2608,713 @@ XLCellValue XLFormulaEngine::fnIslogical(const std::vector<XLFormulaArg>& args)
     if (args.empty() || args[0].empty()) return XLCellValue(false);
     return XLCellValue(args[0][0].type() == XLValueType::Boolean);
 }
+
+// =============================================================================
+// Easy Additions (Logical, Math, Stat, Text, Financial)
+// =============================================================================
+
+XLCellValue XLFormulaEngine::fnTrue(const std::vector<XLFormulaArg>& /*args*/)
+{
+    return XLCellValue(true);
+}
+
+XLCellValue XLFormulaEngine::fnFalse(const std::vector<XLFormulaArg>& /*args*/)
+{
+    return XLCellValue(false);
+}
+
+XLCellValue XLFormulaEngine::fnIseven(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty()) return errValue();
+    double val = toDouble(args[0][0]);
+    if (std::isnan(val)) return errValue();
+    int64_t i = static_cast<int64_t>(std::trunc(val));
+    return XLCellValue(i % 2 == 0);
+}
+
+XLCellValue XLFormulaEngine::fnIsodd(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty()) return errValue();
+    double val = toDouble(args[0][0]);
+    if (std::isnan(val)) return errValue();
+    int64_t i = static_cast<int64_t>(std::trunc(val));
+    return XLCellValue(i % 2 != 0);
+}
+
+XLCellValue XLFormulaEngine::fnIserr(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty()) return XLCellValue(false);
+    const auto& v = args[0][0];
+    if (v.type() != XLValueType::Error) return XLCellValue(false);
+    return XLCellValue(v.get<std::string>() != "#N/A");
+}
+
+XLCellValue XLFormulaEngine::fnTrunc(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty()) return errValue();
+    double num = toDouble(args[0][0]);
+    if (std::isnan(num)) return errValue();
+    int digits = 0;
+    if (args.size() > 1 && !args[1].empty()) {
+        digits = static_cast<int>(toDouble(args[1][0]));
+    }
+    double factor = std::pow(10.0, digits);
+    return XLCellValue(std::trunc(num * factor) / factor);
+}
+
+XLCellValue XLFormulaEngine::fnSumsq(const std::vector<XLFormulaArg>& args)
+{
+    double total = 0.0;
+    for (const auto& v : numerics(args)) {
+        total += v * v;
+    }
+    return XLCellValue(total);
+}
+
+static std::vector<double> extractArrayStringFallback(const XLFormulaArg& arg) {
+    std::vector<double> res;
+    if (arg.empty()) return res;
+    const auto& v = arg[0];
+    if (v.type() == XLValueType::String) {
+        std::string s = v.get<std::string>();
+        if (!s.empty() && s.front() == '{' && s.back() == '}') {
+            s = s.substr(1, s.length() - 2);
+            std::size_t start = 0;
+            while (start < s.length()) {
+                std::size_t pos = s.find_first_of(",;", start);
+                if (pos == std::string::npos) pos = s.length();
+                std::string token = s.substr(start, pos - start);
+                try { res.push_back(std::stod(token)); } catch (...) {}
+                start = pos + 1;
+            }
+        }
+    } else if (isNumeric(v)) {
+        res.push_back(toDouble(v));
+    }
+    return res;
+}
+
+XLCellValue XLFormulaEngine::fnSumx2my2(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() < 2) return errValue();
+    auto numsX = numerics(args[0]);
+    auto numsY = numerics(args[1]);
+    if (numsX.empty()) numsX = extractArrayStringFallback(args[0]);
+    if (numsY.empty()) numsY = extractArrayStringFallback(args[1]);
+
+    if (numsX.size() != numsY.size()) return errNA();
+    std::size_t sz = numsX.size();
+    if (sz == 0) return XLCellValue(0.0);
+    double total = 0.0;
+    for (std::size_t i = 0; i < sz; ++i) {
+        double x = numsX[i];
+        double y = numsY[i];
+        total += (x * x) - (y * y);
+    }
+    return XLCellValue(total);
+}
+
+XLCellValue XLFormulaEngine::fnSumx2py2(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() < 2) return errValue();
+    auto numsX = numerics(args[0]);
+    auto numsY = numerics(args[1]);
+    if (numsX.empty()) numsX = extractArrayStringFallback(args[0]);
+    if (numsY.empty()) numsY = extractArrayStringFallback(args[1]);
+    if (numsX.size() != numsY.size()) return errNA();
+    std::size_t sz = numsX.size();
+    if (sz == 0) return XLCellValue(0.0);
+    double total = 0.0;
+    for (std::size_t i = 0; i < sz; ++i) {
+        double x = numsX[i];
+        double y = numsY[i];
+        total += (x * x) + (y * y);
+    }
+    return XLCellValue(total);
+}
+
+XLCellValue XLFormulaEngine::fnSumxmy2(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() < 2) return errValue();
+    auto numsX = numerics(args[0]);
+    auto numsY = numerics(args[1]);
+    if (numsX.empty()) numsX = extractArrayStringFallback(args[0]);
+    if (numsY.empty()) numsY = extractArrayStringFallback(args[1]);
+    if (numsX.size() != numsY.size()) return errNA();
+    std::size_t sz = numsX.size();
+    if (sz == 0) return XLCellValue(0.0);
+    double total = 0.0;
+    for (std::size_t i = 0; i < sz; ++i) {
+        double x = numsX[i];
+        double y = numsY[i];
+        double diff = x - y;
+        total += diff * diff;
+    }
+    return XLCellValue(total);
+}
+
+XLCellValue XLFormulaEngine::fnAvedev(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.empty()) return errDiv0();
+    double total = 0.0;
+    for (double v : nums) total += v;
+    double mean = total / static_cast<double>(nums.size());
+    
+    double devSum = 0.0;
+    for (double v : nums) devSum += std::abs(v - mean);
+    return XLCellValue(devSum / static_cast<double>(nums.size()));
+}
+
+XLCellValue XLFormulaEngine::fnDevsq(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.empty()) return errDiv0();
+    double total = 0.0;
+    for (double v : nums) total += v;
+    double mean = total / static_cast<double>(nums.size());
+    
+    double sqSum = 0.0;
+    for (double v : nums) {
+        double diff = v - mean;
+        sqSum += diff * diff;
+    }
+    return XLCellValue(sqSum);
+}
+
+XLCellValue XLFormulaEngine::fnAveragea(const std::vector<XLFormulaArg>& args)
+{
+    double total = 0.0;
+    int count = 0;
+    for (const auto& arg : args) {
+        for (const auto& v : arg) {
+            if (v.type() == XLValueType::Empty) continue;
+            count++;
+            if (v.type() == XLValueType::Integer || v.type() == XLValueType::Float) {
+                total += toDouble(v);
+            } else if (v.type() == XLValueType::Boolean) {
+                total += (v.get<bool>() ? 1.0 : 0.0);
+            }
+            // Texts are counted but added as 0.0
+        }
+    }
+    if (count == 0) return errDiv0();
+    return XLCellValue(total / static_cast<double>(count));
+}
+
+XLCellValue XLFormulaEngine::fnSln(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() < 3 || args[0].empty() || args[1].empty() || args[2].empty()) return errValue();
+    double cost = toDouble(args[0][0]);
+    double salvage = toDouble(args[1][0]);
+    double life = toDouble(args[2][0]);
+    if (std::isnan(cost) || std::isnan(salvage) || std::isnan(life) || life == 0.0) return errDiv0();
+    return XLCellValue((cost - salvage) / life);
+}
+
+XLCellValue XLFormulaEngine::fnSyd(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() < 4 || args[0].empty() || args[1].empty() || args[2].empty() || args[3].empty()) return errValue();
+    double cost = toDouble(args[0][0]);
+    double salvage = toDouble(args[1][0]);
+    double life = toDouble(args[2][0]);
+    double per = toDouble(args[3][0]);
+    if (std::isnan(cost) || std::isnan(salvage) || std::isnan(life) || std::isnan(per) || life == 0.0) return errDiv0();
+    if (per < 1.0 || per > life) return errNum();
+    return XLCellValue(((cost - salvage) * (life - per + 1.0) * 2.0) / (life * (life + 1.0)));
+}
+
+XLCellValue XLFormulaEngine::fnChar(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty()) return errValue();
+    double dval = toDouble(args[0][0]);
+    if (std::isnan(dval)) return errValue();
+    int code = static_cast<int>(dval);
+    if (code < 1 || code > 255) return errValue();
+    std::string s(1, static_cast<char>(code));
+    return XLCellValue(s);
+}
+
+XLCellValue XLFormulaEngine::fnUnichar(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty()) return errValue();
+    double dval = toDouble(args[0][0]);
+    if (std::isnan(dval)) return errValue();
+    int code = static_cast<int>(dval);
+    if (code <= 0 || code > 0x10FFFF) return errValue(); // Valid Unicode range
+    
+    std::string s;
+    if (code <= 0x7F) {
+        s.push_back(static_cast<char>(code));
+    } else if (code <= 0x7FF) {
+        s.push_back(static_cast<char>(0xC0 | (code >> 6)));
+        s.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+    } else if (code <= 0xFFFF) {
+        s.push_back(static_cast<char>(0xE0 | (code >> 12)));
+        s.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+        s.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+    } else {
+        s.push_back(static_cast<char>(0xF0 | (code >> 18)));
+        s.push_back(static_cast<char>(0x80 | ((code >> 12) & 0x3F)));
+        s.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+        s.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+    }
+    return XLCellValue(s);
+}
+
+XLCellValue XLFormulaEngine::fnCode(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty()) return errValue();
+    std::string s = toString(args[0][0]);
+    if (s.empty()) return errValue();
+    // Excel's CODE function typically just looks at the first single byte or system charset
+    // Here we maintain basic behavior for first byte
+    return XLCellValue(static_cast<int64_t>(static_cast<unsigned char>(s[0])));
+}
+
+XLCellValue XLFormulaEngine::fnUnicode(const std::vector<XLFormulaArg>& args)
+{
+    if (args.empty() || args[0].empty()) return errValue();
+    std::string s = toString(args[0][0]);
+    if (s.empty()) return errValue();
+    
+    const unsigned char* str = reinterpret_cast<const unsigned char*>(s.c_str());
+    int cp = 0;
+    if (str[0] < 0x80) {
+        cp = str[0];
+    } else if ((str[0] & 0xE0) == 0xC0) {
+        if (s.length() < 2) return errValue();
+        cp = ((str[0] & 0x1F) << 6) | (str[1] & 0x3F);
+    } else if ((str[0] & 0xF0) == 0xE0) {
+        if (s.length() < 3) return errValue();
+        cp = ((str[0] & 0x0F) << 12) | ((str[1] & 0x3F) << 6) | (str[2] & 0x3F);
+    } else if ((str[0] & 0xF8) == 0xF0) {
+        if (s.length() < 4) return errValue();
+        cp = ((str[0] & 0x07) << 18) | ((str[1] & 0x3F) << 12) | ((str[2] & 0x3F) << 6) | (str[3] & 0x3F);
+    } else {
+        return errValue(); // Invalid UTF-8
+    }
+    
+    return XLCellValue(static_cast<int64_t>(cp));
+}
+
+
+// =============================================================================
+// Easy Additions (Math & Trig)
+// =============================================================================
+
+XLCellValue XLFormulaEngine::fnMround(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() != 2) return errValue();
+    if (nums[1] == 0) return XLCellValue(0.0);
+    if ((nums[0] * nums[1]) < 0) return errNum();
+    double res = std::round(nums[0] / nums[1]) * nums[1];
+    return XLCellValue(res);
+}
+
+XLCellValue XLFormulaEngine::fnCeilingMath(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.empty() || nums.size() > 3) return errValue();
+    double number = nums[0];
+    double significance = (nums.size() > 1) ? nums[1] : (number >= 0 ? 1.0 : -1.0);
+    if (significance == 0) return XLCellValue(0.0);
+    double mode = (nums.size() > 2) ? nums[2] : 0.0;
+    
+    double res;
+    if (number >= 0) {
+        res = std::ceil(number / std::abs(significance)) * std::abs(significance);
+    } else {
+        if (mode == 0) {
+            res = std::ceil(number / std::abs(significance)) * std::abs(significance);
+        } else {
+            res = std::floor(number / std::abs(significance)) * std::abs(significance);
+        }
+    }
+    return XLCellValue(res);
+}
+
+XLCellValue XLFormulaEngine::fnFloorMath(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.empty() || nums.size() > 3) return errValue();
+    double number = nums[0];
+    double significance = (nums.size() > 1) ? nums[1] : (number >= 0 ? 1.0 : -1.0);
+    if (significance == 0) return XLCellValue(0.0);
+    double mode = (nums.size() > 2) ? nums[2] : 0.0;
+    
+    double res;
+    if (number >= 0) {
+        res = std::floor(number / std::abs(significance)) * std::abs(significance);
+    } else {
+        if (mode == 0) {
+            res = std::floor(number / std::abs(significance)) * std::abs(significance);
+        } else {
+            res = std::ceil(number / std::abs(significance)) * std::abs(significance);
+        }
+    }
+    return XLCellValue(res);
+}
+
+// =============================================================================
+// Easy Additions (Statistical)
+// =============================================================================
+
+XLCellValue XLFormulaEngine::fnVarp(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.empty()) return errDiv0();
+    double mean = std::accumulate(nums.begin(), nums.end(), 0.0) / static_cast<double>(nums.size());
+    double sq = 0.0;
+    for (double v : nums) sq += (v - mean) * (v - mean);
+    return XLCellValue(sq / static_cast<double>(nums.size()));
+}
+
+XLCellValue XLFormulaEngine::fnStdevp(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.empty()) return errDiv0();
+    double mean = std::accumulate(nums.begin(), nums.end(), 0.0) / static_cast<double>(nums.size());
+    double sq = 0.0;
+    for (double v : nums) sq += (v - mean) * (v - mean);
+    return XLCellValue(std::sqrt(sq / static_cast<double>(nums.size())));
+}
+
+static std::vector<double> extractArrayValuesA(const std::vector<XLFormulaArg>& args) {
+    std::vector<double> out;
+    for (const auto& arg : args) {
+        for (const auto& v : arg) {
+            if (v.type() == XLValueType::Integer) {
+                out.push_back(static_cast<double>(v.get<int64_t>()));
+            } else if (v.type() == XLValueType::Float) {
+                out.push_back(v.get<double>());
+            } else if (v.type() == XLValueType::Boolean) {
+                out.push_back(v.get<bool>() ? 1.0 : 0.0);
+            } else if (v.type() == XLValueType::String) {
+                out.push_back(0.0);
+            }
+        }
+    }
+    return out;
+}
+
+XLCellValue XLFormulaEngine::fnVara(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = extractArrayValuesA(args);
+    if (nums.size() < 2) return errDiv0();
+    double mean = std::accumulate(nums.begin(), nums.end(), 0.0) / static_cast<double>(nums.size());
+    double sq = 0.0;
+    for (double v : nums) sq += (v - mean) * (v - mean);
+    return XLCellValue(sq / static_cast<double>(nums.size() - 1));
+}
+
+XLCellValue XLFormulaEngine::fnVarpa(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = extractArrayValuesA(args);
+    if (nums.empty()) return errDiv0();
+    double mean = std::accumulate(nums.begin(), nums.end(), 0.0) / static_cast<double>(nums.size());
+    double sq = 0.0;
+    for (double v : nums) sq += (v - mean) * (v - mean);
+    return XLCellValue(sq / static_cast<double>(nums.size()));
+}
+
+XLCellValue XLFormulaEngine::fnStdeva(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = extractArrayValuesA(args);
+    if (nums.size() < 2) return errDiv0();
+    double mean = std::accumulate(nums.begin(), nums.end(), 0.0) / static_cast<double>(nums.size());
+    double sq = 0.0;
+    for (double v : nums) sq += (v - mean) * (v - mean);
+    return XLCellValue(std::sqrt(sq / static_cast<double>(nums.size() - 1)));
+}
+
+XLCellValue XLFormulaEngine::fnStdevpa(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = extractArrayValuesA(args);
+    if (nums.empty()) return errDiv0();
+    double mean = std::accumulate(nums.begin(), nums.end(), 0.0) / static_cast<double>(nums.size());
+    double sq = 0.0;
+    for (double v : nums) sq += (v - mean) * (v - mean);
+    return XLCellValue(std::sqrt(sq / static_cast<double>(nums.size())));
+}
+
+XLCellValue XLFormulaEngine::fnPermut(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() != 2) return errValue();
+    double n = std::trunc(nums[0]);
+    double k = std::trunc(nums[1]);
+    if (n < 0 || k < 0 || n < k) return errNum();
+    double res = 1.0;
+    for (double i = n; i > n - k; --i) {
+        res *= i;
+    }
+    return XLCellValue(res);
+}
+
+XLCellValue XLFormulaEngine::fnPermutationa(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() != 2) return errValue();
+    double n = std::trunc(nums[0]);
+    double k = std::trunc(nums[1]);
+    if (n < 0 || k < 0) return errNum();
+    return XLCellValue(std::pow(n, k));
+}
+
+XLCellValue XLFormulaEngine::fnFisher(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() != 1) return errValue();
+    double x = nums[0];
+    if (x <= -1 || x >= 1) return errNum();
+    return XLCellValue(0.5 * std::log((1 + x) / (1 - x)));
+}
+
+XLCellValue XLFormulaEngine::fnFisherinv(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() != 1) return errValue();
+    double y = nums[0];
+    return XLCellValue((std::exp(2 * y) - 1) / (std::exp(2 * y) + 1));
+}
+
+XLCellValue XLFormulaEngine::fnStandardize(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() != 3) return errValue();
+    double x = nums[0];
+    double mean = nums[1];
+    double stdev = nums[2];
+    if (stdev <= 0) return errNum();
+    return XLCellValue((x - mean) / stdev);
+}
+
+XLCellValue XLFormulaEngine::fnPearson(const std::vector<XLFormulaArg>& args)
+{
+    if (args.size() != 2) return errValue();
+    auto nums1 = numerics(args[0]);
+    auto nums2 = numerics(args[1]);
+    if (nums1.size() != nums2.size() || nums1.empty()) return errNA();
+    
+    double mean1 = std::accumulate(nums1.begin(), nums1.end(), 0.0) / nums1.size();
+    double mean2 = std::accumulate(nums2.begin(), nums2.end(), 0.0) / nums2.size();
+    
+    double num = 0.0, den1 = 0.0, den2 = 0.0;
+    for (size_t i = 0; i < nums1.size(); ++i) {
+        double d1 = nums1[i] - mean1;
+        double d2 = nums2[i] - mean2;
+        num += d1 * d2;
+        den1 += d1 * d1;
+        den2 += d2 * d2;
+    }
+    if (den1 == 0 || den2 == 0) return errDiv0();
+    return XLCellValue(num / std::sqrt(den1 * den2));
+}
+
+XLCellValue XLFormulaEngine::fnRsq(const std::vector<XLFormulaArg>& args)
+{
+    XLCellValue pearson = fnPearson(args);
+    if (pearson.type() == XLValueType::Error) return pearson;
+    double p = pearson.get<double>();
+    return XLCellValue(p * p);
+}
+
+XLCellValue XLFormulaEngine::fnAverageifs(const std::vector<XLFormulaArg>& args)
+{
+    // Needs proper SUMIFS / COUNTIFS logic.
+    // Excel AVERAGEIFS: AVERAGEIFS(average_range, criteria_range1, criteria1, ...)
+    // If we have fnSumifs and fnCountifs, we can reuse them.
+    // Wait, fnSumifs is expecting sum_range first. So is fnAverageifs.
+    // Let's just call them.
+    XLCellValue sum = fnSumifs(args);
+    if (sum.type() == XLValueType::Error) return sum;
+    
+    // For COUNTIFS, we skip the average_range (args[0]) and pass the rest.
+    std::vector<XLFormulaArg> countArgs;
+    for (size_t i = 1; i < args.size(); ++i) {
+        countArgs.push_back(args[i]);
+    }
+    XLCellValue count = fnCountifs(countArgs);
+    if (count.type() == XLValueType::Error) return count;
+    
+    double dCount = count.get<double>();
+    if (dCount == 0) return errDiv0();
+    
+    return XLCellValue(sum.get<double>() / dCount);
+}
+
+// =============================================================================
+// Easy Additions (Date & Time)
+// =============================================================================
+
+XLCellValue XLFormulaEngine::fnIsoweeknum(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.empty()) return errValue();
+    double serial = nums[0];
+    if (serial < 0) return errNum();
+    
+    auto tm = static_cast<std::tm>(XLDateTime(serial));
+    // Zeller's or similar to find day of week (unused)
+    // int y = tm.tm_year + 1900;
+    // int m = tm.tm_mon + 1;
+    // int d = tm.tm_mday;
+    // if (m < 3) { m += 12; y -= 1; }
+    // int k = y % 100;
+    // int j = y / 100;
+    // int h = (d + 13 * (m + 1) / 5 + k + k / 4 + j / 4 + 5 * j) % 7;
+    // h: 0=Sat, 1=Sun, 2=Mon...
+    // int d0 = (h + 5) % 7 + 1; // 1=Mon .. 7=Sun
+    
+    // A simplified ISO week calculation (or standard C++ mktime trick)
+    // Actually, C++ doesn't easily give ISO week num without strftime "%V", 
+    // let's use a quick approx if needed, but wait:
+    char buf[10];
+    std::strftime(buf, sizeof(buf), "%V", &tm);
+    return XLCellValue(static_cast<double>(std::stoi(buf)));
+}
+
+XLCellValue XLFormulaEngine::fnWeeknum(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.empty()) return errValue();
+    double serial = nums[0];
+    if (serial < 0) return errNum();
+    int return_type = (nums.size() > 1) ? std::trunc(nums[1]) : 1;
+    
+    if (return_type == 21) {
+        return fnIsoweeknum(args); // System 2 (ISO)
+    }
+    
+    // Standard system 1 weeknum (week starts on Sunday)
+    auto tm = static_cast<std::tm>(XLDateTime(serial));
+    char buf[10];
+    if (return_type == 1 || return_type == 17) {
+        std::strftime(buf, sizeof(buf), "%U", &tm); // week starts on Sunday
+    } else {
+        std::strftime(buf, sizeof(buf), "%W", &tm); // week starts on Monday
+    }
+    
+    // strftime returns 00-53. Excel might expect 1-53 if Jan 1 is not start of week.
+    // For simplicity:
+    int w = std::stoi(buf);
+    if (w == 0) w = 1;
+    // This is an approximation for WEEKNUM
+    return XLCellValue(static_cast<double>(w));
+}
+
+XLCellValue XLFormulaEngine::fnDays360(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() < 2) return errValue();
+    double d1 = nums[0];
+    double d2 = nums[1];
+    bool method = (nums.size() > 2) && nums[2] != 0.0;
+    
+    auto tm1 = static_cast<std::tm>(XLDateTime(d1));
+    auto tm2 = static_cast<std::tm>(XLDateTime(d2));
+    
+    int y1 = tm1.tm_year + 1900, m1 = tm1.tm_mon + 1, day1 = tm1.tm_mday;
+    int y2 = tm2.tm_year + 1900, m2 = tm2.tm_mon + 1, day2 = tm2.tm_mday;
+    
+    if (method) { // European
+        if (day1 == 31) day1 = 30;
+        if (day2 == 31) day2 = 30;
+    } else { // US (NASD)
+        if (m1 == 2 && day1 >= 28) day1 = 30; // approx for end of Feb
+        if (day1 == 31) day1 = 30;
+        if (day2 == 31 && day1 >= 30) day2 = 30;
+    }
+    
+    double res = (y2 - y1) * 360.0 + (m2 - m1) * 30.0 + (day2 - day1);
+    return XLCellValue(res);
+}
+
+// =============================================================================
+// Easy Additions (Financial)
+// =============================================================================
+
+XLCellValue XLFormulaEngine::fnNper(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() < 3) return errValue();
+    double rate = nums[0];
+    double pmt = nums[1];
+    double pv = nums[2];
+    double fv = (nums.size() > 3) ? nums[3] : 0.0;
+    double type = (nums.size() > 4) ? nums[4] : 0.0;
+    
+    if (rate == 0) {
+        if (pmt == 0) return errNum();
+        return XLCellValue(-(pv + fv) / pmt);
+    }
+    
+    double num = pmt * (1 + rate * type) - fv * rate;
+    double den = pv * rate + pmt * (1 + rate * type);
+    if (num <= 0 || den <= 0) return errNum();
+    
+    double res = std::log(num / den) / std::log(1 + rate);
+    return XLCellValue(res);
+}
+
+XLCellValue XLFormulaEngine::fnDb(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() < 4) return errValue();
+    double cost = nums[0];
+    double salvage = nums[1];
+    double life = nums[2];
+    double period = nums[3];
+    double month = (nums.size() > 4) ? nums[4] : 12.0;
+    
+    if (cost < 0 || salvage < 0 || life <= 0 || period <= 0 || month <= 0) return errNum();
+    if (period > life && (period != life + 1 || month == 12)) return errNum();
+    
+    double rate = 1.0 - std::pow(salvage / cost, 1.0 / life);
+    rate = std::round(rate * 1000.0) / 1000.0; // DB rounds to 3 decimal places
+    
+    double total = 0.0;
+    double dep = cost * rate * month / 12.0;
+    total += dep;
+    if (period == 1) return XLCellValue(dep);
+    
+    for (int i = 2; i < period; ++i) {
+        dep = (cost - total) * rate;
+        total += dep;
+    }
+    
+    if (period == life + 1) {
+        dep = (cost - total) * rate * (12.0 - month) / 12.0;
+    } else {
+        dep = (cost - total) * rate;
+    }
+    return XLCellValue(dep);
+}
+
+XLCellValue XLFormulaEngine::fnDdb(const std::vector<XLFormulaArg>& args)
+{
+    auto nums = numerics(args);
+    if (nums.size() < 4) return errValue();
+    double cost = nums[0];
+    double salvage = nums[1];
+    double life = nums[2];
+    double period = nums[3];
+    double factor = (nums.size() > 4) ? nums[4] : 2.0;
+    
+    if (cost < 0 || salvage < 0 || life <= 0 || period <= 0 || factor <= 0) return errNum();
+    
+    double total = 0.0;
+    double dep = 0.0;
+    for (int i = 1; i <= period; ++i) {
+        dep = (cost - total) * (factor / life);
+        if (total + dep > cost - salvage) {
+            dep = cost - salvage - total;
+        }
+        total += dep;
+    }
+    return XLCellValue(dep);
+}
+
+
