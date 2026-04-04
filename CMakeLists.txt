@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
-project(OpenXLSX-NX VERSION 1.7.0 LANGUAGES CXX)
+project(OpenXLSX-NX VERSION 1.7.0 LANGUAGES CXX C)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -19,49 +19,35 @@ set(OPENXLSX_LIBRARY_TYPE "STATIC" CACHE STRING "Library type (STATIC or SHARED)
 #=======================================================================================================================
 # External Libraries
 #=======================================================================================================================
-include(FetchContent)
 
 # Set up fast_float
-FetchContent_Declare(fast_float GIT_REPOSITORY https://github.com/fastfloat/fast_float.git GIT_TAG v8.2.3)
-FetchContent_MakeAvailable(fast_float)
+set(fast_float_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fast_float)
+add_subdirectory(third_party/fast_float)
 
 # Set up GSL (Microsoft Guidelines Support Library)
-FetchContent_Declare(GSL GIT_REPOSITORY https://github.com/microsoft/GSL.git GIT_TAG v4.1.0)
-FetchContent_MakeAvailable(GSL)
+add_subdirectory(third_party/GSL)
 
 # Set up fmt
-FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 12.1.0)
-FetchContent_MakeAvailable(fmt)
+set(fmt_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt)
+add_subdirectory(third_party/fmt)
 
 # Set up pugixml
 set(PUGIXML_XPATH OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(pugixml GIT_REPOSITORY https://github.com/zeux/pugixml.git GIT_TAG v1.15)
-FetchContent_MakeAvailable(pugixml)
+add_subdirectory(third_party/pugixml)
 
 # Set up Catch2 (if tests or benchmarks are enabled)
 if(OPENXLSX_BUILD_TESTS OR OPENXLSX_BUILD_BENCHMARKS)
-    FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.13.0)
-    FetchContent_MakeAvailable(Catch2)
+    add_subdirectory(third_party/Catch2)
 endif()
 
 # Set up zlib-ng (libzip dependency)
 set(ZLIB_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ZLIB_COMPAT ON CACHE BOOL "" FORCE)
-FetchContent_Declare(zlib GIT_REPOSITORY https://github.com/zlib-ng/zlib-ng.git GIT_TAG 2.2.4)
-FetchContent_MakeAvailable(zlib)
-
-# Help libzip find zlib-ng (Override find_package(ZLIB))
-# We use CACHE INTERNAL to ensure these are picked up by libzip's find_package
-set(ZLIB_FOUND TRUE CACHE INTERNAL "")
-set(ZLIB_INCLUDE_DIR "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE INTERNAL "")
-set(ZLIB_INCLUDE_DIRS "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE INTERNAL "")
-set(ZLIB_LIBRARIES zlib CACHE INTERNAL "")
-set(ZLIB_LIBRARY zlib CACHE INTERNAL "")
-
-# Create alias for standard find_package compatibility
-if(TARGET zlib AND NOT TARGET ZLIB::ZLIB)
-    add_library(ZLIB::ZLIB ALIAS zlib)
-endif()
+set(WITH_SANITIZER OFF CACHE STRING "" FORCE)
+add_subdirectory(third_party/zlib)
+set(zlib_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zlib)
+set(zlib_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/third_party/zlib)
 
 # Set up libzip
 set(ENABLE_BZIP2 OFF CACHE BOOL "" FORCE)
@@ -76,16 +62,12 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_DOC OFF CACHE BOOL "" FORCE)
 set(BUILD_OSSFUZZ OFF CACHE BOOL "" FORCE)
 set(LIBZIP_DO_INSTALL OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(libzip GIT_REPOSITORY https://github.com/nih-at/libzip.git GIT_TAG v1.11.4)
-FetchContent_MakeAvailable(libzip)
+add_subdirectory(third_party/libzip)
 
 # Set up mbedtls for cryptography (AES, SHA)
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(mbedtls GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git GIT_TAG v3.6.0)
-FetchContent_MakeAvailable(mbedtls)
-
-# Third-party subdirectories
+add_subdirectory(third_party/mbedtls)
 
 # Sources
 file(GLOB OPENXLSX_SOURCES OpenXLSX/sources/*.cpp)
@@ -102,6 +84,8 @@ target_include_directories(OpenXLSX
     SYSTEM PUBLIC
         $<BUILD_INTERFACE:${fast_float_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${fmt_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${zlib_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${zlib_BINARY_DIR}>
 )
 
 target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip zlib Microsoft.GSL::GSL mbedcrypto)
@@ -199,8 +183,6 @@ if(OPENXLSX_BUILD_TESTS)
             ${CMAKE_CURRENT_LIST_DIR}/Tests/Fixtures/Encrypted_Agile.xlsx
             $<TARGET_FILE_DIR:OpenXLSXTests>/Tests/Fixtures/
     )
-
-
 endif()
 
 #=======================================================================================================================
@@ -211,16 +193,12 @@ if(OPENXLSX_BUILD_FUZZERS)
     target_link_libraries(OpenXLSXFuzzer PRIVATE OpenXLSX::OpenXLSX)
     target_compile_options(OpenXLSXFuzzer PRIVATE -fsanitize=fuzzer,address,undefined -fno-omit-frame-pointer)
     target_link_options(OpenXLSXFuzzer PRIVATE -fsanitize=fuzzer,address,undefined)
-    
-    if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
-        message(WARNING "Apple Clang may not include libFuzzer. If linking fails, try compiling with Homebrew LLVM/Clang.")
-    endif()
 endif()
+
 if(OPENXLSX_BUILD_BENCHMARKS)
     add_executable(OpenXLSXBenchmark Benchmarks/Benchmark.cpp)
     target_link_libraries(OpenXLSXBenchmark PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2)
 endif()
-
 
 #=======================================================================================================================
 # DOCUMENTATION (Doxygen)
@@ -230,16 +208,12 @@ if(OPENXLSX_CREATE_DOCS)
     if(DOXYGEN_FOUND)
         set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/Documentation/Doxyfile.in)
         set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
-        
         configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
-        
         add_custom_target(OpenXLSXDocs ALL
             COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             COMMENT "Generating API documentation with Doxygen"
             VERBATIM
         )
-    else()
-        message(WARNING "Doxygen not found, documentation will not be generated.")
     endif()
 endif()

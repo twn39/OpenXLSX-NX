@@ -1,0 +1,24 @@
+[submodule "third_party/fast_float"]
+	path = third_party/fast_float
+	url = https://github.com/fastfloat/fast_float.git
+[submodule "third_party/GSL"]
+	path = third_party/GSL
+	url = https://github.com/microsoft/GSL.git
+[submodule "third_party/fmt"]
+	path = third_party/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "third_party/pugixml"]
+	path = third_party/pugixml
+	url = https://github.com/zeux/pugixml.git
+[submodule "third_party/Catch2"]
+	path = third_party/Catch2
+	url = https://github.com/catchorg/Catch2.git
+[submodule "third_party/zlib"]
+	path = third_party/zlib
+	url = https://github.com/zlib-ng/zlib-ng.git
+[submodule "third_party/libzip"]
+	path = third_party/libzip
+	url = https://github.com/nih-at/libzip.git
+[submodule "third_party/mbedtls"]
+	path = third_party/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
