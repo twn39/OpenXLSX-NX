@@ -15,6 +15,17 @@ option(OPENXLSX_ENABLE_LTO "Enable Link-Time Optimization (LTO/IPO) if supported
 option(OPENXLSX_ENABLE_SANITIZERS "Enable ASan and UBSan for memory/undefined behavior analysis (GCC/Clang only)" OFF)
 
 set(OPENXLSX_LIBRARY_TYPE "STATIC" CACHE STRING "Library type (STATIC or SHARED)")
+option(OPENXLSX_ENABLE_UNITY_BUILD "Enable Unity Build (faster compilation)" ON)
+
+#=======================================================================================================================
+# Build Accelerators (ccache)
+#=======================================================================================================================
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    message(STATUS "ccache found and enabled")
+endif()
 
 #=======================================================================================================================
 # External Libraries
@@ -75,6 +86,10 @@ file(GLOB OPENXLSX_SOURCES OpenXLSX/sources/*.cpp)
 # Library Target
 add_library(OpenXLSX ${OPENXLSX_LIBRARY_TYPE} ${OPENXLSX_SOURCES})
 add_library(OpenXLSX::OpenXLSX ALIAS OpenXLSX)
+
+if(OPENXLSX_ENABLE_UNITY_BUILD)
+    set_target_properties(OpenXLSX PROPERTIES UNITY_BUILD ON)
+endif()
 
 target_include_directories(OpenXLSX
     PUBLIC
