@@ -60,11 +60,22 @@ add_subdirectory(third_party/zlib)
 set(zlib_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zlib)
 set(zlib_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/third_party/zlib)
 
+# Create the alias target that many projects (like libzip) expect
+if(NOT TARGET ZLIB::ZLIB)
+    if(TARGET zlib)
+        add_library(ZLIB::ZLIB ALIAS zlib)
+    elseif(TARGET zlibstatic)
+        add_library(ZLIB::ZLIB ALIAS zlibstatic)
+    endif()
+endif()
+
 # Explicitly set ZLIB variables for libzip's find_package(ZLIB) call
+# Note: On Windows, zconf.h is generated in the binary directory.
 set(ZLIB_INCLUDE_DIR "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE PATH "ZLIB include directory" FORCE)
 set(ZLIB_LIBRARY zlib CACHE FILEPATH "ZLIB library" FORCE)
 set(ZLIB_LIBRARIES zlib CACHE FILEPATH "ZLIB libraries" FORCE)
 set(ZLIB_FOUND TRUE CACHE BOOL "ZLIB found" FORCE)
+set(ZLIB_VERSION "1.3.1" CACHE STRING "ZLIB version" FORCE)
 
 # Set up libzip
 set(ENABLE_BZIP2 OFF CACHE BOOL "" FORCE)
