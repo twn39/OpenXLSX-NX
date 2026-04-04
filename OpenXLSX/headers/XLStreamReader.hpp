@@ -44,6 +44,11 @@ namespace OpenXLSX
          */
         uint32_t currentRow() const;
 
+        /**
+         * @brief Closes the reader and releases resources.
+         */
+        void close();
+
     private:
         friend class XLWorksheet;
 

@@ -383,4 +383,6 @@ namespace OpenXLSX
 
     uint32_t XLStreamReader::currentRow() const { return m_currentRow; }
 
+    void XLStreamReader::close() { cleanup(); }
+
 }    // namespace OpenXLSX
