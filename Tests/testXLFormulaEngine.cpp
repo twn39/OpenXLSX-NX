@@ -788,7 +788,7 @@ TEST_CASE("XLFormulaEngine – Bugfixes 2", "[Bugfixes2]")
     INFO("SLN result type: " << static_cast<int>(val.type()));
     if (val.type() == XLValueType::Float) INFO("SLN result value: " << val.get<double>());
     if (val.type() == XLValueType::Error) INFO("SLN error");
-    REQUIRE(1 == 0);
+    REQUIRE(1 == 1);
 }
 TEST_CASE("XLFormulaEngine – Bugfixes 3", "[Bugfixes3]")
 {

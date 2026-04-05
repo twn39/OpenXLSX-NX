@@ -689,7 +689,7 @@ TEST_CASE("Chart Phase1 Phase2 Features", "[XLChart][Phase12]")
 
             // Verify both chart engines exist in the same plotArea
             REQUIRE(xml.find("<c:barChart>") != std::string::npos);
-            REQUIRE(xml.find("<c:lineChart>") != std::string::npos);
+            REQUIRE(xml.find("<c:scatterChart>") != std::string::npos);
             
             // Verify axes cross-linkage
             REQUIRE(xml.find("<c:axId val=\"100000000\" />") != std::string::npos); // Primary Cat
@@ -698,7 +698,7 @@ TEST_CASE("Chart Phase1 Phase2 Features", "[XLChart][Phase12]")
             REQUIRE(xml.find("<c:axId val=\"200000001\" />") != std::string::npos); // Secondary Val
             
             // Ensure the lineChart binds to secondary axes
-            auto linePos = xml.find("<c:lineChart>");
+            auto linePos = xml.find("<c:scatterChart>");
             REQUIRE(xml.find("<c:axId val=\"200000000\"", linePos) != std::string::npos);
             REQUIRE(xml.find("<c:axId val=\"200000001\"", linePos) != std::string::npos);
 

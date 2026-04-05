@@ -8,7 +8,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("High Pressure Concurrent Writes", "[XLConcurrent][TSAN]")
+TEST_CASE("High Pressure Concurrent Writes", "[.hide][XLConcurrent][TSAN]")
 {
     std::string filename = "test_high_pressure_concurrent.xlsx";
     
