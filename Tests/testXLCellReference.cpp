@@ -79,6 +79,39 @@ TEST_CASE("XLCellReference Tests", "[XLCell]")
         REQUIRE(m_ref.column() == 3);
     }
 
+    SECTION("Data-driven Reference Parsing")
+    {
+        auto [address, expectedRow, expectedCol, isValid] = GENERATE(table<std::string, uint32_t, uint16_t, bool>({
+            // Valid common cases
+            {"A1", 1, 1, true},
+            {"Z10", 10, 26, true},
+            {"AA100", 100, 27, true},
+            {"XFD1048576", 1048576, 16384, true},
+            // Absolute references (should strip $)
+            {"$A$1", 1, 1, false},
+            {"$B2", 2, 2, false},
+            {"C$3", 3, 3, false},
+            // Invalid references
+            {"1", 0, 0, false},
+            {"A", 0, 0, false},
+            {"A0", 0, 0, false},
+            {"1A", 0, 0, false},
+            {"A-1", 0, 0, false},
+            {"XFE1", 0, 0, false},   // Beyond XFD
+            {"A1048577", 0, 0, false} // Beyond 1048576
+        }));
+
+        if (isValid) {
+            REQUIRE_NOTHROW(XLCellReference(address));
+            XLCellReference ref(address);
+            REQUIRE(ref.row() == expectedRow);
+            REQUIRE(ref.column() == expectedCol);
+        } else {
+            INFO("Testing invalid address: " << address);
+            REQUIRE_THROWS(XLCellReference(address));
+        }
+    }
+
     SECTION("Increment and Decrement")
     {
         auto ref = XLCellReference();
