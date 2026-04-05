@@ -212,3 +212,54 @@ TEST_CASE("Advanced Pivot Table DataOnRows and NumFmt", "[XLPivotTable]")
     
     std::remove("./PivotDataOnRowsTest.xlsx");
 }
+
+TEST_CASE("Advanced Pivot Table Styling and Formatting Regression", "[XLPivotTable]")
+{
+    XLDocument doc;
+    doc.create("./PivotStyleRegressionTest.xlsx", XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    wks.cell("A1").value() = "Category";
+    wks.cell("B1").value() = "Value";
+
+    wks.cell("A2").value() = "A"; wks.cell("B2").value() = 100;
+    wks.cell("A3").value() = "B"; wks.cell("B3").value() = 200;
+
+    XLPivotTableOptions options;
+    options.name        = "StylePivot";
+    options.sourceRange = "Sheet1!A1:B3";
+    options.targetCell  = "D1";
+
+    // Enable formatting and styles explicitly (preventing the "missing stripes" regression)
+    options.showRowStripes      = true;
+    options.showColStripes      = false;
+    options.showRowHeaders      = true;
+    options.showColHeaders      = true;
+    options.pivotTableStyleName = "PivotStyleMedium9";
+
+    options.rows.push_back({"Category", XLPivotSubtotal::Sum, ""});
+    options.data.push_back({"Value", XLPivotSubtotal::Sum, "Total Value"});
+
+    REQUIRE_NOTHROW(wks.addPivotTable(options));
+    REQUIRE_NOTHROW(doc.save());
+    doc.close();
+
+    // Verify XML structure to ensure styling properties weren't lost
+    XLDocument doc2;
+    REQUIRE_NOTHROW(doc2.open("./PivotStyleRegressionTest.xlsx"));
+
+    std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
+
+    // The single most critical node that tells Excel how to paint the table
+    // Check that it contains the explicit true/false values mapped from boolean flags
+    auto stylePos = ptDefXmlStr.find("<pivotTableStyleInfo");
+    REQUIRE(stylePos != std::string::npos);
+
+    REQUIRE(ptDefXmlStr.find("name=\"PivotStyleMedium9\"", stylePos) != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("showRowStripes=\"1\"", stylePos) != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("showColStripes=\"0\"", stylePos) != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("showRowHeaders=\"1\"", stylePos) != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("showColHeaders=\"1\"", stylePos) != std::string::npos);
+    
+    std::remove("./PivotStyleRegressionTest.xlsx");
+}
