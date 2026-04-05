@@ -88,3 +88,47 @@ TEST_CASE("AutoFilter and SortState Generation", "[XLAutoFilter]")
 
     doc2.close();
 }
+
+TEST_CASE("AutoFilter Advanced Conditions", "[XLAutoFilter][Advanced]")
+{
+    XLDocument doc;
+    doc.create("./AutoFilterAdvancedTest.xlsx", XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    wks.cell("A1").value() = "ID";
+    wks.cell("B1").value() = "Value";
+    
+    for(int i=2; i<=6; ++i) {
+        wks.cell(i, 1).value() = i-1;
+        wks.cell(i, 2).value() = (i-1) * 10;
+    }
+
+    wks.setAutoFilter(wks.range(XLCellReference("A1"), XLCellReference("B6")));
+    
+    // Test CustomFilter (e.g., Value > 20 AND Value < 50)
+    auto filterValue = wks.autofilterObject().filterColumn(1);
+    filterValue.setCustomFilter("greaterThan", "20", XLFilterLogic::And, "lessThan", "50");
+    
+    // Test Top10 Filter
+    auto filterId = wks.autofilterObject().filterColumn(0);
+    filterId.setTop10(3, false, true); // Top 3 items
+
+    doc.save();
+    doc.close();
+
+    XLDocument doc2;
+    REQUIRE_NOTHROW(doc2.open("./AutoFilterAdvancedTest.xlsx"));
+    
+    std::string sheetXmlStr = doc2.extractXmlFromArchive("xl/worksheets/sheet1.xml");
+
+    // Verify Custom Filter XML
+    REQUIRE(sheetXmlStr.find("<customFilters and=\"1\">") != std::string::npos);
+    REQUIRE(sheetXmlStr.find("<customFilter operator=\"greaterThan\" val=\"20\"") != std::string::npos);
+    REQUIRE(sheetXmlStr.find("<customFilter operator=\"lessThan\" val=\"50\"") != std::string::npos);
+
+    // Verify Top10 Filter XML
+    REQUIRE(sheetXmlStr.find("<top10 val=\"3\"") != std::string::npos);
+
+    doc2.close();
+    std::remove("./AutoFilterAdvancedTest.xlsx");
+}
