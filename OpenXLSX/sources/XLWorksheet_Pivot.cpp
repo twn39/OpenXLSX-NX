@@ -239,6 +239,8 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         i++;
     }
 
+    bool hasVirtualDataField = (options.data.size() > 1);
+
     if (!rowIndices.empty()) {
         rowFieldsNode = ptRoot.insert_child_after("rowFields", pivotFieldsNode);
         rowFieldsNode.append_attribute("count").set_value(rowIndices.size());
@@ -249,11 +251,14 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         rowItemsNode.append_child("i").append_child("x");
     }
 
-    if (!colIndices.empty()) {
+    if (!colIndices.empty() || hasVirtualDataField) {
         XMLNode insertAfter   = rowItemsNode.empty() ? (rowFieldsNode.empty() ? pivotFieldsNode : rowFieldsNode) : rowItemsNode;
         XMLNode colFieldsNode = ptRoot.insert_child_after("colFields", insertAfter);
-        colFieldsNode.append_attribute("count").set_value(colIndices.size());
+        colFieldsNode.append_attribute("count").set_value(colIndices.size() + (hasVirtualDataField ? 1 : 0));
         for (int idx : colIndices) { colFieldsNode.append_child("field").append_attribute("x").set_value(idx); }
+        if (hasVirtualDataField) {
+            colFieldsNode.append_child("field").append_attribute("x").set_value("-2"); // -2 represents the Values field in Excel
+        }
 
         colItemsNode = ptRoot.insert_child_after("colItems", colFieldsNode);
         colItemsNode.append_attribute("count").set_value("1");
