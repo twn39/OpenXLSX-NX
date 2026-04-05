@@ -685,6 +685,36 @@ void XLAxis::clearMaxBounds()
     m_node.child("c:scaling").remove_child("c:max");
 }
 
+void XLAxis::setLogScale(double base)
+{
+    if (m_node.empty()) return;
+    XMLNode scaling = m_node.child("c:scaling");
+    if (scaling.empty()) scaling = appendAndGetNode(m_node, "c:scaling", XLAxisNodeOrder);
+
+    if (base <= 1.0) {
+        scaling.remove_child("c:logBase");
+        return;
+    }
+
+    XMLNode logBase = appendAndGetNode(scaling, "c:logBase", XLScalingNodeOrder);
+    logBase.attribute("val") ? logBase.attribute("val").set_value(base) : logBase.append_attribute("val").set_value(base);
+}
+
+void XLAxis::setDateAxis(bool isDateAxis)
+{
+    if (m_node.empty()) return;
+    std::string_view currentName = m_node.name();
+
+    if (isDateAxis && currentName == "c:catAx") {
+        m_node.set_name("c:dateAx");
+        // Ensure some dateAx specific nodes are present if needed, though most catAx nodes are compatible
+        // OOXML: dateAx has auto, lblOffset, baseTimeUnit, majorUnit, majorTimeUnit, etc.
+    }
+    else if (!isDateAxis && currentName == "c:dateAx") {
+        m_node.set_name("c:catAx");
+    }
+}
+
 void XLAxis::setMajorGridlines(bool show)
 {
     if (m_node.empty()) return;

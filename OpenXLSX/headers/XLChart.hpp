@@ -140,6 +140,18 @@ namespace OpenXLSX
         void setMaxBounds(double max);
         void clearMaxBounds();
 
+        /**
+         * @brief Set the axis to use a logarithmic scale.
+         * @param base The base of the logarithm (e.g. 10). If 0 or less, the logarithmic scale is removed.
+         */
+        void setLogScale(double base);
+
+        /**
+         * @brief Convert this axis to a date axis or back to a category axis.
+         * @param isDateAxis If true, the axis becomes a c:dateAx. If false, it reverts to c:catAx.
+         */
+        void setDateAxis(bool isDateAxis);
+
         void setMajorGridlines(bool show);
         void setMinorGridlines(bool show);
 

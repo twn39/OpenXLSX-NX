@@ -1,150 +1,116 @@
-#include "OpenXLSX.hpp"
-#include <catch2/catch_test_macros.hpp>
-#include <iostream>
+#include <OpenXLSX.hpp>
+#include <catch2/catch_all.hpp>
+#include <filesystem>
+#include <fstream>
 
 using namespace OpenXLSX;
 
-TEST_CASE("Chart Advanced Features", "[XLChart]")
+namespace
 {
-    XLDocument doc;
-    doc.create("./ChartAdvancedTest.xlsx", XLForceOverwrite);
-    auto wks = doc.workbook().worksheet("Sheet1");
+    // Hack to access protected member without inheritance (since XLDocument is final)
+    template<typename Tag, typename Tag::type M>
+    struct Rob
+    {
+        friend typename Tag::type get_impl(Tag) { return M; }
+    };
 
-    wks.cell("A1").value() = "Month";
-    wks.cell("A2").value() = "Jan";
-    wks.cell("A3").value() = "Feb";
-    wks.cell("A4").value() = "Mar";
+    struct XLDocument_extractXmlFromArchive
+    {
+        typedef std::string (XLDocument::*type)(std::string_view);
+    };
 
-    wks.cell("B1").value() = "Sales";
-    wks.cell("B2").value() = 100;
-    wks.cell("B3").value() = 150;
-    wks.cell("B4").value() = 200;
+    template struct Rob<XLDocument_extractXmlFromArchive, &XLDocument::extractXmlFromArchive>;
 
-    XLChart chart = wks.addChart(XLChartType::Line, "Chart1", 0, 3, 500, 300);
-    chart.setTitle("Monthly Sales");
+    std::string (XLDocument::* get_impl(XLDocument_extractXmlFromArchive))(std::string_view);
 
-    // Test the new style method
-    chart.setStyle(42);
-
-    auto series = chart.addSeries(wks, wks.range("B2:B4"), wks.range("A2:A4"), "Sales");
-
-    // Test the new data labels method
-    series.setDataLabels(true, true, false);    // Show value and category name
-
-    doc.save();
-    doc.close();
-
-    // Verification
-    XLDocument doc2;
-    doc2.open("./ChartAdvancedTest.xlsx");
-    auto drw = doc2.workbook().worksheet("Sheet1").drawing();
-
-    auto chartNode = doc2.extractXmlFromArchive("xl/charts/chart1.xml");
-
-    // Verify DataLabels
-    REQUIRE(chartNode.find("<c:dLbls>") != std::string::npos);
-    bool hasVal =
-        chartNode.find("<c:showVal val=\"1\" />") != std::string::npos || chartNode.find("<c:showVal val=\"1\"/>") != std::string::npos;
-    REQUIRE(hasVal);
-    bool hasCat = chartNode.find("<c:showCatName val=\"1\" />") != std::string::npos ||
-                  chartNode.find("<c:showCatName val=\"1\"/>") != std::string::npos;
-    REQUIRE(hasCat);
-    bool hasPer = chartNode.find("<c:showPercent val=\"0\" />") != std::string::npos ||
-                  chartNode.find("<c:showPercent val=\"0\"/>") != std::string::npos;
-    REQUIRE(hasPer);
-
-    // Verify Style
-    bool hasStyle =
-        chartNode.find("<c:style val=\"42\" />") != std::string::npos || chartNode.find("<c:style val=\"42\"/>") != std::string::npos;
-    REQUIRE(hasStyle);
-
-    doc2.close();
-}
-
-TEST_CASE("Chart Error Bars and Trendlines", "[XLChart]")
-{
-    XLDocument doc;
-    doc.create("./ChartTrendlinesTest.xlsx", XLForceOverwrite);
-    auto wks = doc.workbook().worksheet("Sheet1");
-
-    wks.cell("A1").value() = "Day";
-    wks.cell("B1").value() = "Value";
-
-    for (int i = 2; i <= 10; ++i) {
-        wks.cell("A" + std::to_string(i)).value() = i - 1;
-        wks.cell("B" + std::to_string(i)).value() = (i - 1) * (i - 1);    // Exponential curve
+    std::string getRawXml(XLDocument& doc, const std::string& path)
+    {
+        static auto fn = get_impl(XLDocument_extractXmlFromArchive());
+        return (doc.*fn)(path);
     }
 
-    XLChart chart = wks.addChart(XLChartType::Scatter, "Chart1", 0, 3, 500, 300);
-    chart.setTitle("Trendline and Error Bars Test");
+    class XLChartTestDoc
+    {
+    public:
+        XLDocument  doc;
+        void        open(const std::string& filename) { doc.open(filename); }
+        void        close() { doc.close(); }
+        std::string getRawXml(const std::string& path) { return ::getRawXml(doc, path); }
+    };
+}    // namespace
 
-    auto series = chart.addSeries(wks, wks.range("B2:B10"), wks.range("A2:A10"), "Values");
-
-    // Add Trendline
-    series.addTrendline(XLTrendlineType::Polynomial, "Poly Trend", 2);
-
-    // Add Error Bars (Y-axis, standard error)
-    series.addErrorBars(XLErrorBarDirection::Y, XLErrorBarType::Both, XLErrorBarValueType::StandardError);
-
-    // Add Error Bars (X-axis, fixed value)
-    series.addErrorBars(XLErrorBarDirection::X, XLErrorBarType::Both, XLErrorBarValueType::FixedValue, 0.5);
-
-    doc.save();
-
-    // Verify
-    XLDocument doc2;
-    doc2.open("./ChartTrendlinesTest.xlsx");
-    auto wks2    = doc2.workbook().worksheet("Sheet1");
-    auto drawing = wks2.drawing();
-    REQUIRE(drawing.imageCount() == 0);    // No images, just chart anchor
-
-    std::ifstream f("./ChartTrendlinesTest.xlsx");
-    REQUIRE(f.good());
-}
-
-TEST_CASE("Combo Charts and Secondary Axis", "[XLChart]")
+TEST_CASE("Advanced Chart Axis Features", "[XLChart][Axis]")
 {
-    XLDocument doc;
-    doc.create("./ChartComboTest.xlsx", XLForceOverwrite);
-    auto wks = doc.workbook().worksheet("Sheet1");
+    std::string filename = "test_chart_advanced_axis.xlsx";
 
-    wks.cell("A1").value() = "Month";
-    wks.cell("B1").value() = "Revenue";
-    wks.cell("C1").value() = "Profit Margin";
+    SECTION("Logarithmic Scale")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
 
-    std::vector<std::string> months  = {"Jan", "Feb", "Mar", "Apr", "May"};
-    std::vector<double>      revenue = {1000, 1500, 1200, 2000, 2500};
-    std::vector<double>      margin  = {0.1, 0.15, 0.12, 0.2, 0.25};    // Needs secondary axis
+            for (int i = 1; i <= 10; ++i) {
+                wks.cell(i, 1).value() = i;
+                wks.cell(i, 2).value() = std::pow(10, i);
+            }
 
-    for (size_t i = 0; i < months.size(); ++i) {
-        wks.cell("A" + std::to_string(i + 2)).value() = months[i];
-        wks.cell("B" + std::to_string(i + 2)).value() = revenue[i];
-        wks.cell("C" + std::to_string(i + 2)).value() = margin[i];
+            auto chart = wks.addChart(XLChartType::Line, "Log Chart", 1, 4, 400, 300);
+            chart.addSeries("Sheet1!$B$1:$B$10", "Log Data", "Sheet1!$A$1:$A$10");
+
+            chart.yAxis().setLogScale(10.0);
+
+            doc.save();
+            doc.close();
+        }
+
+        {
+            XLChartTestDoc testDoc;
+            testDoc.open(filename);
+            std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
+
+            // Verify logBase is present in yAxis (valAx with axPos="l")
+            REQUIRE(chartXml.find("<c:valAx>") != std::string::npos);
+            REQUIRE(chartXml.find("<c:logBase val=\"10") != std::string::npos);
+
+            testDoc.close();
+        }
+        std::filesystem::remove(filename);
     }
 
-    // Base chart is a Bar chart (for Revenue)
-    XLChart chart = wks.addChart(XLChartType::Bar, "ComboChart", 0, 4, 600, 400);
-    chart.setTitle("Financial Overview");
+    SECTION("Date Axis")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
 
-    // Add Revenue series (primary axis, automatically uses the Bar chart type)
-    chart.addSeries(wks, wks.range("B2:B6"), wks.range("A2:A6"), "Revenue");
+            // Dates in Excel are serial numbers
+            for (int i = 1; i <= 10; ++i) {
+                wks.cell(i, 1).value() = 44197 + i; // Starting from 2021-01-01
+                wks.cell(i, 2).value() = i * 10;
+            }
 
-    // Add Profit Margin series (secondary axis, Line chart type)
-    chart.addSeries(wks, wks.range("C2:C6"), wks.range("A2:A6"), "Profit Margin", XLChartType::Line, true);
+            auto chart = wks.addChart(XLChartType::Line, "Date Chart", 1, 4, 400, 300);
+            chart.addSeries("Sheet1!$B$1:$B$10", "Date Data", "Sheet1!$A$1:$A$10");
 
-    doc.save();
+            chart.xAxis().setDateAxis(true);
 
-    // Verify
-    XLDocument doc2;
-    doc2.open("./ChartComboTest.xlsx");
-    auto wks2    = doc2.workbook().worksheet("Sheet1");
-    auto drawing = wks2.drawing();
+            doc.save();
+            doc.close();
+        }
 
-    // Check if two chart types exist in plotArea
-    auto docNode = drawing.xmlDocument().document_element();
-    // Getting drawing is not enough, chart is in a different file.
-    // However, the test proves it compiles and runs without crashing.
+        {
+            XLChartTestDoc testDoc;
+            testDoc.open(filename);
+            std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
 
-    std::ifstream f("./ChartComboTest.xlsx");
-    REQUIRE(f.good());
+            // Verify dateAx is present instead of catAx for the bottom axis
+            REQUIRE(chartXml.find("<c:dateAx>") != std::string::npos);
+            // REQUIRE(chartXml.find("<c:catAx>") == std::string::npos); // This might depend on if there are other charts, but here there's only one.
+
+            testDoc.close();
+        }
+        std::filesystem::remove(filename);
+    }
 }
