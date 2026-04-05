@@ -251,14 +251,8 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
 
         rowItemsNode = ptRoot.insert_child_after("rowItems", rowFieldsNode);
-        rowItemsNode.append_attribute("count").set_value(1 + (hasVirtualDataField && virtualDataOnRows ? options.data.size() - 1 : 0));
+        rowItemsNode.append_attribute("count").set_value("1");
         rowItemsNode.append_child("i").append_child("x");
-        if (hasVirtualDataField && virtualDataOnRows) {
-            for (size_t di = 1; di < options.data.size(); ++di) {
-                XMLNode item = rowItemsNode.append_child("i");
-                item.append_child("x").append_attribute("v").set_value(di);
-            }
-        }
     }
 
     if (!colIndices.empty() || (hasVirtualDataField && !virtualDataOnRows)) {
@@ -271,14 +265,8 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
 
         colItemsNode = ptRoot.insert_child_after("colItems", colFieldsNode);
-        colItemsNode.append_attribute("count").set_value(1 + (hasVirtualDataField && !virtualDataOnRows ? options.data.size() - 1 : 0));
+        colItemsNode.append_attribute("count").set_value("1");
         colItemsNode.append_child("i");
-        if (hasVirtualDataField && !virtualDataOnRows) {
-            for (size_t di = 1; di < options.data.size(); ++di) {
-                XMLNode item = colItemsNode.append_child("i");
-                item.append_attribute("x").set_value(di);
-            }
-        }
     }
 
     XMLNode pageFieldsNode;
