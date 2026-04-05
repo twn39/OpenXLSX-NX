@@ -47,7 +47,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
             for (int i = 1; i <= 5; ++i) { wks.cell(i, 1).value() = i; }
 
@@ -81,7 +81,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
             for (int i = 1; i <= 3; ++i) { wks.cell(i, 1).value() = i; }
 
@@ -113,7 +113,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
 
             // Add some data
@@ -172,7 +172,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Line, "Line Chart", 2, 4, 400, 300);
             chart.addSeries("Sheet1!$A$1:$A$10");
@@ -195,7 +195,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Pie, "Pie Chart", 2, 4, 400, 300);
             chart.addSeries("Sheet1!$A$1:$A$10");
@@ -219,7 +219,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Scatter, "Scatter Chart", 2, 4, 400, 300);
             chart.addSeries("Sheet1!$A$1:$A$10");
@@ -243,7 +243,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Bar, "Bar Chart", 2, 4, 400, 300);
 
@@ -277,7 +277,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Scatter, "Scatter", 2, 4, 400, 300);
 
@@ -317,7 +317,7 @@ TEST_CASE("Chart Series Fluent API", "[XLChart][Fluent]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
 
             for (int i = 1; i <= 5; ++i) {
@@ -357,7 +357,7 @@ TEST_CASE("Chart Anchor API", "[XLChart][Anchor]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
 
             for (int i = 1; i <= 5; ++i) {
@@ -403,7 +403,7 @@ TEST_CASE("Chart Cell Range API", "[XLChart][Range]")
     {
         {
             XLDocument doc;
-            doc.create(filename, XLForceOverwrite);
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
 
             for (int i = 1; i <= 5; ++i) {
@@ -655,5 +655,94 @@ TEST_CASE("Chart Phase1 Phase2 Features", "[XLChart][Phase12]")
             td.close();
         }
         std::filesystem::remove(fname);
+    }
+    SECTION("Combo Chart with Secondary Axis")
+    {
+        {
+            XLDocument doc;
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            
+            // Base Data
+            wks.cell("A1").value() = "Month";
+            wks.cell("B1").value() = "Revenue";
+            wks.cell("C1").value() = "Margin %";
+            
+            for (int i = 2; i <= 6; ++i) {
+                wks.cell(i, 1).value() = "M" + std::to_string(i - 1);
+                wks.cell(i, 2).value() = i * 1000;
+                wks.cell(i, 3).value() = (i - 1) * 0.1;
+            }
+
+            // Create primary Column chart
+            auto comboChart = wks.addChart(XLChartType::Column, "Financial Combo", 2, 5, 500, 300);
+            
+            // Primary Axis (Revenue)
+            comboChart.addSeries("Sheet1!$B$2:$B$6", "Sheet1!$B$1", "Sheet1!$A$2:$A$6");
+            
+            // Secondary Axis (Margin %, Line Chart)
+            comboChart.addSeries("Sheet1!$C$2:$C$6", "Sheet1!$C$1", "Sheet1!$A$2:$A$6", XLChartType::ScatterLineMarker, true);
+
+            std::ostringstream ss;
+            comboChart.xmlDocument().save(ss);
+            std::string xml = ss.str();
+
+            // Verify both chart engines exist in the same plotArea
+            REQUIRE(xml.find("<c:barChart>") != std::string::npos);
+            REQUIRE(xml.find("<c:lineChart>") != std::string::npos);
+            
+            // Verify axes cross-linkage
+            REQUIRE(xml.find("<c:axId val=\"100000000\" />") != std::string::npos); // Primary Cat
+            REQUIRE(xml.find("<c:axId val=\"100000001\" />") != std::string::npos); // Primary Val
+            REQUIRE(xml.find("<c:axId val=\"200000000\" />") != std::string::npos); // Secondary Cat
+            REQUIRE(xml.find("<c:axId val=\"200000001\" />") != std::string::npos); // Secondary Val
+            
+            // Ensure the lineChart binds to secondary axes
+            auto linePos = xml.find("<c:lineChart>");
+            REQUIRE(xml.find("<c:axId val=\"200000000\"", linePos) != std::string::npos);
+            REQUIRE(xml.find("<c:axId val=\"200000001\"", linePos) != std::string::npos);
+
+            doc.save();
+            doc.close();
+        }
+    }
+
+    SECTION("Advanced Analysis Elements - Trendline and ErrorBars")
+    {
+        {
+            XLDocument doc;
+            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            for (int i = 1; i <= 5; ++i) { wks.cell(i, 1).value() = i * i; } // 1, 4, 9, 16, 25
+            
+            auto chart = wks.addChart(XLChartType::Scatter, "Analysis", 2, 3, 400, 300);
+            auto series = chart.addSeries("Sheet1!$A$1:$A$5");
+            
+            // Add a polynomial trendline order 3
+            series.addTrendline(XLTrendlineType::Polynomial, "PolyTrend", 3);
+            
+            // Add fixed Y error bars of value 2.5
+            series.addErrorBars(XLErrorBarDirection::Y, XLErrorBarType::Both, XLErrorBarValueType::FixedValue, 2.5);
+
+            std::ostringstream ss;
+            chart.xmlDocument().save(ss);
+            std::string xml = ss.str();
+
+            // Trendline verification
+            REQUIRE(xml.find("<c:trendline>") != std::string::npos);
+            REQUIRE(xml.find("<c:trendlineType val=\"poly\" />") != std::string::npos);
+            REQUIRE(xml.find("<c:order val=\"3\" />") != std::string::npos);
+            REQUIRE(xml.find("<c:name>PolyTrend</c:name>") != std::string::npos);
+            
+            // Error bars verification
+            REQUIRE(xml.find("<c:errBars>") != std::string::npos);
+            REQUIRE(xml.find("<c:errDir val=\"y\" />") != std::string::npos);
+            REQUIRE(xml.find("<c:errBarType val=\"both\" />") != std::string::npos);
+            REQUIRE(xml.find("<c:errValType val=\"fixedVal\" />") != std::string::npos);
+            REQUIRE(xml.find("<c:val val=\"2.5") != std::string::npos);
+
+            doc.save();
+            doc.close();
+        }
     }
 }
