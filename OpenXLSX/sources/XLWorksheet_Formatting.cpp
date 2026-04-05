@@ -20,7 +20,7 @@ XLDataValidations& XLWorksheet::dataValidations()
 
 XLCellRange XLWorksheet::mergeCells(XLCellRange const& rangeToMerge, bool emptyHiddenCells)
 {
-    if (rangeToMerge.numRows() * rangeToMerge.numColumns() < 2) {
+    if (static_cast<uint64_t>(rangeToMerge.numRows()) * rangeToMerge.numColumns() < 2) {
         using namespace std::literals::string_literals;
         throw XLInputError("XLWorksheet::"s + __func__ + ": rangeToMerge must comprise at least 2 cells"s);
     }

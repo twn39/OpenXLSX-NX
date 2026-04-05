@@ -127,4 +127,55 @@ TEST_CASE("XLMergeCells Tests", "[XLMergeCells]")
 
         doc.close();
     }
+    SECTION("Get Value of Merged Cell")
+    {
+        XLDocument doc;
+        doc.create("./testXLMergeGetValue.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        wks.cell("B2").value() = "Merged Title";
+        wks.mergeCells("B2:D4", true);
+
+        // The top-left cell should retain the value
+        REQUIRE(wks.cell("B2").value().get<std::string>() == "Merged Title");
+
+        // The rest should be empty
+        REQUIRE(wks.cell("C3").value().type() == XLValueType::Empty);
+        REQUIRE(wks.cell("D4").value().type() == XLValueType::Empty);
+
+        // However, a good API should allow us to retrieve the top-left value
+        // if we query ANY cell within the merged range.
+        // Currently OpenXLSX returns Empty for C3. Let's see if there's a helper.
+        // If not, we should test the finding mechanism.
+        
+        auto mergeIdx = wks.merges().findMergeByCell("C3");
+        REQUIRE(mergeIdx != XLMergeNotFound);
+        
+        std::string mergeRange = std::string(wks.merges().merge(mergeIdx));
+        REQUIRE(mergeRange == "B2:D4");
+        
+        // Extract top left cell from range
+        XLCellReference topLeft(mergeRange.substr(0, mergeRange.find(':')));
+        REQUIRE(wks.cell(topLeft).value().get<std::string>() == "Merged Title");
+
+        doc.close();
+        std::remove("./testXLMergeGetValue.xlsx");
+    }
+
+    SECTION("Boundary Overflow Tests")
+    {
+        XLDocument doc;
+        doc.create("./testXLMergeBounds.xlsx", XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        // Excel has max limits 1048576 x 16384
+        REQUIRE_NOTHROW(wks.mergeCells("A1:XFD1048576"));
+        REQUIRE(wks.merges().count() == 1);
+        
+        // Find merge in huge encompassing bounds
+        REQUIRE(wks.merges().findMergeByCell("ZZ999") == 0);
+
+        doc.close();
+        std::remove("./testXLMergeBounds.xlsx");
+    }
 }
