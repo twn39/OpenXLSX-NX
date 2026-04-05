@@ -228,4 +228,62 @@ TEST_CASE("Advanced Chart Axis Features", "[XLChart][Axis]")
         }
         std::filesystem::remove(filename);
     }
+
+    SECTION("Major and Minor Units")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            for (int i = 1; i <= 10; ++i) wks.cell(i, 1).value() = i * 10;
+            auto chart = wks.addChart(XLChartType::Line, "UnitsTest", 1, 4, 400, 300);
+            chart.addSeries("Sheet1!$A$1:$A$10");
+            
+            chart.yAxis().setMajorUnit(20.0);
+            chart.yAxis().setMinorUnit(5.0);
+            
+            doc.save();
+            doc.close();
+        }
+        {
+            XLChartTestDoc td;
+            td.open(filename);
+            std::string xml = td.getRawXml("xl/charts/chart1.xml");
+            REQUIRE(xml.find("<c:majorUnit val=\"20") != std::string::npos);
+            REQUIRE(xml.find("<c:minorUnit val=\"5") != std::string::npos);
+            td.close();
+        }
+        std::filesystem::remove(filename);
+    }
+
+    SECTION("Data Labels from Range")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            for (int i = 1; i <= 5; ++i) {
+                wks.cell(i, 1).value() = i * 10; // Values
+                wks.cell(i, 2).value() = "Label " + std::to_string(i); // Labels
+            }
+            auto chart = wks.addChart(XLChartType::Bar, "LabelsTest", 1, 4, 400, 300);
+            auto series = chart.addSeries("Sheet1!$A$1:$A$5");
+            
+            series.setDataLabelsFromRange(wks, wks.range("B1:B5"));
+            
+            doc.save();
+            doc.close();
+        }
+        {
+            XLChartTestDoc td;
+            td.open(filename);
+            std::string xml = td.getRawXml("xl/charts/chart1.xml");
+            REQUIRE(xml.find("<c:dLbls>") != std::string::npos);
+            REQUIRE(xml.find("c15:datalblsRange") != std::string::npos);
+            REQUIRE(xml.find("Sheet1!$B$1:$B$5") != std::string::npos);
+            REQUIRE(xml.find("c15:showDataLabelsRange val=\"1\"") != std::string::npos);
+            td.close();
+        }
+        std::filesystem::remove(filename);
+    }
 }

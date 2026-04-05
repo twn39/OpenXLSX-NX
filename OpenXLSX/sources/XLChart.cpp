@@ -632,7 +632,8 @@ static const std::vector<std::string_view> XLAxisNodeOrder = {
     "c:axId",      "c:scaling",     "c:delete",        "c:axPos",         "c:majorGridlines", "c:minorGridlines",
     "c:title",     "c:numFmt",      "c:majorTickMark", "c:minorTickMark", "c:tickLblPos",     "c:spPr",
     "c:txPr",      "c:crossAx",     "c:crosses",       "c:crossesAt",     "c:auto",           "c:lblAlgn",
-    "c:lblOffset", "c:tickLblSkip", "c:tickMarkSkip",  "c:noMultiLvlLbl", "c:crossBetween"};
+    "c:lblOffset", "c:tickLblSkip", "c:tickMarkSkip",  "c:noMultiLvlLbl", "c:crossBetween",   "c:majorUnit",
+    "c:minorUnit"};
 
 static const std::vector<std::string_view> XLScalingNodeOrder = {"c:logBase", "c:orientation", "c:max", "c:min", "c:extLst"};
 
@@ -683,6 +684,20 @@ void XLAxis::clearMaxBounds()
 {
     if (m_node.empty()) return;
     m_node.child("c:scaling").remove_child("c:max");
+}
+
+void XLAxis::setMajorUnit(double unit)
+{
+    if (m_node.empty()) return;
+    XMLNode node = appendAndGetNode(m_node, "c:majorUnit", XLAxisNodeOrder);
+    node.attribute("val") ? node.attribute("val").set_value(unit) : node.append_attribute("val").set_value(unit);
+}
+
+void XLAxis::setMinorUnit(double unit)
+{
+    if (m_node.empty()) return;
+    XMLNode node = appendAndGetNode(m_node, "c:minorUnit", XLAxisNodeOrder);
+    node.attribute("val") ? node.attribute("val").set_value(unit) : node.append_attribute("val").set_value(unit);
 }
 
 void XLAxis::setLogScale(double base)
@@ -1088,6 +1103,46 @@ static std::string buildAbsoluteChartReference(const XLWorksheet& wks, const XLC
     if (tlAddr == brAddr) return formattedSheetName + "!" + tlAddr;
 
     return formattedSheetName + "!" + tlAddr + ":" + brAddr;
+}
+
+XLChartSeries& XLChartSeries::setDataLabelsFromRange(const XLWorksheet& wks, const XLCellRange& range)
+{
+    if (m_node.empty()) return *this;
+
+    XMLNode dLblsNode = m_node.child("c:dLbls");
+    if (dLblsNode.empty()) { dLblsNode = appendAndGetNode(m_node, "c:dLbls", XLSeriesNodeOrder); }
+
+    // Ensure we don't show standard values if using range labels
+    if (dLblsNode.child("c:showVal").empty()) { dLblsNode.append_child("c:showVal").append_attribute("val").set_value("0"); }
+    else {
+        dLblsNode.child("c:showVal").attribute("val").set_value("0");
+    }
+
+    // Add Excel 2013 extension for "Value from Cells"
+    XMLNode extLst = dLblsNode.child("c:extLst");
+    if (extLst.empty()) extLst = dLblsNode.append_child("c:extLst");
+
+    XMLNode extNode;
+    const char* uri = "{02D1E70F-994E-4017-B221-5B3F49A6E1E4}";
+    for (auto ext : extLst.children("c:ext")) {
+        if (std::string(ext.attribute("uri").value()) == uri) {
+            extNode = ext;
+            break;
+        }
+    }
+
+    if (extNode.empty()) {
+        extNode = extLst.append_child("c:ext");
+        extNode.append_attribute("uri").set_value(uri);
+        extNode.append_attribute("xmlns:c15").set_value("http://schemas.microsoft.com/office/drawing/2012/chart");
+    }
+
+    extNode.remove_children();
+    XMLNode rangeNode = extNode.append_child("c15:datalblsRange");
+    rangeNode.append_child("c15:f").text().set(buildAbsoluteChartReference(wks, range).c_str());
+    extNode.append_child("c15:showDataLabelsRange").append_attribute("val").set_value("1");
+
+    return *this;
 }
 
 XLChartSeries XLChart::addSeries(const XLWorksheet&         wks,

@@ -104,6 +104,13 @@ namespace OpenXLSX
         XLChartSeries& setDataLabels(bool showValue, bool showCategoryName = false, bool showPercent = false);
 
         /**
+         * @brief Set the data labels for this series to come from a worksheet range.
+         * @param wks   The worksheet containing the labels.
+         * @param range The range of cells to use for labels.
+         */
+        XLChartSeries& setDataLabelsFromRange(const XLWorksheet& wks, const XLCellRange& range);
+
+        /**
          * @brief Add a trendline to this series.
          */
         XLChartSeries& addTrendline(XLTrendlineType type, std::string_view name = "", uint8_t order = 2, uint8_t period = 2);
@@ -143,6 +150,18 @@ namespace OpenXLSX
 
         void setMaxBounds(double max);
         void clearMaxBounds();
+
+        /**
+         * @brief Set the major unit (interval between major tick marks) for the axis.
+         * @param unit The unit value.
+         */
+        void setMajorUnit(double unit);
+
+        /**
+         * @brief Set the minor unit (interval between minor tick marks) for the axis.
+         * @param unit The unit value.
+         */
+        void setMinorUnit(double unit);
 
         /**
          * @brief Set the axis to use a logarithmic scale.
