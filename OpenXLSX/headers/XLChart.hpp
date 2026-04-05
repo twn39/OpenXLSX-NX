@@ -18,6 +18,12 @@ namespace OpenXLSX
         Bar3D,
         Bar3DStacked,
         Bar3DPercentStacked,
+        Column,
+        ColumnStacked,
+        ColumnPercentStacked,
+        Column3D,
+        Column3DStacked,
+        Column3DPercentStacked,
         Line,
         LineStacked,
         LinePercentStacked,
@@ -31,6 +37,12 @@ namespace OpenXLSX
         ScatterSmoothMarker,    ///< Scatter with smooth lines and markers
         ScatterMarker,          ///< Scatter with markers only, no lines
         Bubble,                 ///< Bubble chart (needs addBubbleSeries)
+        StockHLC,
+        StockOHLC,
+        Surface,
+        Surface3D,
+        SurfaceWireframe,
+        Surface3DWireframe,
         Area,
         AreaStacked,
         AreaPercentStacked,

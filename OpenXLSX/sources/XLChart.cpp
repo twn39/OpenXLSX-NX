@@ -146,35 +146,68 @@ namespace OpenXLSX
                     else
                         chartNode.append_child("c:radarStyle").append_attribute("val").set_value("standard");
                     break;
+                case XLChartType::StockHLC:
+                case XLChartType::StockOHLC: {
+                    chartNode = plotArea.append_child("c:stockChart");
+                    chartNode.append_child("c:hiLowLines");
+                    if (type == XLChartType::StockOHLC) {
+                        XMLNode upDownBars = chartNode.append_child("c:upDownBars");
+                        upDownBars.append_child("c:gapWidth").append_attribute("val").set_value("150");
+                        upDownBars.append_child("c:upBars");
+                        upDownBars.append_child("c:downBars");
+                    }
+                    break;
+                }
+                case XLChartType::Surface:
+                case XLChartType::SurfaceWireframe:
+                case XLChartType::Surface3D:
+                case XLChartType::Surface3DWireframe: {
+                    const bool is3DSurface = (type == XLChartType::Surface3D || type == XLChartType::Surface3DWireframe);
+                    chartNode = plotArea.append_child(is3DSurface ? "c:surface3DChart" : "c:surfaceChart");
+                    const bool isWireframe = (type == XLChartType::SurfaceWireframe || type == XLChartType::Surface3DWireframe);
+                    chartNode.append_child("c:wireframe").append_attribute("val").set_value(isWireframe ? "1" : "0");
+                    if (is3DSurface) is3D = true;
+                    break;
+                }
                 case XLChartType::Bar:
                 case XLChartType::BarStacked:
                 case XLChartType::BarPercentStacked:
                 case XLChartType::Bar3D:
                 case XLChartType::Bar3DStacked:
                 case XLChartType::Bar3DPercentStacked:
-                default:
-                    chartNode = plotArea.append_child(
-                        (type == XLChartType::Bar3D || type == XLChartType::Bar3DStacked || type == XLChartType::Bar3DPercentStacked)
-                            ? "c:bar3DChart"
-                            : "c:barChart");
-                    chartNode.append_child("c:barDir").append_attribute("val").set_value("col");
+                case XLChartType::Column:
+                case XLChartType::ColumnStacked:
+                case XLChartType::ColumnPercentStacked:
+                case XLChartType::Column3D:
+                case XLChartType::Column3DStacked:
+                case XLChartType::Column3DPercentStacked:
+                default: {
+                    const bool is3DChart = (type == XLChartType::Bar3D || type == XLChartType::Bar3DStacked || type == XLChartType::Bar3DPercentStacked ||
+                                            type == XLChartType::Column3D || type == XLChartType::Column3DStacked || type == XLChartType::Column3DPercentStacked);
+                    chartNode = plotArea.append_child(is3DChart ? "c:bar3DChart" : "c:barChart");
 
-                    if (type == XLChartType::BarStacked || type == XLChartType::Bar3DStacked)
+                    const bool isBar = (type == XLChartType::Bar || type == XLChartType::BarStacked || type == XLChartType::BarPercentStacked ||
+                                        type == XLChartType::Bar3D || type == XLChartType::Bar3DStacked || type == XLChartType::Bar3DPercentStacked);
+                    chartNode.append_child("c:barDir").append_attribute("val").set_value(isBar ? "bar" : "col");
+
+                    if (type == XLChartType::BarStacked || type == XLChartType::Bar3DStacked || type == XLChartType::ColumnStacked || type == XLChartType::Column3DStacked)
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("stacked");
-                    else if (type == XLChartType::BarPercentStacked || type == XLChartType::Bar3DPercentStacked)
+                    else if (type == XLChartType::BarPercentStacked || type == XLChartType::Bar3DPercentStacked || type == XLChartType::ColumnPercentStacked || type == XLChartType::Column3DPercentStacked)
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("percentStacked");
                     else
                         chartNode.append_child("c:grouping").append_attribute("val").set_value("clustered");
 
                     // In stacked charts, overlap must be 100%
                     if (type == XLChartType::BarStacked || type == XLChartType::BarPercentStacked || type == XLChartType::Bar3DStacked ||
-                        type == XLChartType::Bar3DPercentStacked)
+                        type == XLChartType::Bar3DPercentStacked || type == XLChartType::ColumnStacked || type == XLChartType::ColumnPercentStacked ||
+                        type == XLChartType::Column3DStacked || type == XLChartType::Column3DPercentStacked)
                     {
                         chartNode.append_child("c:overlap").append_attribute("val").set_value("100");
                     }
-                    if (type == XLChartType::Bar3D || type == XLChartType::Bar3DStacked || type == XLChartType::Bar3DPercentStacked)
+                    if (is3DChart)
                         is3D = true;
                     break;
+                }
             }
 
             if (is3D) {
@@ -190,6 +223,9 @@ namespace OpenXLSX
             if (hasAxes) {
                 chartNode.append_child("c:axId").append_attribute("val").set_value("100000000");
                 chartNode.append_child("c:axId").append_attribute("val").set_value("100000001");
+                if (type == XLChartType::Surface || type == XLChartType::SurfaceWireframe || type == XLChartType::Surface3D || type == XLChartType::Surface3DWireframe) {
+                    chartNode.append_child("c:axId").append_attribute("val").set_value("100000005");
+                }
 
                 std::string axesTemplate;
                 if (type == XLChartType::Scatter) {
@@ -224,6 +260,52 @@ namespace OpenXLSX
         <c:crosses val="autoZero"/>
         <c:crossBetween val="between"/>
       </c:valAx>
+</dummy>)";
+                }
+                else if (type == XLChartType::Surface || type == XLChartType::SurfaceWireframe || type == XLChartType::Surface3D || type == XLChartType::Surface3DWireframe) {
+                    axesTemplate = R"(<dummy>
+      <c:catAx>
+        <c:axId val="100000000"/>
+        <c:scaling><c:orientation val="minMax"/></c:scaling>
+        <c:delete val="0"/>
+        <c:axPos val="b"/>
+        <c:numFmt formatCode="General" sourceLinked="0"/>
+        <c:majorTickMark val="none"/>
+        <c:minorTickMark val="none"/>
+        <c:tickLblPos val="nextTo"/>
+        <c:crossAx val="100000001"/>
+        <c:crosses val="autoZero"/>
+        <c:auto val="1"/>
+        <c:lblAlgn val="ctr"/>
+        <c:lblOffset val="100"/>
+        <c:noMultiLvlLbl val="0"/>
+      </c:catAx>
+      <c:valAx>
+        <c:axId val="100000001"/>
+        <c:scaling><c:orientation val="minMax"/></c:scaling>
+        <c:delete val="0"/>
+        <c:axPos val="l"/>
+        <c:majorGridlines/>
+        <c:numFmt formatCode="General" sourceLinked="0"/>
+        <c:majorTickMark val="none"/>
+        <c:minorTickMark val="none"/>
+        <c:tickLblPos val="nextTo"/>
+        <c:crossAx val="100000000"/>
+        <c:crosses val="autoZero"/>
+        <c:crossBetween val="between"/>
+      </c:valAx>
+      <c:serAx>
+        <c:axId val="100000005"/>
+        <c:scaling><c:orientation val="minMax"/></c:scaling>
+        <c:delete val="0"/>
+        <c:axPos val="b"/>
+        <c:numFmt formatCode="General" sourceLinked="0"/>
+        <c:majorTickMark val="none"/>
+        <c:minorTickMark val="none"/>
+        <c:tickLblPos val="nextTo"/>
+        <c:crossAx val="100000001"/>
+        <c:crosses val="autoZero"/>
+      </c:serAx>
 </dummy>)";
                 }
                 else {
@@ -289,6 +371,15 @@ namespace OpenXLSX
                 return "c:scatterChart";
             case XLChartType::Bubble:
                 return "c:bubbleChart";
+            case XLChartType::StockHLC:
+            case XLChartType::StockOHLC:
+                return "c:stockChart";
+            case XLChartType::Surface:
+            case XLChartType::SurfaceWireframe:
+                return "c:surfaceChart";
+            case XLChartType::Surface3D:
+            case XLChartType::Surface3DWireframe:
+                return "c:surface3DChart";
             case XLChartType::Area:
             case XLChartType::AreaStacked:
             case XLChartType::AreaPercentStacked:
@@ -306,10 +397,18 @@ namespace OpenXLSX
             case XLChartType::Bar:
             case XLChartType::BarStacked:
             case XLChartType::BarPercentStacked:
+            case XLChartType::Column:
+            case XLChartType::ColumnStacked:
+            case XLChartType::ColumnPercentStacked:
+
                 return "c:barChart";
             case XLChartType::Bar3D:
             case XLChartType::Bar3DStacked:
             case XLChartType::Bar3DPercentStacked:
+            case XLChartType::Column3D:
+            case XLChartType::Column3DStacked:
+            case XLChartType::Column3DPercentStacked:
+
                 return "c:bar3DChart";
             default:
                 return "c:barChart";
@@ -331,6 +430,17 @@ namespace OpenXLSX
             std::string_view name = child.name();
             if (name.length() > 5 && name.substr(name.length() - 5) == "Chart") {
                 bool nameMatches = targetNodeName.empty() || name == targetNodeName;
+
+                if (nameMatches && targetChartType && (targetNodeName == "c:barChart" || targetNodeName == "c:bar3DChart")) {
+                    const std::string expectedDir = (*targetChartType == XLChartType::Bar || *targetChartType == XLChartType::BarStacked || *targetChartType == XLChartType::BarPercentStacked ||
+                                                     *targetChartType == XLChartType::Bar3D || *targetChartType == XLChartType::Bar3DStacked || *targetChartType == XLChartType::Bar3DPercentStacked)
+                                                        ? "bar"
+                                                        : "col";
+                    auto dirNode = child.child("c:barDir");
+                    if (!dirNode.empty() && std::string(dirNode.attribute("val").value()) != expectedDir) {
+                        nameMatches = false;
+                    }
+                }
 
                 // Check if it uses the correct axes
                 bool axesMatch = false;
@@ -362,18 +472,50 @@ namespace OpenXLSX
         matchedNode = plotArea.append_child(targetNodeName.c_str());
 
         if (targetNodeName == "c:lineChart") { matchedNode.append_child("c:grouping").append_attribute("val").set_value("standard"); }
-        else if (targetNodeName == "c:barChart") {
-            matchedNode.append_child("c:barDir").append_attribute("val").set_value("col");
-            matchedNode.append_child("c:grouping").append_attribute("val").set_value("clustered");
+        else if (targetNodeName == "c:barChart" || targetNodeName == "c:bar3DChart") {
+            const std::string expectedDir = (targetChartType && (*targetChartType == XLChartType::Bar || *targetChartType == XLChartType::BarStacked || *targetChartType == XLChartType::BarPercentStacked ||
+                                                                 *targetChartType == XLChartType::Bar3D || *targetChartType == XLChartType::Bar3DStacked || *targetChartType == XLChartType::Bar3DPercentStacked))
+                                                ? "bar"
+                                                : "col";
+            matchedNode.append_child("c:barDir").append_attribute("val").set_value(expectedDir.c_str());
+            
+            if (targetChartType && (*targetChartType == XLChartType::BarStacked || *targetChartType == XLChartType::Bar3DStacked ||
+                                    *targetChartType == XLChartType::ColumnStacked || *targetChartType == XLChartType::Column3DStacked)) {
+                matchedNode.append_child("c:grouping").append_attribute("val").set_value("stacked");
+                matchedNode.append_child("c:overlap").append_attribute("val").set_value("100");
+            } else if (targetChartType && (*targetChartType == XLChartType::BarPercentStacked || *targetChartType == XLChartType::Bar3DPercentStacked ||
+                                           *targetChartType == XLChartType::ColumnPercentStacked || *targetChartType == XLChartType::Column3DPercentStacked)) {
+                matchedNode.append_child("c:grouping").append_attribute("val").set_value("percentStacked");
+                matchedNode.append_child("c:overlap").append_attribute("val").set_value("100");
+            } else {
+                matchedNode.append_child("c:grouping").append_attribute("val").set_value("clustered");
+            }
         }
         else if (targetNodeName == "c:scatterChart") {
             matchedNode.append_child("c:scatterStyle").append_attribute("val").set_value("lineMarker");
+        }
+        else if (targetNodeName == "c:stockChart") {
+            matchedNode.append_child("c:hiLowLines");
+            if (targetChartType && *targetChartType == XLChartType::StockOHLC) {
+                XMLNode upDownBars = matchedNode.append_child("c:upDownBars");
+                upDownBars.append_child("c:gapWidth").append_attribute("val").set_value("150");
+                upDownBars.append_child("c:upBars");
+                upDownBars.append_child("c:downBars");
+            }
+        }
+        else if (targetNodeName == "c:surfaceChart" || targetNodeName == "c:surface3DChart") {
+            const bool isWireframe = (targetChartType && (*targetChartType == XLChartType::SurfaceWireframe || *targetChartType == XLChartType::Surface3DWireframe));
+            matchedNode.append_child("c:wireframe").append_attribute("val").set_value(isWireframe ? "1" : "0");
         }
 
         // Add axes IDs to the new chart node (unless it's a Pie chart)
         if (targetNodeName != "c:pieChart" && targetNodeName != "c:pie3DChart" && targetNodeName != "c:doughnutChart") {
             matchedNode.append_child("c:axId").append_attribute("val").set_value(expectedCatAxId.c_str());
             matchedNode.append_child("c:axId").append_attribute("val").set_value(expectedValAxId.c_str());
+            if (targetNodeName == "c:surfaceChart" || targetNodeName == "c:surface3DChart") {
+                std::string expectedSerAxId = useSecondaryAxis ? "200000005" : "100000005";
+                matchedNode.append_child("c:axId").append_attribute("val").set_value(expectedSerAxId.c_str());
+            }
         }
 
         // 3. If we are creating a secondary axis, ensure the axes exist in plotArea
@@ -602,7 +744,8 @@ void XLChart::setShowDataLabels(bool showValue, bool showCategory, bool showPerc
         XMLNode insertBeforeNode;
         for (auto child : chartNode.children()) {
             std::string_view name = child.name();
-            if (name != "c:barDir" && name != "c:grouping" && name != "c:scatterStyle" && name != "c:varyColors" && name != "c:ser") {
+            if (name != "c:barDir" && name != "c:grouping" && name != "c:scatterStyle" && name != "c:varyColors" && name != "c:radarStyle" &&
+                name != "c:wireframe" && name != "c:shape" && name != "c:ser") {
                 insertBeforeNode = child;
                 break;
             }

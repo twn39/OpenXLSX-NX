@@ -43,6 +43,72 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
 {
     std::string filename = "test_chart_functional.xlsx";
 
+    SECTION("Stock and Surface Chart Creation")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            for (int i = 1; i <= 5; ++i) { wks.cell(i, 1).value() = i; }
+
+            auto stockChart = wks.addChart(XLChartType::StockOHLC, "Stock", 2, 4, 400, 300);
+            stockChart.addSeries("Sheet1!$A$1:$A$5");
+
+            auto surfChart = wks.addChart(XLChartType::Surface3D, "Surface", 2, 8, 400, 300);
+            surfChart.addSeries("Sheet1!$A$1:$A$5");
+
+            std::ostringstream ss1, ss2;
+            stockChart.xmlDocument().save(ss1);
+            surfChart.xmlDocument().save(ss2);
+
+            std::string xml1 = ss1.str();
+            std::string xml2 = ss2.str();
+
+            REQUIRE(xml1.find("<c:stockChart>") != std::string::npos);
+            REQUIRE(xml1.find("<c:hiLowLines") != std::string::npos);
+            REQUIRE(xml1.find("<c:upDownBars>") != std::string::npos);
+
+            REQUIRE(xml2.find("<c:surface3DChart>") != std::string::npos);
+            REQUIRE(xml2.find("<c:serAx>") != std::string::npos);
+            REQUIRE(xml2.find("<c:axId val=\"100000005\"") != std::string::npos);
+
+            doc.save();
+            doc.close();
+        }
+    }
+
+    SECTION("Bar vs Column Directions")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            for (int i = 1; i <= 3; ++i) { wks.cell(i, 1).value() = i; }
+
+            auto barChart = wks.addChart(XLChartType::Bar, "Bar", 2, 4, 400, 300);
+            barChart.addSeries("Sheet1!$A$1:$A$3");
+
+            auto colChart = wks.addChart(XLChartType::Column, "Col", 2, 8, 400, 300);
+            colChart.addSeries("Sheet1!$A$1:$A$3");
+
+            std::ostringstream ss1, ss2;
+            barChart.xmlDocument().save(ss1);
+            colChart.xmlDocument().save(ss2);
+
+            std::string xml1 = ss1.str();
+            std::string xml2 = ss2.str();
+
+            REQUIRE(xml1.find("<c:barDir val=\"bar\"") != std::string::npos);
+            REQUIRE(xml1.find("<c:barDir val=\"col\"") == std::string::npos);
+
+            REQUIRE(xml2.find("<c:barDir val=\"col\"") != std::string::npos);
+            REQUIRE(xml2.find("<c:barDir val=\"bar\"") == std::string::npos);
+
+            doc.save();
+            doc.close();
+        }
+    }
+
     SECTION("Create Bar Chart")
     {
         {
