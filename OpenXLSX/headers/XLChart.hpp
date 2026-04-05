@@ -300,6 +300,20 @@ namespace OpenXLSX
         void setOverlap(int32_t percent);
 
         /**
+         * @brief Set the size of the hole in a doughnut chart.
+         * @param percent Hole size as a percentage of the chart diameter (1–90, default 75).
+         */
+        void setHoleSize(uint8_t percent);
+
+        /**
+         * @brief Set the rotation of a 3D chart.
+         * @param x Rotation around the X-axis in degrees (0–90).
+         * @param y Rotation around the Y-axis in degrees (0–360).
+         * @param perspective Perspective value (0–100, default 30).
+         */
+        void setRotation(uint16_t x, uint16_t y, uint16_t perspective = 30);
+
+        /**
          * @brief Fill the chart plot area with a solid color.
          * @param hexRGB Six-character hex color, e.g. "F2F2F2".
          */

@@ -1247,6 +1247,50 @@ void XLChart::setOverlap(int32_t percent)
         attr.set_value(val.c_str());
 }
 
+void XLChart::setHoleSize(uint8_t percent)
+{
+    XMLNode chartNode = xmlDocument().document_element().child("c:chart").child("c:plotArea").child("c:doughnutChart");
+    if (chartNode.empty()) return;
+
+    XMLNode holeSize = chartNode.child("c:holeSize");
+    if (holeSize.empty()) {
+        holeSize = chartNode.append_child("c:holeSize");
+    }
+
+    XMLAttribute attr = holeSize.attribute("val");
+    if (attr.empty())
+        holeSize.append_attribute("val").set_value(percent);
+    else
+        attr.set_value(percent);
+}
+
+void XLChart::setRotation(uint16_t x, uint16_t y, uint16_t perspective)
+{
+    XMLNode chartMainNode = xmlDocument().document_element().child("c:chart");
+    if (chartMainNode.empty()) return;
+
+    XMLNode view3D = chartMainNode.child("c:view3D");
+    if (view3D.empty()) {
+        // Should come BEFORE c:plotArea
+        XMLNode plotArea = chartMainNode.child("c:plotArea");
+        view3D           = chartMainNode.insert_child_before("c:view3D", plotArea);
+    }
+
+    auto setVal = [](XMLNode parent, const char* name, uint16_t val) {
+        XMLNode node = parent.child(name);
+        if (node.empty()) node = parent.append_child(name);
+        XMLAttribute attr = node.attribute("val");
+        if (attr.empty())
+            node.append_attribute("val").set_value(val);
+        else
+            attr.set_value(val);
+    };
+
+    setVal(view3D, "c:rotX", x);
+    setVal(view3D, "c:rotY", y);
+    setVal(view3D, "c:perspective", perspective);
+}
+
 // ─────────────────────────────────────────────────────────
 //  XLChart – P2.1/2.2: background colors
 // ─────────────────────────────────────────────────────────

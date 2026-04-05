@@ -113,4 +113,53 @@ TEST_CASE("Advanced Chart Axis Features", "[XLChart][Axis]")
         }
         std::filesystem::remove(filename);
     }
+
+    SECTION("Doughnut Hole Size")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            for (int i = 1; i <= 3; ++i) wks.cell(i, 1).value() = i;
+            auto chart = wks.addChart(XLChartType::Doughnut, "HoleTest", 1, 4, 400, 300);
+            chart.addSeries("Sheet1!$A$1:$A$3");
+            chart.setHoleSize(50);
+            doc.save();
+            doc.close();
+        }
+        {
+            XLChartTestDoc td;
+            td.open(filename);
+            std::string xml = td.getRawXml("xl/charts/chart1.xml");
+            REQUIRE(xml.find("<c:holeSize val=\"50") != std::string::npos);
+            td.close();
+        }
+        std::filesystem::remove(filename);
+    }
+
+    SECTION("3D Chart Rotation")
+    {
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            for (int i = 1; i <= 3; ++i) wks.cell(i, 1).value() = i;
+            auto chart = wks.addChart(XLChartType::Bar3D, "RotTest", 1, 4, 400, 300);
+            chart.addSeries("Sheet1!$A$1:$A$3");
+            chart.setRotation(45, 60, 25);
+            doc.save();
+            doc.close();
+        }
+        {
+            XLChartTestDoc td;
+            td.open(filename);
+            std::string xml = td.getRawXml("xl/charts/chart1.xml");
+            REQUIRE(xml.find("<c:view3D>") != std::string::npos);
+            REQUIRE(xml.find("<c:rotX val=\"45") != std::string::npos);
+            REQUIRE(xml.find("<c:rotY val=\"60") != std::string::npos);
+            REQUIRE(xml.find("<c:perspective val=\"25") != std::string::npos);
+            td.close();
+        }
+        std::filesystem::remove(filename);
+    }
 }
