@@ -775,3 +775,30 @@ TEST_CASE("XLFormulaEngine – Newly Implemented Functions", "[XLFormulaEngine][
         REQUIRE(eng.evaluate("=PERMUT(5, 2)").get<double>() == Catch::Approx(20.0));
     }
 }
+TEST_CASE("XLFormulaEngine – Bugfixes", "[Bugfixes]")
+{
+    XLFormulaEngine eng;
+    REQUIRE(eng.evaluate("=CEILING.MATH(4.3)").get<double>() == Catch::Approx(5.0));
+    REQUIRE(eng.evaluate("=FLOOR.MATH(4.7)").get<double>() == Catch::Approx(4.0));
+}
+TEST_CASE("XLFormulaEngine – Bugfixes 2", "[Bugfixes2]")
+{
+    XLFormulaEngine eng;
+    auto val = eng.evaluate("=SLN(10000, 1000, 5)");
+    INFO("SLN result type: " << static_cast<int>(val.type()));
+    if (val.type() == XLValueType::Float) INFO("SLN result value: " << val.get<double>());
+    if (val.type() == XLValueType::Error) INFO("SLN error");
+    REQUIRE(1 == 0);
+}
+TEST_CASE("XLFormulaEngine – Bugfixes 3", "[Bugfixes3]")
+{
+    XLFormulaEngine eng;
+    REQUIRE(eng.evaluate("=CEILING.MATH(4.3)").get<double>() == Catch::Approx(5.0));
+    REQUIRE(eng.evaluate("=FLOOR.MATH(4.7)").get<double>() == Catch::Approx(4.0));
+    REQUIRE(eng.evaluate("=ISOWEEKNUM(DATE(2024,3,15))").get<double>() == 11.0);
+    REQUIRE(eng.evaluate("=WEEKNUM(DATE(2024,3,15))").get<double>() == 11.0);
+    REQUIRE(eng.evaluate("=CHAR(65)").get<std::string>() == "A");
+    REQUIRE(eng.evaluate("=CODE(\"A\")").get<double>() == 65);
+    REQUIRE(eng.evaluate("=SLN(10000, 1000, 5)").get<double>() == Catch::Approx(1800.0));
+    REQUIRE(eng.evaluate("=SYD(10000, 1000, 5, 1)").get<double>() == Catch::Approx(3000.0));
+}

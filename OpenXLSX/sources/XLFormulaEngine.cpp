@@ -210,7 +210,7 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
             std::string ident;
             // Collect potentially qualified name: letters, digits, $, _, !
             while (i < len &&
-                   (std::isalnum(static_cast<unsigned char>(formula[i])) || formula[i] == '$' || formula[i] == '_' || formula[i] == '!'))
+                   (std::isalnum(static_cast<unsigned char>(formula[i])) || formula[i] == '$' || formula[i] == '_' || formula[i] == '!' || formula[i] == '.'))
             {
                 ident += formula[i++];
             }
@@ -1001,6 +1001,18 @@ void XLFormulaEngine::registerBuiltins()
     m_functions["AVEDEV"]          = fnAvedev;
     m_functions["DEVSQ"]           = fnDevsq;
     m_functions["AVERAGEA"]        = fnAveragea;
+
+    // Missing checklist functions
+    m_functions["SLN"]             = fnSln;
+    m_functions["SYD"]             = fnSyd;
+    m_functions["CHAR"]            = fnChar;
+    m_functions["UNICHAR"]         = fnUnichar;
+    m_functions["CODE"]            = fnCode;
+    m_functions["UNICODE"]         = fnUnicode;
+    m_functions["NOW"]             = fnNow;
+    m_functions["TODAY"]           = fnToday;
+    m_functions["TRUE"]            = fnTrue;
+    m_functions["FALSE"]           = fnFalse;
 }
 
 // =============================================================================
@@ -3200,7 +3212,18 @@ XLCellValue XLFormulaEngine::fnWeeknum(const std::vector<XLFormulaArg>& args)
     // strftime returns 00-53. Excel might expect 1-53 if Jan 1 is not start of week.
     // For simplicity:
     int w = std::stoi(buf);
-    if (w == 0) w = 1;
+    
+    // Excel Weeknum System 1 fix
+    std::tm tm_jan1 = tm;
+    tm_jan1.tm_mon = 0;
+    tm_jan1.tm_mday = 1;
+    std::mktime(&tm_jan1);
+    if (return_type == 1 || return_type == 17) {
+        if (tm_jan1.tm_wday != 0) w += 1;
+    } else {
+        if (tm_jan1.tm_wday != 1) w += 1;
+    }
+    
     // This is an approximation for WEEKNUM
     return XLCellValue(static_cast<double>(w));
 }
