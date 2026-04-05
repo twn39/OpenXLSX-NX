@@ -324,3 +324,43 @@ TEST_CASE("Advanced Pivot Table Multiple Data Fields Base Attributes Regression"
     
     std::remove("./PivotBaseFieldTest.xlsx");
 }
+
+TEST_CASE("Advanced Pivot Table Named Range / Table Source Binding", "[XLPivotTable]")
+{
+    XLDocument doc;
+    doc.create("./PivotNamedSourceTest.xlsx", XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    wks.cell("A1").value() = "Category";
+    wks.cell("B1").value() = "Value";
+    wks.cell("A2").value() = "Fruit";
+    wks.cell("B2").value() = 100;
+
+    // Simulate binding to an Excel Table or a global named range where no explicit sheet name is given
+    XLPivotTableOptions options;
+    options.name        = "NamedRangePivot";
+    options.sourceRange = "MyTable1"; 
+    options.targetCell  = "D1";
+
+    options.rows.push_back({"Category", XLPivotSubtotal::Sum, ""});
+    options.data.push_back({"Value", XLPivotSubtotal::Sum, "Total Value"});
+
+    // This currently will throw or fallback to "Field1" because MyTable1 is not parsed as "Sheet1!A1:B2"
+    // OpenXLSX currently tightly couples parsing the string with `sourceRef.find(':')` to extract headers.
+    
+    // Let's assert it falls back safely without crashing.
+    REQUIRE_NOTHROW(wks.addPivotTable(options));
+    
+    REQUIRE_NOTHROW(doc.save());
+    doc.close();
+
+    XLDocument doc2;
+    REQUIRE_NOTHROW(doc2.open("./PivotNamedSourceTest.xlsx"));
+    std::string ptCacheStr = doc2.extractXmlFromArchive("xl/pivotCache/pivotCacheDefinition1.xml");
+    
+    // It should have safely defaulted the cache source to MyTable1 and fallen back to a default count
+    bool hasName = ptCacheStr.find("name=\"MyTable1\"") != std::string::npos || ptCacheStr.find("ref=\"MyTable1\"") != std::string::npos;
+    REQUIRE(hasName);
+    
+    std::remove("./PivotNamedSourceTest.xlsx");
+}
