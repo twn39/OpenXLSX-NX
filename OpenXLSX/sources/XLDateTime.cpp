@@ -52,7 +52,7 @@ namespace OpenXLSX
 
     XLDateTime::XLDateTime(double serial) : m_serial(serial)
     {
-        if (serial < 1.0) { throw XLDateTimeError("Excel date/time serial number is invalid (must be >= 1.0)"); }
+        if (serial < 0.0) { throw XLDateTimeError("Excel date/time serial number is invalid (must be >= 0.0)"); }
     }
 
     /**

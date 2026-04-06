@@ -252,7 +252,15 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
                 std::size_t digitStart = j;
                 while (j < ident.size() && std::isdigit(static_cast<unsigned char>(ident[j]))) ++j;
                 std::size_t digitCount = j - digitStart;
-                if (alphaCount >= 1 && alphaCount <= 3 && digitCount >= 1 && j == ident.size()) {
+                
+                // Check if next non-space is '(' to distinguish function from cell ref (like LOG10)
+                std::size_t nextPos = i;
+                while (nextPos < len && std::isspace(static_cast<unsigned char>(formula[nextPos]))) {
+                    ++nextPos;
+                }
+                bool isFuncCall = (nextPos < len && formula[nextPos] == '(');
+
+                if (alphaCount >= 1 && alphaCount <= 3 && digitCount >= 1 && j == ident.size() && !isFuncCall) {
                     emit(XLTokenKind::CellRef, ident);
                     continue;
                 }
@@ -499,6 +507,12 @@ std::unique_ptr<XLASTNode> XLFormulaParser::parsePrimary(ParseContext& ctx)
         ctx.consume();
         auto node     = std::make_unique<XLASTNode>(XLNodeKind::BoolLit);
         node->boolean = tok.boolean;
+        if (ctx.current().kind == XLTokenKind::LParen) {
+            ctx.consume(); // Eat '('
+            if (ctx.current().kind == XLTokenKind::RParen) {
+                ctx.consume(); // Eat ')'
+            }
+        }
         return node;
     }
 
@@ -574,6 +588,25 @@ XLFormulaArg XLFormulaEngine::expandRange(std::string_view rangeRef, const XLCel
     std::string startRef(rangeRef.substr(0, colonPos));
     std::string endRef(rangeRef.substr(colonPos + 1));
 
+    std::string sheetName;
+    auto exclPos = startRef.find('!');
+    if (exclPos != std::string::npos) {
+        sheetName = startRef.substr(0, exclPos);
+        startRef = startRef.substr(exclPos + 1);
+    }
+    
+    auto endExclPos = endRef.find('!');
+    if (endExclPos != std::string::npos) {
+        endRef = endRef.substr(endExclPos + 1);
+    }
+
+    // Strip optional absolute markers
+    auto stripDollar = [](std::string& s) {
+        s.erase(std::remove(s.begin(), s.end(), '$'), s.end());
+    };
+    stripDollar(startRef);
+    stripDollar(endRef);
+
     try {
         auto     startCell = XLCellReference(startRef);
         auto     endCell   = XLCellReference(endRef);
@@ -581,10 +614,6 @@ XLFormulaArg XLFormulaEngine::expandRange(std::string_view rangeRef, const XLCel
         uint16_t c1 = startCell.column(), c2 = endCell.column();
         if (r1 > r2) std::swap(r1, r2);
         if (c1 > c2) std::swap(c1, c2);
-
-        std::string sheetName;
-        auto        exclPos = startRef.find('!');
-        if (exclPos != std::string::npos) { sheetName = startRef.substr(0, exclPos); }
 
         return XLFormulaArg(r1, r2, c1, c2, std::move(sheetName), &resolver);
     }
@@ -1342,30 +1371,14 @@ XLCellValue XLFormulaEngine::fnVlookup(const std::vector<XLFormulaArg>& args)
 
     if (colIdx < 1) return errValue();
 
-    // Determine number of rows: table flattened row-major, but we need nCols.
-    // We can read nCols from args[2] context but we don't have it here.
-    // Convention: table_array is passed as a flat vector from range expansion;
-    // we need to know nCols to stride. We'll get nCols from the engine's expandRange
-    // call earlier. However, here we only see the flat vector.
-    //
-    // As a heuristic: if colIdx > total elements, error. Otherwise treat each
-    // "row" as colIdx wide (since we don't know nCols without DOM access).
-    // Store nCols in args[1] metadata is not available here.
-    // Best approach: we know the table range text would have nCols but that info
-    // was lost during expand. We approximate: stride = colIdx (search first col, return colIdx-th).
-    // For proper VLOOKUP, caller must ensure table range has >= colIdx columns.
-
-    int stride = colIdx;    // minimum possible stride
-    int nRows  = static_cast<int>(table.size()) / stride;
-    if (nRows == 0 || static_cast<int>(table.size()) % stride != 0) {
-        // Try to be more flexible – still search col 1 and return col colIdx
-        // by guessing the actual number of columns from colIdx alone
-        // (This is the best we can do without nCols metadata)
-    }
+    int nCols = static_cast<int>(table.cols());
+    if (colIdx > nCols) return errRef();
+    
+    int nRows = static_cast<int>(table.rows());
 
     // Linear scan column 0 of each row
     for (int r = 0; r < nRows; ++r) {
-        int cellIdx = r * stride;
+        int cellIdx = r * nCols;
         if (cellIdx >= static_cast<int>(table.size())) break;
         const XLCellValue& key = table[static_cast<std::size_t>(cellIdx)];
 
@@ -1382,7 +1395,7 @@ XLCellValue XLFormulaEngine::fnVlookup(const std::vector<XLFormulaArg>& args)
         }
 
         if (match) {
-            int resultIdx = r * stride + (colIdx - 1);
+            int resultIdx = r * nCols + (colIdx - 1);
             if (resultIdx < static_cast<int>(table.size())) return table[static_cast<std::size_t>(resultIdx)];
             return errRef();
         }
@@ -1402,10 +1415,14 @@ XLCellValue XLFormulaEngine::fnHlookup(const std::vector<XLFormulaArg>& args)
 
     if (rowIdx < 1) return errValue();
 
-    // HLOOKUP searches the first row. We don't know nCols here either.
-    // Scan all elements in the first "row" (table[0..nRows-1] where stride = rowIdx).
-    int nCols = static_cast<int>(table.size()) / rowIdx;
+    int nRows = static_cast<int>(table.rows());
+    if (rowIdx > nRows) return errRef();
+    
+    int nCols = static_cast<int>(table.cols());
+
+    // HLOOKUP searches the first row.
     for (int c = 0; c < nCols; ++c) {
+        if (c >= static_cast<int>(table.size())) break;
         const XLCellValue& key   = table[static_cast<std::size_t>(c)];
         bool               match = false;
         if (exact) {
@@ -1675,8 +1692,27 @@ XLCellValue XLFormulaEngine::fnTrim(const std::vector<XLFormulaArg>& args)
 
 XLCellValue XLFormulaEngine::fnText(const std::vector<XLFormulaArg>& args)
 {
-    if (args.empty() || args[0].empty()) return errValue();
-    // Simplified: just convert to string (format string ignored)
+    if (args.size() < 2 || args[0].empty() || args[1].empty()) return errValue();
+    std::string format = toString(args[1][0]);
+    
+    if (isNumeric(args[0][0])) {
+        // Very basic date format support
+        std::string lowerFmt = format;
+        std::transform(lowerFmt.begin(), lowerFmt.end(), lowerFmt.begin(), ::tolower);
+        if (lowerFmt == "yyyy-mm-dd" || lowerFmt == "yyyy/mm/dd") {
+            try {
+                std::tm t = XLDateTime(toDouble(args[0][0])).tm();
+                char buf[64];
+                snprintf(buf, sizeof(buf), "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
+                if (lowerFmt == "yyyy/mm/dd") buf[4] = buf[7] = '/';
+                return XLCellValue(std::string(buf));
+            } catch (...) {
+                return errValue();
+            }
+        }
+    }
+    
+    // Simplified fallback: just convert to string
     return XLCellValue(toString(args[0][0]));
 }
 
@@ -2813,6 +2849,7 @@ XLCellValue XLFormulaEngine::fnAveragea(const std::vector<XLFormulaArg>& args)
     double total = 0.0;
     int count = 0;
     for (const auto& arg : args) {
+        bool isScalar = (arg.type() == XLFormulaArg::Type::Scalar);
         for (const auto& v : arg) {
             if (v.type() == XLValueType::Empty) continue;
             count++;
@@ -2820,8 +2857,16 @@ XLCellValue XLFormulaEngine::fnAveragea(const std::vector<XLFormulaArg>& args)
                 total += toDouble(v);
             } else if (v.type() == XLValueType::Boolean) {
                 total += (v.get<bool>() ? 1.0 : 0.0);
+            } else if (v.type() == XLValueType::String) {
+                if (isScalar) {
+                    try {
+                        total += std::stod(v.get<std::string>());
+                    } catch (...) {
+                        // keep as 0
+                    }
+                }
             }
-            // Texts are counted but added as 0.0
+            // Texts in ranges are counted but added as 0.0
         }
     }
     if (count == 0) return errDiv0();
@@ -3290,9 +3335,11 @@ XLCellValue XLFormulaEngine::fnNper(const std::vector<XLFormulaArg>& args)
     
     double num = pmt * (1 + rate * type) - fv * rate;
     double den = pv * rate + pmt * (1 + rate * type);
-    if (num <= 0 || den <= 0) return errNum();
     
-    double res = std::log(num / den) / std::log(1 + rate);
+    double ratio = num / den;
+    if (ratio <= 0.0) return errNum();
+    
+    double res = std::log(ratio) / std::log(1 + rate);
     return XLCellValue(res);
 }
 

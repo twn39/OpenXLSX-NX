@@ -244,6 +244,18 @@ namespace OpenXLSX
         {}
 
         Type type() const { return m_type; }
+        
+        size_t rows() const {
+            if (m_type == Type::LazyRange) return static_cast<size_t>(m_r2 - m_r1 + 1);
+            if (m_type == Type::Array) return m_array.size(); // simplified, arrays might be 2d but we treat as 1d column
+            return m_type == Type::Scalar ? 1 : 0;
+        }
+        
+        size_t cols() const {
+            if (m_type == Type::LazyRange) return static_cast<size_t>(m_c2 - m_c1 + 1);
+            return m_type == Type::Scalar || m_type == Type::Array ? 1 : 0;
+        }
+
         bool empty() const
         {
             if (m_type == Type::Empty) return true;

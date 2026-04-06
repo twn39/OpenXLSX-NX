@@ -73,7 +73,7 @@ TEST_CASE("XLDateTime Tests", "[XLDateTime]")
 
     SECTION("Constructor (serial number)")
     {
-        REQUIRE_THROWS(XLDateTime(0.0));
+        REQUIRE_THROWS(XLDateTime(-1.0));
 
         XLDateTime dt(6069.86742);
 
