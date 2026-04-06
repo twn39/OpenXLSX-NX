@@ -56,3 +56,72 @@ TEST_CASE("Stream Writer Advanced Features", "[XLStreamWriter][Styles]")
     doc2.close();
     std::filesystem::remove("stream_style_test.xlsx");
 }
+TEST_CASE("Generate User Review Styled Streaming File", "[XLStreamWriter][User]")
+{
+    XLDocument doc;
+    doc.create("StreamingStyledTest.xlsx", XLForceOverwrite);
+    
+    // Create styles
+    XLStyle headerStyle;
+    headerStyle.font.bold = true;
+    headerStyle.font.color = XLColor("FFFFFF");
+    headerStyle.fill.pattern = XLPatternSolid;
+    headerStyle.fill.fgColor = XLColor("4F81BD");
+    auto headerId = doc.styles().findOrCreateStyle(headerStyle);
+
+    XLStyle currencyStyle;
+    currencyStyle.numberFormat = "$#,##0.00";
+    auto currencyId = doc.styles().findOrCreateStyle(currencyStyle);
+
+    XLStyle percentageStyle;
+    percentageStyle.numberFormat = "0.00%";
+    auto percentId = doc.styles().findOrCreateStyle(percentageStyle);
+
+    XLStyle altRowStyle;
+    altRowStyle.fill.pattern = XLPatternSolid;
+    altRowStyle.fill.fgColor = XLColor("DCE6F1");
+    auto altRowId = doc.styles().findOrCreateStyle(altRowStyle);
+
+    auto wks = doc.workbook().worksheet("Sheet1");
+    wks.column(1).setWidth(15);
+    wks.column(2).setWidth(12);
+    wks.column(3).setWidth(12);
+
+    auto stream = wks.streamWriter();
+
+    // Headers
+    stream.appendRow({
+        XLStreamCell("Product", headerId),
+        XLStreamCell("Price", headerId),
+        XLStreamCell("Margin", headerId)
+    });
+
+    // Rows
+    for (int i = 1; i <= 20; ++i) {
+        uint32_t styleId = (i % 2 == 0) ? altRowId : 0; 
+        
+        XLStyle rowCurrencyStyle = currencyStyle;
+        if (i % 2 == 0) {
+            rowCurrencyStyle.fill.pattern = XLPatternSolid;
+            rowCurrencyStyle.fill.fgColor = XLColor("DCE6F1");
+        }
+        auto rowCurrencyId = doc.styles().findOrCreateStyle(rowCurrencyStyle);
+
+        XLStyle rowPercentStyle = percentageStyle;
+        if (i % 2 == 0) {
+            rowPercentStyle.fill.pattern = XLPatternSolid;
+            rowPercentStyle.fill.fgColor = XLColor("DCE6F1");
+        }
+        auto rowPercentId = doc.styles().findOrCreateStyle(rowPercentStyle);
+
+        stream.appendRow({
+            XLStreamCell("Product " + std::to_string(i), styleId),
+            XLStreamCell(10.5 * i, rowCurrencyId),
+            XLStreamCell(0.15 + (i * 0.01), rowPercentId)
+        });
+    }
+
+    stream.close();
+    doc.save();
+    doc.close();
+}
