@@ -141,12 +141,26 @@ Stock charts require data to be added in a very specific order to represent Open
 
 ### 3D Surface Charts
 
-Creates a 3D topological map based on multiple data series.
+Surface charts are useful for finding optimum combinations between two sets of data. As in a topographic map, colors and patterns indicate areas that are in the same range of values. Surface charts require three-dimensional data (X, Y, and Z):
+
+- **Series Names (Y-axis / Depth):** Represent the different column categories.
+- **Categories (X-axis / Width):** Represent the row labels.
+- **Values (Z-axis / Height):** The actual data points plotted on the surface.
 
 ```cpp
-    auto surfChart = wks.addChart(XLChartType::Surface3D, "3D Surface", 66, 5, 450, 300);
-    surfChart.addSeries("Data!$B$2:$B$5", "Sales", "Data!$A$2:$A$5");
-    surfChart.addSeries("Data!$C$2:$C$5", "Profit", "Data!$A$2:$A$5");
+    // Assuming a 3x3 data matrix:
+    //      | Col1 | Col2 | Col3
+    // Row1 |  1   |  2   |  3
+    // Row2 |  4   |  5   |  6
+    // Row3 |  7   |  8   |  9
+
+    auto surfChart = wks.addChart(XLChartType::Surface3D, "3D Surface Map", 66, 5, 450, 300);
+    
+    // Add each column of data as a series. 
+    // Signature: addSeries(ValuesRange, SeriesName, CategoryRange)
+    surfChart.addSeries("Data!$B$2:$B$4", "Data!$B$1", "Data!$A$2:$A$4");
+    surfChart.addSeries("Data!$C$2:$C$4", "Data!$C$1", "Data!$A$2:$A$4");
+    surfChart.addSeries("Data!$D$2:$D$4", "Data!$D$1", "Data!$A$2:$A$4");
 ```
 
 ## 5. Dedicated Chartsheets

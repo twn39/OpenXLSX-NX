@@ -779,3 +779,33 @@ TEST_CASE("Stock OHLC Chart Comparison Test", "[XLChart][Stock]")
         doc.close();
     }
 }
+
+TEST_CASE("Surface3D Chart Comparison Test", "[XLChart][Surface3D]")
+{
+    const std::string fname = "test_surface3d.xlsx";
+    {
+        XLDocument doc;
+        doc.create(fname, XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        // Headers (X-Axis values / Series Names)
+        wks.cell("B1").value() = "Col1";
+        wks.cell("C1").value() = "Col2";
+        wks.cell("D1").value() = "Col3";
+
+        // Row 2 (Y=Row1)
+        wks.cell("A2").value() = "Row1"; wks.cell("B2").value() = 1; wks.cell("C2").value() = 2; wks.cell("D2").value() = 3;
+        // Row 3 (Y=Row2)
+        wks.cell("A3").value() = "Row2"; wks.cell("B3").value() = 4; wks.cell("C3").value() = 5; wks.cell("D3").value() = 6;
+        // Row 4 (Y=Row3)
+        wks.cell("A4").value() = "Row3"; wks.cell("B4").value() = 7; wks.cell("C4").value() = 8; wks.cell("D4").value() = 9;
+
+        auto surfChart = wks.addChart(XLChartType::Surface3D, "Surface 3D", 6, 1, 500, 350);
+        surfChart.addSeries("Sheet1!$B$2:$B$4", "Sheet1!$B$1", "Sheet1!$A$2:$A$4");
+        surfChart.addSeries("Sheet1!$C$2:$C$4", "Sheet1!$C$1", "Sheet1!$A$2:$A$4");
+        surfChart.addSeries("Sheet1!$D$2:$D$4", "Sheet1!$D$1", "Sheet1!$A$2:$A$4");
+
+        doc.save();
+        doc.close();
+    }
+}
