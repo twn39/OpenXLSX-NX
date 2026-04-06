@@ -1108,7 +1108,12 @@ XLCellValue XLFormulaEngine::fnCounta(const std::vector<XLFormulaArg>& args)
     int64_t cnt = 0;
     for (const auto& arg : args) {
         for (const auto& v : arg) {
-            if (!isEmpty(v)) ++cnt;
+            if (!isEmpty(v)) {
+                if (v.type() == XLValueType::String && v.get<std::string>().empty()) {
+                    continue;
+                }
+                ++cnt;
+            }
         }
     }
     return XLCellValue(cnt);
