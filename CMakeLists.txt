@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
-project(OpenXLSX-NX VERSION 1.8.2 LANGUAGES CXX C)
+project(OpenXLSX-NX VERSION 1.8.3 LANGUAGES CXX C)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Ensure all targets (including static dependencies) are compiled with -fPIC
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Build options
 option(OPENXLSX_BUILD_TESTS "Build and run library tests" ON)
