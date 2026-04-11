@@ -28,14 +28,10 @@ TEST_CASE("Dynamic Pivot Table Generation", "[XLPivotTable]")
     wks.cell("B4").value() = "Oranges";
     wks.cell("C4").value() = 150;
 
-    XLPivotTableOptions options;
-    options.name        = "Pivot1";
-    options.sourceRange = "Sheet1!A1:C4";
-    options.targetCell  = "E1";
-
-    options.rows.push_back({"Region", XLPivotSubtotal::Sum, ""});
-    options.columns.push_back({"Product", XLPivotSubtotal::Sum, ""});
-    options.data.push_back({"Sales", XLPivotSubtotal::Sum, "Total Sales"});
+    auto options = XLPivotTableOptions("Pivot1", "Sheet1!A1:C4", "E1")
+        .addRowField("Region")
+        .addColumnField("Product")
+        .addDataField("Sales", "Total Sales", XLPivotSubtotal::Sum);
 
     // Execute dynamic construction
     wks.addPivotTable(options);
@@ -118,20 +114,9 @@ TEST_CASE("Pivot Table Advanced: Slicers and RefreshOnLoad", "[XLPivotTable]")
     doc.workbook().addWorksheet("Pivot");
     auto pivotWks = doc.workbook().worksheet("Pivot");
 
-    XLPivotTableOptions opts;
-    opts.name        = "MyPivot";
-    opts.sourceRange = "Sheet1!A1:B3";
-    opts.targetCell  = "A1";
-    XLPivotField rf;
-    rf.name = "Region";
-    opts.rows.push_back(rf);
-    XLPivotField df;
-    df.name       = "Sales";
-    df.customName = "Sum of Sales";
-    df.subtotal   = XLPivotSubtotal::Sum;
-    opts.data.push_back(df);
-
-    auto pt = pivotWks.addPivotTable(opts);
+    auto pt = pivotWks.addPivotTable(XLPivotTableOptions("MyPivot", "Sheet1!A1:B3", "A1")
+                                     .addRowField("Region")
+                                     .addDataField("Sales", "Sum of Sales", XLPivotSubtotal::Sum));
 
     // Set refresh on load
     pt.setRefreshOnLoad(true);
@@ -281,14 +266,8 @@ TEST_CASE("Pivot Table Advanced: Slicers and RefreshOnLoad", "[XLPivotTable]")
     REQUIRE(crudWks.deletePivotTable("NonExistent") == false);
 
     // --- NEW: Test Pivot Cache Sharing ---
-    XLPivotTableOptions opts2;
-    opts2.name        = "AnotherPivot";
-    opts2.sourceRange = "Sheet1!A1:B10"; // EXACT SAME RANGE AS THE UPDATED ONE
-    opts2.targetCell  = "D1";
-    XLPivotField rf2;
-    rf2.name = "Region";
-    opts2.rows.push_back(rf2);
-    auto pt2 = crudWks.addPivotTable(opts2);
+    auto pt2 = crudWks.addPivotTable(XLPivotTableOptions("AnotherPivot", "Sheet1!A1:B10", "D1")
+                                     .addRowField("Region"));
 
     auto cacheList = doc3.workbook().xmlDocument().document_element().child("pivotCaches");
     int cacheCount = 0;

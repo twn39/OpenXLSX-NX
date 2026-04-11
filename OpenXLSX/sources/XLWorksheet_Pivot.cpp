@@ -109,7 +109,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     XMLNode wbNode          = wb.xmlDocument().document_element();
     XMLNode pivotCachesNode = wbNode.child("pivotCaches");
 
-    std::string targetSourceRange = options.sourceRange;
+    std::string targetSourceRange = options.sourceRange();
     auto bang = targetSourceRange.find('!');
     if (bang != std::string::npos) {
         std::string sheet = targetSourceRange.substr(0, bang);
@@ -222,7 +222,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
     XMLNode ptRoot = pivotTable.xmlDocument().document_element();
 
-    ptRoot.attribute("name").set_value(options.name.empty() ? "PivotTable1" : options.name.c_str());
+    ptRoot.attribute("name").set_value(options.name().empty() ? "PivotTable1" : options.name().c_str());
     ptRoot.attribute("cacheId").set_value(newCacheId);
 
     auto setBoolAttr = [&](XMLNode node, const char* attr, bool val) {
@@ -230,29 +230,29 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         else node.attribute(attr).set_value(val ? "1" : "0");
     };
     
-    setBoolAttr(ptRoot, "rowGrandTotals", options.rowGrandTotals);
-    setBoolAttr(ptRoot, "colGrandTotals", options.colGrandTotals);
-    setBoolAttr(ptRoot, "showDrill", options.showDrill);
-    setBoolAttr(ptRoot, "useAutoFormatting", options.useAutoFormatting);
-    setBoolAttr(ptRoot, "pageOverThenDown", options.pageOverThenDown);
-    setBoolAttr(ptRoot, "mergeItem", options.mergeItem);
-    setBoolAttr(ptRoot, "compactData", options.compactData);
-    setBoolAttr(ptRoot, "showError", options.showError);
+    setBoolAttr(ptRoot, "rowGrandTotals", options.rowGrandTotals());
+    setBoolAttr(ptRoot, "colGrandTotals", options.colGrandTotals());
+    setBoolAttr(ptRoot, "showDrill", options.showDrill());
+    setBoolAttr(ptRoot, "useAutoFormatting", options.useAutoFormatting());
+    setBoolAttr(ptRoot, "pageOverThenDown", options.pageOverThenDown());
+    setBoolAttr(ptRoot, "mergeItem", options.mergeItem());
+    setBoolAttr(ptRoot, "compactData", options.compactData());
+    setBoolAttr(ptRoot, "showError", options.showError());
     
     XMLNode styleInfoNode = ptRoot.child("pivotTableStyleInfo");
     if (!styleInfoNode) styleInfoNode = ptRoot.append_child("pivotTableStyleInfo");
     
-    if (!styleInfoNode.attribute("name")) styleInfoNode.append_attribute("name") = options.pivotTableStyleName.c_str();
-    else styleInfoNode.attribute("name").set_value(options.pivotTableStyleName.c_str());
+    if (!styleInfoNode.attribute("name")) styleInfoNode.append_attribute("name") = options.pivotTableStyleName().c_str();
+    else styleInfoNode.attribute("name").set_value(options.pivotTableStyleName().c_str());
     
-    setBoolAttr(styleInfoNode, "showRowHeaders", options.showRowHeaders);
-    setBoolAttr(styleInfoNode, "showColHeaders", options.showColHeaders);
-    setBoolAttr(styleInfoNode, "showRowStripes", options.showRowStripes);
-    setBoolAttr(styleInfoNode, "showColStripes", options.showColStripes);
-    setBoolAttr(styleInfoNode, "showLastColumn", options.showLastColumn);
+    setBoolAttr(styleInfoNode, "showRowHeaders", options.showRowHeaders());
+    setBoolAttr(styleInfoNode, "showColHeaders", options.showColHeaders());
+    setBoolAttr(styleInfoNode, "showRowStripes", options.showRowStripes());
+    setBoolAttr(styleInfoNode, "showColStripes", options.showColStripes());
+    setBoolAttr(styleInfoNode, "showLastColumn", options.showLastColumn());
 
     XMLNode locNode = ptRoot.child("location");
-    locNode.attribute("ref").set_value(options.targetCell.c_str());
+    locNode.attribute("ref").set_value(options.targetCell().c_str());
 
     XMLNode pivotFieldsNode = ptRoot.child("pivotFields");
     if (pivotFieldsNode.empty()) pivotFieldsNode = ptRoot.insert_child_after("pivotFields", ptRoot.child("location"));
@@ -329,19 +329,19 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         return -1;
     };
 
-    for (const auto& rowFld : options.rows) {
+    for (const auto& rowFld : options.rows()) {
         int idx = findFieldIndex(rowFld.name);
         if (idx >= 0) rowIndices.push_back(idx);
     }
-    for (const auto& colFld : options.columns) {
+    for (const auto& colFld : options.columns()) {
         int idx = findFieldIndex(colFld.name);
         if (idx >= 0) colIndices.push_back(idx);
     }
-    for (const auto& dataFld : options.data) {
+    for (const auto& dataFld : options.data()) {
         int idx = findFieldIndex(dataFld.name);
         if (idx >= 0) dataIndices.push_back(idx);
     }
-    for (const auto& filterFld : options.filters) {
+    for (const auto& filterFld : options.filters()) {
         int idx = findFieldIndex(filterFld.name);
         if (idx >= 0) filterIndices.push_back(idx);
     }
@@ -396,8 +396,8 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         i++;
     }
 
-    bool hasVirtualDataField = (options.data.size() > 1);
-    bool virtualDataOnRows = options.dataOnRows;
+    bool hasVirtualDataField = (options.data().size() > 1);
+    bool virtualDataOnRows = options.dataOnRows();
 
     if (!rowIndices.empty() || (hasVirtualDataField && virtualDataOnRows)) {
         rowFieldsNode = ptRoot.insert_child_after("rowFields", pivotFieldsNode);
@@ -438,9 +438,9 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     }
     if (!dataIndices.empty()) {
         dataFieldsNode = ptRoot.insert_child_before("dataFields", ptRoot.child("pivotTableStyleInfo"));
-        dataFieldsNode.append_attribute("count").set_value(options.data.size());
+        dataFieldsNode.append_attribute("count").set_value(options.data().size());
 
-        for (const auto& dataFld : options.data) {
+        for (const auto& dataFld : options.data()) {
             int idx = findFieldIndex(dataFld.name);
             if (idx < 0) continue;
 
@@ -481,6 +481,6 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
     }
 
-    locNode.attribute("ref").set_value(options.targetCell.c_str());
+    locNode.attribute("ref").set_value(options.targetCell().c_str());
     return pivotTable;
 }

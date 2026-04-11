@@ -31,23 +31,18 @@ TEST_CASE("Advanced Dynamic Pivot Table Builder", "[XLPivotTable]")
     wks.cell("C4").value() = 150;
     wks.cell("D4").value() = "Q1";
 
-    XLPivotTableOptions options;
-    options.name        = "AdvancedPivot";
-    options.sourceRange = "Sheet1!A1:D4";
-    options.targetCell  = "F1";
-
-    // Adding dynamic fields
-    options.filters.push_back({"Date", XLPivotSubtotal::Sum, ""}); // Page Field
-    options.rows.push_back({"Category", XLPivotSubtotal::Sum, ""}); // Row Field
-    options.columns.push_back({"Product", XLPivotSubtotal::Sum, ""}); // Col Field
-    options.data.push_back({"Sales", XLPivotSubtotal::Average, "Average Sales"}); // Data Field with Average
-
-    // Configure layout and styles based on our new Builder flags
-    options.rowGrandTotals = false;
-    options.colGrandTotals = false;
-    options.compactData = false;
-    options.showRowStripes = true;
-    options.pivotTableStyleName = "PivotStyleMedium9";
+    auto options = XLPivotTableOptions("AdvancedPivot", "Sheet1!A1:D4", "F1")
+        .addFilterField("Date")
+        .addRowField("Category")
+        .addColumnField("Product")
+        .addDataField("Sales", "Average Sales", XLPivotSubtotal::Average);
+// Configure layout and styles based on our new Builder flags
+options.setRowGrandTotals(false)
+       .setColGrandTotals(false)
+       .setCompactData(false)
+       .setShowRowStripes(true)
+       .setShowColStripes(true)
+       .setPivotTableStyle("PivotStyleMedium9");
 
     REQUIRE_NOTHROW(wks.addPivotTable(options));
     REQUIRE_NOTHROW(doc.save());
@@ -106,18 +101,10 @@ TEST_CASE("Advanced Pivot Table Multi-Data Fields and Edge Cases", "[XLPivotTabl
     wks.cell("D4").value() = 30;
     wks.cell("E4").value() = "Q1";
 
-    XLPivotTableOptions options;
-    options.name        = "MultiDataPivot";
-    options.sourceRange = "Sheet1!A1:E4";
-    options.targetCell  = "G1";
-
-    // Adding dynamic fields
-    options.rows.push_back({"Category", XLPivotSubtotal::Sum, ""}); 
-    
-    // Injecting multiple data fields!
-    // This forces Excel to create a virtual "\x{03A3} Values" field in the columns/rows area
-    options.data.push_back({"Sales", XLPivotSubtotal::Sum, "Total Sales"});
-    options.data.push_back({"Profit", XLPivotSubtotal::Average, "Avg Profit"});
+    auto options = XLPivotTableOptions("MultiDataPivot", "Sheet1!A1:E4", "G1")
+        .addRowField("Category")
+        .addDataField("Sales", "Total Sales", XLPivotSubtotal::Sum)
+        .addDataField("Profit", "Avg Profit", XLPivotSubtotal::Average);
 
     REQUIRE_NOTHROW(wks.addPivotTable(options));
     REQUIRE_NOTHROW(doc.save());
@@ -161,30 +148,11 @@ TEST_CASE("Advanced Pivot Table DataOnRows and NumFmt", "[XLPivotTable]")
     wks.cell("B3").value() = 1500.75;
     wks.cell("C3").value() = 1200.00;
 
-    XLPivotTableOptions options;
-    options.name        = "DataOnRowsPivot";
-    options.sourceRange = "Sheet1!A1:C3";
-    options.targetCell  = "E1";
-
-    // Request values to be stacked in rows instead of spread across columns
-    options.dataOnRows = true;
-
-    options.rows.push_back({"Region", XLPivotSubtotal::Sum, ""}); 
-    
-    XLPivotField revField;
-    revField.name = "Revenue";
-    revField.subtotal = XLPivotSubtotal::Sum;
-    revField.customName = "Total Revenue";
-    revField.numFmtId = 4; // '#,##0.00' format
-
-    XLPivotField costField;
-    costField.name = "Costs";
-    costField.subtotal = XLPivotSubtotal::Sum;
-    costField.customName = "Total Costs";
-    costField.numFmtId = 3; // '#,##0' format
-    
-    options.data.push_back(revField);
-    options.data.push_back(costField);
+    auto options = XLPivotTableOptions("DataOnRowsPivot", "Sheet1!A1:C3", "E1")
+        .setDataOnRows(true)
+        .addRowField("Region")
+        .addDataField("Revenue", "Total Revenue", XLPivotSubtotal::Sum, 4)
+        .addDataField("Costs", "Total Costs", XLPivotSubtotal::Sum, 3);
 
     REQUIRE_NOTHROW(wks.addPivotTable(options));
     REQUIRE_NOTHROW(doc.save());
@@ -225,20 +193,14 @@ TEST_CASE("Advanced Pivot Table Styling and Formatting Regression", "[XLPivotTab
     wks.cell("A2").value() = "A"; wks.cell("B2").value() = 100;
     wks.cell("A3").value() = "B"; wks.cell("B3").value() = 200;
 
-    XLPivotTableOptions options;
-    options.name        = "StylePivot";
-    options.sourceRange = "Sheet1!A1:B3";
-    options.targetCell  = "D1";
-
-    // Enable formatting and styles explicitly (preventing the "missing stripes" regression)
-    options.showRowStripes      = true;
-    options.showColStripes      = false;
-    options.showRowHeaders      = true;
-    options.showColHeaders      = true;
-    options.pivotTableStyleName = "PivotStyleMedium9";
-
-    options.rows.push_back({"Category", XLPivotSubtotal::Sum, ""});
-    options.data.push_back({"Value", XLPivotSubtotal::Sum, "Total Value"});
+    auto options = XLPivotTableOptions("StylePivot", "Sheet1!A1:B3", "D1")
+        .setShowRowStripes(true)
+        .setShowColStripes(false)
+        .setShowRowHeaders(true)
+        .setShowColHeaders(true)
+        .setPivotTableStyle("PivotStyleMedium9")
+        .addRowField("Category")
+        .addDataField("Value", "Total Value", XLPivotSubtotal::Sum);
 
     REQUIRE_NOTHROW(wks.addPivotTable(options));
     REQUIRE_NOTHROW(doc.save());
@@ -281,16 +243,10 @@ TEST_CASE("Advanced Pivot Table Multiple Data Fields Base Attributes Regression"
     wks.cell("A2").value() = "X"; wks.cell("B2").value() = 10; wks.cell("C2").value() = 100;
     wks.cell("A3").value() = "Y"; wks.cell("B3").value() = 20; wks.cell("C3").value() = 200;
 
-    XLPivotTableOptions options;
-    options.name        = "BaseFieldPivot";
-    options.sourceRange = "Sheet1!A1:C3";
-    options.targetCell  = "E1";
-
-    options.rows.push_back({"Category", XLPivotSubtotal::Sum, ""});
-    
-    // Inject multiple data fields to trigger Excel's strict validation mode
-    options.data.push_back({"Metric1", XLPivotSubtotal::Sum, "Sum of Metric1"});
-    options.data.push_back({"Metric2", XLPivotSubtotal::Sum, "Sum of Metric2"});
+    auto options = XLPivotTableOptions("BaseFieldPivot", "Sheet1!A1:C3", "E1")
+        .addRowField("Category")
+        .addDataField("Metric1", "Sum of Metric1", XLPivotSubtotal::Sum)
+        .addDataField("Metric2", "Sum of Metric2", XLPivotSubtotal::Sum);
 
     REQUIRE_NOTHROW(wks.addPivotTable(options));
     REQUIRE_NOTHROW(doc.save());
@@ -337,13 +293,9 @@ TEST_CASE("Advanced Pivot Table Named Range / Table Source Binding", "[XLPivotTa
     wks.cell("B2").value() = 100;
 
     // Simulate binding to an Excel Table or a global named range where no explicit sheet name is given
-    XLPivotTableOptions options;
-    options.name        = "NamedRangePivot";
-    options.sourceRange = "MyTable1"; 
-    options.targetCell  = "D1";
-
-    options.rows.push_back({"Category", XLPivotSubtotal::Sum, ""});
-    options.data.push_back({"Value", XLPivotSubtotal::Sum, "Total Value"});
+    auto options = XLPivotTableOptions("NamedRangePivot", "MyTable1", "D1")
+        .addRowField("Category")
+        .addDataField("Value", "Total Value", XLPivotSubtotal::Sum);
 
     // This currently will throw or fallback to "Field1" because MyTable1 is not parsed as "Sheet1!A1:B2"
     // OpenXLSX currently tightly couples parsing the string with `sourceRef.find(':')` to extract headers.
