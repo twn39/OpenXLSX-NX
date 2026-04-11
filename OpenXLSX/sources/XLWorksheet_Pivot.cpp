@@ -2,6 +2,7 @@
 #include "XLUtilities.hpp"
 #include "XLWorkbook.hpp"
 #include "XLWorksheet.hpp"
+#include <unordered_set>
 
 using namespace OpenXLSX;
 
@@ -12,10 +13,6 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
     auto pivotTable = doc.createPivotTable();
     auto cacheDef   = doc.createPivotCacheDefinition();
-    auto cacheRec   = doc.createPivotCacheRecords(cacheDef.getXmlPath());
-
-    std::string recordsRelPath = getPathARelativeToPathB(cacheRec.getXmlPath(), cacheDef.getXmlPath());
-    cacheDef.relationships().addRelationship(XLRelationshipType::PivotCacheRecords, recordsRelPath);
 
     std::string cacheDefRelPath = getPathARelativeToPathB(cacheDef.getXmlPath(), wb.getXmlPath());
     auto        cacheRel        = doc.workbookRelationships().addRelationship(XLRelationshipType::PivotCacheDefinition, cacheDefRelPath);
@@ -56,7 +53,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         ptRel = relationships().relationshipByTarget(ptRelPath);
     }
 
-    XMLNode ptEntry = ptRelPathNode.append_child("pivotTableDefinition");
+    XMLNode ptEntry = ptRelPathNode.append_child("pivotTable");
     ptEntry.append_attribute("r:id").set_value(ptRel.id().c_str());
     ptEntry.append_attribute("cacheId").set_value(newCacheId);
 
@@ -131,7 +128,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     }
     catch (...) {
         // Fallback if parsing fails
-        headers.push_back("Field1");
+        if (headers.empty()) headers.push_back("Field1");
     }
 
     cacheFieldsNode.attribute("count").set_value(headers.size());
@@ -187,6 +184,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         XMLNode fieldNode = cacheFieldsNode.append_child("cacheField");
         fieldNode.append_attribute("name").set_value(h.c_str());
         fieldNode.append_attribute("numFmtId").set_value("0");
+        
         XMLNode sharedItemsNode = fieldNode.append_child("sharedItems");
         sharedItemsNode.append_attribute("containsBlank").set_value("1");
         sharedItemsNode.append_attribute("count").set_value("0");
@@ -277,10 +275,8 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         for (int idx : filterIndices) { 
             XMLNode pageField = pageFieldsNode.append_child("pageField");
             pageField.append_attribute("fld").set_value(idx);
-            pageField.append_attribute("hier").set_value("-1");
         }
     }
-
     if (!dataIndices.empty()) {
         dataFieldsNode = ptRoot.insert_child_before("dataFields", ptRoot.child("pivotTableStyleInfo"));
         dataFieldsNode.append_attribute("count").set_value(options.data.size());
@@ -322,9 +318,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                     subType = "sum";
                     break;
             }
-            if (subType != "sum") {    // Excel default is sum, only write if different, but let's just write
-                dfield.append_attribute("subtotal").set_value(subType.c_str());
-            }
+            dfield.append_attribute("subtotal").set_value(subType.c_str());
         }
     }
 

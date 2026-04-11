@@ -804,10 +804,8 @@ TEST_CASE("XLFormulaEngine – Bugfixes 2", "[Bugfixes2]")
 {
     XLFormulaEngine eng;
     auto val = eng.evaluate("=SLN(10000, 1000, 5)");
-    INFO("SLN result type: " << static_cast<int>(val.type()));
-    if (val.type() == XLValueType::Float) INFO("SLN result value: " << val.get<double>());
-    if (val.type() == XLValueType::Error) INFO("SLN error");
-    REQUIRE(1 == 1);
+    REQUIRE(val.type() == XLValueType::Float);
+    REQUIRE(val.get<double>() == Catch::Approx(1800.0));
 }
 TEST_CASE("XLFormulaEngine – Bugfixes 3", "[Bugfixes3]")
 {

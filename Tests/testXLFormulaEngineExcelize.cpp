@@ -49,7 +49,7 @@ std::vector<TestCase> getTestCases() {
         {"DDB", "DDB(20000, 2000, 10, 2)", "3200"},
         {"DEGREES", "DEGREES(1)", "57.2957795130823"},
         {"DEVSQ", "DEVSQ(2, 4, 6, 8)", "20"},
-        {"EDATE", "EDATE(46000, 2)", "45697"},
+        {"EDATE", "EDATE(46000, 2)", "46062"},
         {"EOMONTH", "EOMONTH(46000, 2)", "46081"},
         {"EXACT", "EXACT(\"Hello\", \"hello\")", "FALSE"},
         {"EXP", "EXP(2)", "7.38905609893065"},
@@ -72,7 +72,7 @@ std::vector<TestCase> getTestCases() {
         {"ISBLANK", "ISBLANK(Data!F1)", "TRUE"},
         {"ISERR", "ISERR(1/0)", "TRUE"},
         {"ISERROR", "ISERROR(1/0)", "TRUE"},
-        {"ISEVEN", "ISEVEN(3)", "TRUE"},
+        {"ISEVEN", "ISEVEN(3)", "FALSE"},
         {"ISLOGICAL", "ISLOGICAL(1)", "FALSE"},
         {"ISNA", "ISNA(VLOOKUP(100, Data!A1:B10, 2, FALSE()))", "TRUE"},
         {"ISNONTEXT", "ISNONTEXT(\"A\")", "FALSE"},
@@ -157,7 +157,6 @@ std::vector<TestCase> getTestCases() {
         {"TEXT", "TEXT(46000, \"yyyy/mm/dd\")", "2025/12/09"},
         {"TEXTJOIN", "TEXTJOIN(\"-\", TRUE(), \"X\", \"Y\")", "X-Y"},
         {"TIME", "TIME(14, 30, 0)", "0.604166666666667"},
-        {"TODAY", "TODAY()", "46118"},
         {"TRIM", "TRIM(\"  hello  world  \")", "hello  world"},
         {"TRIMMEAN", "TRIMMEAN(Data!A1:A10, 0.4)", "11"},
         {"TRUE", "TRUE()", "TRUE"},
@@ -247,13 +246,6 @@ TEST_CASE("Formula Engine vs Excelize Standard", "[XLFormulaEngine][Excelize]") 
         // Custom float assertion logic
         if (testCase.name == "HLOOKUP") {
             REQUIRE(res == "ERROR: #N/A");
-        } else if (testCase.name == "EDATE" || testCase.name == "EOMONTH") {
-            // Excelize has known bugs in EDATE/EOMONTH year wraparounds in its current version.
-            // 46000 is 2025-12-09. +2 months is 2026-02-09 (46062). Excelize returns 45697 (2025-02-09).
-            SUCCEED();
-        } else if (testCase.name == "ISEVEN") {
-            // Excelize has a bug with ISEVEN(3) returning TRUE.
-            REQUIRE(res == "FALSE");
         } else if (testCase.expected.find("ERROR:") == 0) {
             std::cout << "RES: " << res << " EXPECTED: " << testCase.expected << "\n";
             REQUIRE(res.find("ERROR:") == 0);
@@ -280,3 +272,4 @@ TEST_CASE("Formula Engine vs Excelize Standard", "[XLFormulaEngine][Excelize]") 
         }
     }
 }
+

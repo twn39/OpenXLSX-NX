@@ -23,7 +23,7 @@
 - **Batch & Matrix Operations**: Bulk-fill 2D matrices (`std::vector<std::vector<T>>`) into regions using `XLCellRange::setValue()` without `for` loops, and apply bulk styling/border-outlining instantly.
 - **Advanced Data Validation**: Fluent-API builder for generating dropdown lists, region subtraction, cross-sheet references, and error alerts (`requireList({"A", "B"})`).
 - **Data Tables & AutoFilters**: High-level API for creating and managing Excel Tables (`XLTables`), including totals rows, column-level aggregate functions (`Sum`, `Average`, etc.), and custom logical AutoFilters.
-- **Modern Testing**: Integrated with **Catch2 v3.13.0** utilizing Data-Driven Generators (`GENERATE`) for robust verification.
+- **Modern Testing**: Integrated with **Catch2 v3.14.0** utilizing Data-Driven Generators (`GENERATE`) for robust verification.
 
 ## 🛠 Quick Start
 
