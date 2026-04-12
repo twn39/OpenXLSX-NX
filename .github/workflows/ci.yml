@@ -66,16 +66,6 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Run Tests Individually (Windows Debugging)
+      - name: Run Tests
         working-directory: build
-        run: |
-          ./OpenXLSXTests --list-tests | grep -E '^  [a-zA-Z0-9]' | sed -e 's/^[[:space:]]*//' | while read -r test_name; do
-            echo ">>> Running $test_name"
-            ./OpenXLSXTests "$test_name"
-            res=$?
-            if [ $res -ne 0 ]; then
-                echo "FAILED: $test_name with exit code $res"
-                exit $res
-            fi
-          done
-        shell: bash
+        run: ./OpenXLSXTests
