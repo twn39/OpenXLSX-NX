@@ -3247,9 +3247,11 @@ XLCellValue XLFormulaEngine::fnIsoweeknum(const std::vector<XLFormulaArg>& args)
     // A simplified ISO week calculation (or standard C++ mktime trick)
     // Actually, C++ doesn't easily give ISO week num without strftime "%V", 
     // let's use a quick approx if needed, but wait:
-    char buf[10];
-    std::strftime(buf, sizeof(buf), "%V", &tm);
-    return XLCellValue(static_cast<double>(std::stoi(buf)));
+    char buf[16] = {0};
+    if (std::strftime(buf, sizeof(buf), "%V", &tm) > 0) {
+        return XLCellValue(static_cast<double>(std::stoi(buf)));
+    }
+    return errNum();
 }
 
 XLCellValue XLFormulaEngine::fnWeeknum(const std::vector<XLFormulaArg>& args)
@@ -3266,12 +3268,15 @@ XLCellValue XLFormulaEngine::fnWeeknum(const std::vector<XLFormulaArg>& args)
     
     // Standard system 1 weeknum (week starts on Sunday)
     auto tm = static_cast<std::tm>(XLDateTime(serial));
-    char buf[10];
+    char buf[16] = {0};
+    size_t res = 0;
     if (return_type == 1 || return_type == 17) {
-        std::strftime(buf, sizeof(buf), "%U", &tm); // week starts on Sunday
+        res = std::strftime(buf, sizeof(buf), "%U", &tm); // week starts on Sunday
     } else {
-        std::strftime(buf, sizeof(buf), "%W", &tm); // week starts on Monday
+        res = std::strftime(buf, sizeof(buf), "%W", &tm); // week starts on Monday
     }
+    
+    if (res == 0) return errNum();
     
     // strftime returns 00-53. Excel might expect 1-53 if Jan 1 is not start of week.
     // For simplicity:
