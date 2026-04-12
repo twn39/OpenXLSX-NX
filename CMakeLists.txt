@@ -179,7 +179,7 @@ if(OPENXLSX_BUILD_TESTS)
     list(FILTER TEST_SOURCES EXCLUDE REGEX "testXL.*Fuzzer\\.cpp")
     
     add_executable(OpenXLSXTests ${TEST_SOURCES})
-    add_test(NAME OpenXLSX_All_Tests COMMAND OpenXLSXTests)
+    add_test(NAME OpenXLSX_All_Tests COMMAND OpenXLSXTests --success -d yes)
     target_link_libraries(OpenXLSXTests PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2WithMain)
     
     if(OPENXLSX_ENABLE_SANITIZERS AND NOT MSVC)
