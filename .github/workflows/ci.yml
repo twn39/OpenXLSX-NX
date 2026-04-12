@@ -1,35 +1,40 @@
-name: OpenXLSX CI
+name: Build and Test
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
   pull_request:
-    branches: [ master ]
 
 jobs:
   build:
-    name: ${{ matrix.os }} - ${{ matrix.compiler }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        include:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        cc: [clang, gcc, cl]
+        cxx: [clang++, g++, cl]
+        exclude:
           - os: ubuntu-latest
-            compiler: gcc
-            cc: gcc
-            cxx: g++
+            cc: cl
           - os: ubuntu-latest
-            compiler: clang
-            cc: clang
-            cxx: clang++
+            cxx: cl
           - os: macos-latest
-            compiler: apple-clang
+            cc: gcc
+          - os: macos-latest
+            cxx: g++
+          - os: macos-latest
+            cc: cl
+          - os: macos-latest
+            cxx: cl
+          - os: windows-latest
             cc: clang
+          - os: windows-latest
             cxx: clang++
           - os: windows-latest
-            compiler: msvc
-            cc: cl
-            cxx: cl
+            cc: gcc
+          - os: windows-latest
+            cxx: g++
 
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +44,12 @@ jobs:
       - name: Setup MSVC (Windows only)
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup Ninja
+        uses: ashutoshvarma/setup-ninja@master
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
 
       - name: Configure CMake
         env:
@@ -55,6 +66,16 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Run Tests
+      - name: Run Tests Individually (Windows Debugging)
         working-directory: build
-        run: ctest -V -C Release
+        run: |
+          ./OpenXLSXTests --list-tests | grep -E '^  [a-zA-Z0-9]' | sed -e 's/^[[:space:]]*//' | while read -r test_name; do
+            echo ">>> Running $test_name"
+            ./OpenXLSXTests "$test_name"
+            res=$?
+            if [ $res -ne 0 ]; then
+                echo "FAILED: $test_name with exit code $res"
+                exit $res
+            fi
+          done
+        shell: bash
