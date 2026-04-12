@@ -3232,30 +3232,28 @@ XLCellValue XLFormulaEngine::fnIsoweeknum(const std::vector<XLFormulaArg>& args)
     double serial = nums[0];
     if (serial < 0) return errNum();
     
-    auto tm = static_cast<std::tm>(XLDateTime(serial));
-    // Zeller's or similar to find day of week (unused)
-    // int y = tm.tm_year + 1900;
-    // int m = tm.tm_mon + 1;
-    // int d = tm.tm_mday;
-    // if (m < 3) { m += 12; y -= 1; }
-    // int k = y % 100;
-    // int j = y / 100;
-    // int h = (d + 13 * (m + 1) / 5 + k + k / 4 + j / 4 + 5 * j) % 7;
-    // h: 0=Sat, 1=Sun, 2=Mon...
-    // int d0 = (h + 5) % 7 + 1; // 1=Mon .. 7=Sun
+    auto dayOfWeek = [](double s) {
+        const auto day = static_cast<int64_t>(std::floor(s)) % 7;
+        return (day == 0 ? 6 : static_cast<int>(day - 1));
+    };
+
+    int wday_mon = (dayOfWeek(serial) + 6) % 7; // 0=Mon .. 6=Sun
+    double nearest_thu = std::floor(serial) + 3 - wday_mon;
     
-    // A simplified ISO week calculation (or standard C++ mktime trick)
-    // Actually, C++ doesn't easily give ISO week num without strftime "%V", 
-    // let's use a quick approx if needed, but wait:
-    char buf[16] = {0};
-    if (std::strftime(buf, sizeof(buf), "%V", &tm) > 0) {
-        try {
-            return XLCellValue(static_cast<double>(std::stoi(buf)));
-        } catch (...) {
-            return errNum();
-        }
-    }
-    return errNum();
+    auto tm_thu = static_cast<std::tm>(XLDateTime(nearest_thu));
+    
+    std::tm tm_jan4{};
+    tm_jan4.tm_year = tm_thu.tm_year;
+    tm_jan4.tm_mon = 0;
+    tm_jan4.tm_mday = 4;
+    tm_jan4.tm_isdst = -1;
+    double jan4_serial = std::floor(XLDateTime(tm_jan4).serial());
+    
+    int jan4_wday_mon = (dayOfWeek(jan4_serial) + 6) % 7;
+    double first_thu = jan4_serial + 3 - jan4_wday_mon;
+    
+    int iso_week = 1 + static_cast<int>(std::round((nearest_thu - first_thu) / 7.0));
+    return XLCellValue(static_cast<double>(iso_week));
 }
 
 XLCellValue XLFormulaEngine::fnWeeknum(const std::vector<XLFormulaArg>& args)
@@ -3264,46 +3262,38 @@ XLCellValue XLFormulaEngine::fnWeeknum(const std::vector<XLFormulaArg>& args)
     if (nums.empty()) return errValue();
     double serial = nums[0];
     if (serial < 0) return errNum();
-    int return_type = (nums.size() > 1) ? std::trunc(nums[1]) : 1;
+    int return_type = (nums.size() > 1) ? static_cast<int>(std::trunc(nums[1])) : 1;
     
     if (return_type == 21) {
         return fnIsoweeknum(args); // System 2 (ISO)
     }
     
-    // Standard system 1 weeknum (week starts on Sunday)
+    auto dayOfWeek = [](double s) {
+        const auto day = static_cast<int64_t>(std::floor(s)) % 7;
+        return (day == 0 ? 6 : static_cast<int>(day - 1));
+    };
+
     auto tm = static_cast<std::tm>(XLDateTime(serial));
-    char buf[16] = {0};
-    size_t res = 0;
-    if (return_type == 1 || return_type == 17) {
-        res = std::strftime(buf, sizeof(buf), "%U", &tm); // week starts on Sunday
-    } else {
-        res = std::strftime(buf, sizeof(buf), "%W", &tm); // week starts on Monday
-    }
-    
-    if (res == 0) return errNum();
-    
-    // strftime returns 00-53. Excel might expect 1-53 if Jan 1 is not start of week.
-    // For simplicity:
-    int w = 0;
-    try {
-        w = std::stoi(buf);
-    } catch (...) {
-        return errNum();
-    }
-    
-    // Excel Weeknum System 1 fix
-    std::tm tm_jan1 = tm;
+    std::tm tm_jan1{};
+    tm_jan1.tm_year = tm.tm_year;
     tm_jan1.tm_mon = 0;
     tm_jan1.tm_mday = 1;
-    std::mktime(&tm_jan1);
-    if (return_type == 1 || return_type == 17) {
-        if (tm_jan1.tm_wday != 0) w += 1;
-    } else {
-        if (tm_jan1.tm_wday != 1) w += 1;
-    }
+    tm_jan1.tm_isdst = -1;
+    double jan1_serial = std::floor(XLDateTime(tm_jan1).serial());
     
-    // This is an approximation for WEEKNUM
-    return XLCellValue(static_cast<double>(w));
+    int days_elapsed = static_cast<int>(std::floor(serial) - jan1_serial);
+    
+    if (return_type == 1 || return_type == 17) { // Week begins on Sunday
+        int jan1_wday = dayOfWeek(jan1_serial); // 0=Sun..6=Sat
+        int days_in_wk1 = 7 - jan1_wday;
+        if (days_elapsed < days_in_wk1) return XLCellValue(1.0);
+        return XLCellValue(2.0 + std::floor((days_elapsed - days_in_wk1) / 7.0));
+    } else { // Week begins on Monday
+        int jan1_wday_mon = (dayOfWeek(jan1_serial) + 6) % 7; // 0=Mon..6=Sun
+        int days_in_wk1 = 7 - jan1_wday_mon;
+        if (days_elapsed < days_in_wk1) return XLCellValue(1.0);
+        return XLCellValue(2.0 + std::floor((days_elapsed - days_in_wk1) / 7.0));
+    }
 }
 
 XLCellValue XLFormulaEngine::fnDays360(const std::vector<XLFormulaArg>& args)
