@@ -110,7 +110,7 @@ TEST_CASE("Shapes and Form Controls functionality and OOXML verification")
     REQUIRE(hasTxBody == true);
 }
 
-TEST_CASE("Vector Shape Enhancements: TwoCellAnchor, ARGB stripping, Transformations, RichText, and Schema valid Types")
+TEST_CASE("Vector Shape Enhancements: TwoCellAnchor ARGB stripping Transformations RichText and Schema valid Types")
 {
     XLDocument doc;
     doc.create("TestShapeEnhancements.xlsx", XLForceOverwrite);

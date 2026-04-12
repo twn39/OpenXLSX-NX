@@ -603,10 +603,12 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     }
     if (!pcRId.empty()) {
         std::string pcTargetPath = parentDoc().workbookRelationships().relationshipById(pcRId).target();
-        if (pcTargetPath[0] != '/') pcTargetPath = "/xl/" + pcTargetPath;
+        if (!pcTargetPath.empty() && pcTargetPath[0] != '/') pcTargetPath = "/xl/" + pcTargetPath;
 
+        std::string targetPath = !pcTargetPath.empty() && pcTargetPath[0] == '/' ? pcTargetPath.substr(1) : pcTargetPath;
+        
         // Use XLDocument's private getXmlData via our new friend status
-        XLXmlData* data = parentDoc().getXmlData(pcTargetPath.substr(1));
+        XLXmlData* data = parentDoc().getXmlData(targetPath);
         if (data) {
             XMLNode cacheRoot = data->getXmlDocument()->document_element();
             XMLNode extLst    = cacheRoot.child("extLst");
