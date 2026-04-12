@@ -27,7 +27,7 @@ TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
         REQUIRE(images.size() == 1);
 
         // Verify underlying XML
-        std::string drawingStr = doc2.archive().getEntry("xl/drawings/drawing1.xml");
+        std::string drawingStr = doc2.extractXmlFromArchive("xl/drawings/drawing1.xml");
         REQUIRE(drawingStr.find("<xdr:oneCellAnchor>") != std::string::npos);
         // B2 is col=1, row=1
         REQUIRE(drawingStr.find("<xdr:col>1</xdr:col>") != std::string::npos);
@@ -68,7 +68,7 @@ TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
         XLDocument doc2;
         REQUIRE_NOTHROW(doc2.open("testXLImageInsert.xlsx"));
 
-        std::string drawingStr = doc2.archive().getEntry("xl/drawings/drawing1.xml");
+        std::string drawingStr = doc2.extractXmlFromArchive("xl/drawings/drawing1.xml");
         REQUIRE(drawingStr.find("<xdr:twoCellAnchor>") != std::string::npos);
         // C5 is col=2, row=4 (0-based in drawing XML)
         REQUIRE(drawingStr.find("<xdr:col>2</xdr:col>") != std::string::npos);
@@ -99,7 +99,7 @@ TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
 
         XLDocument doc2;
         REQUIRE_NOTHROW(doc2.open("testXLImageInsert.xlsx"));
-        std::string drawingStr = doc2.archive().getEntry("xl/drawings/drawing1.xml");
+        std::string drawingStr = doc2.extractXmlFromArchive("xl/drawings/drawing1.xml");
         REQUIRE(drawingStr.find("<xdr:absoluteAnchor>") != std::string::npos);
         // 50 * 9525 = 476250 EMUs
         // 60 * 9525 = 571500 EMUs

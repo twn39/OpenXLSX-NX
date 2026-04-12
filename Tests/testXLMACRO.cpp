@@ -136,10 +136,10 @@ TEST_CASE("MacroPreservationxlsmusingexternalfile", "[XLMacro]")
         doc2.open("./Tests/excelize_macro_resaved.xlsm");
         REQUIRE(doc2.hasMacro() == true);
 
-        std::string payload = doc2.archive().getEntry("xl/vbaProject.bin");
+        std::string payload = doc2.extractXmlFromArchive("xl/vbaProject.bin");
         REQUIRE(payload.size() > 1000);    // A real vbaProject.bin is usually several KB
 
-        std::string ctStr = doc2.archive().getEntry("[Content_Types].xml");
+        std::string ctStr = doc2.extractXmlFromArchive("[Content_Types].xml");
         REQUIRE(ctStr.find("application/vnd.ms-excel.sheet.macroEnabled.main+xml") != std::string::npos);
         REQUIRE(ctStr.find("application/vnd.ms-office.vbaProject") != std::string::npos);
     }

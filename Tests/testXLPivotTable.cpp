@@ -161,7 +161,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     std::string pcPath = doc2.workbookRelationships().relationshipById(pcRId).target();
     if (pcPath[0] != '/') pcPath = "/xl/" + pcPath;
 
-    std::string pcDefStr = doc2.archive().getEntry(pcPath.substr(1));    // drop leading slash
+    std::string pcDefStr = doc2.extractXmlFromArchive(pcPath.substr(1));    // drop leading slash
     REQUIRE(!pcDefStr.empty());
     XMLDocument pcDefDoc;
     pcDefDoc.load_string(pcDefStr.c_str());
@@ -177,7 +177,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
             pcNode.attribute("cacheId").value());
 
     // 2. Validate SlicerCache XML formatting
-    std::string slicerCacheStr = doc2.archive().getEntry("xl/slicerCaches/slicerCache1.xml");
+    std::string slicerCacheStr = doc2.extractXmlFromArchive("xl/slicerCaches/slicerCache1.xml");
     REQUIRE(!slicerCacheStr.empty());
     XMLDocument scDoc;
     scDoc.load_string(slicerCacheStr.c_str());
@@ -190,7 +190,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     REQUIRE(std::string(scPivotTables.child("pivotTable").attribute("name").value()) == "MyPivot");
 
     // 3. Validate Slicer XML formatting
-    std::string slicerStr = doc2.archive().getEntry("xl/slicers/slicer1.xml");
+    std::string slicerStr = doc2.extractXmlFromArchive("xl/slicers/slicer1.xml");
     REQUIRE(!slicerStr.empty());
     XMLDocument sDoc;
     sDoc.load_string(slicerStr.c_str());
@@ -209,7 +209,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     std::string drawingStr;
     for (auto name : doc2.archive().entryNames()) {
         if (name.find("xl/drawings/drawing") == 0) {
-            std::string temp = doc2.archive().getEntry(name);
+            std::string temp = doc2.extractXmlFromArchive(name);
             if (temp.find("RegionSlicer") != std::string::npos || temp.find("a14") != std::string::npos) {
                 drawingStr = temp;
                 break;
