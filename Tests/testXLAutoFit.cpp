@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("AutoFit Column Width Tests", "[XLWorksheet][AutoFit]")
+TEST_CASE("AutoFitColumnWidthTests", "[XLWorksheet][AutoFit]")
 {
     XLDocument doc;
     doc.create("autofit_test.xlsx", XLForceOverwrite);

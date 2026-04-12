@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Rich Text Fluid API Tests", "[XLRichText]")
+TEST_CASE("RichTextFluidAPITests", "[XLRichText]")
 {
     SECTION("Create and Serialize Rich Text")
     {

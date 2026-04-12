@@ -5,7 +5,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Shared Formula Lexer Test", "[XLFormula]")
+TEST_CASE("SharedFormulaLexerTest", "[XLFormula]")
 {
     SECTION("Tricky string tokenization")
     {

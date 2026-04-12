@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLStyles Tests", "[XLStyles]")
+TEST_CASE("XLStylesTests", "[XLStyles]")
 {
     SECTION("Number Formats")
     {

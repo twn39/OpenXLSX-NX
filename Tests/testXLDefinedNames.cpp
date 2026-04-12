@@ -30,7 +30,7 @@ namespace
     }
 }    // namespace
 
-TEST_CASE("XLDefinedNames Tests", "[XLDefinedNames]")
+TEST_CASE("XLDefinedNamesTests", "[XLDefinedNames]")
 {
     SECTION("Manage Global Defined Names")
     {

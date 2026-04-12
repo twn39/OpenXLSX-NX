@@ -18,7 +18,7 @@ static XLCellResolver makeMapResolver(std::initializer_list<std::pair<std::strin
     };
 }
 
-TEST_CASE("XLFormulaEngine - Lexer", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineLexer", "[XLFormulaEngine]")
 {
     SECTION("Numbers")
     {
@@ -63,7 +63,7 @@ TEST_CASE("XLFormulaEngine - Lexer", "[XLFormulaEngine]")
     }
 }
 
-TEST_CASE("XLFormulaEngine - Arithmetic", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineArithmetic", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -86,7 +86,7 @@ TEST_CASE("XLFormulaEngine - Arithmetic", "[XLFormulaEngine]")
     SECTION("Div by zero") { REQUIRE(eng.evaluate("=1/0").type() == XLValueType::Error); }
 }
 
-TEST_CASE("XLFormulaEngine - Comparison", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineComparison", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -99,7 +99,7 @@ TEST_CASE("XLFormulaEngine - Comparison", "[XLFormulaEngine]")
     }
 }
 
-TEST_CASE("XLFormulaEngine - String concat", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineStringconcat", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
     SECTION("Ampersand")
@@ -109,7 +109,7 @@ TEST_CASE("XLFormulaEngine - String concat", "[XLFormulaEngine]")
     }
 }
 
-TEST_CASE("XLFormulaEngine - Cell refs", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineCellrefs", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
     auto            resolver = makeMapResolver({{"A1", XLCellValue(10.0)}, {"B1", XLCellValue(5.0)}});
@@ -119,7 +119,7 @@ TEST_CASE("XLFormulaEngine - Cell refs", "[XLFormulaEngine]")
     SECTION("Ref * literal") { REQUIRE(eng.evaluate("=A1*2", resolver).get<double>() == Catch::Approx(20.0)); }
 }
 
-TEST_CASE("XLFormulaEngine - Range functions", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineRangefunctions", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
     // A1=1, B1=2, C1=3
@@ -142,7 +142,7 @@ TEST_CASE("XLFormulaEngine - Range functions", "[XLFormulaEngine]")
     SECTION("SUM multiple args") { REQUIRE(eng.evaluate("=SUM(A1,B1,C1)", resolver).get<double>() == Catch::Approx(6.0)); }
 }
 
-TEST_CASE("XLFormulaEngine - Math functions", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineMathfunctions", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -164,7 +164,7 @@ TEST_CASE("XLFormulaEngine - Math functions", "[XLFormulaEngine]")
     SECTION("SQRT neg") { REQUIRE(eng.evaluate("=SQRT(-1)").type() == XLValueType::Error); }
 }
 
-TEST_CASE("XLFormulaEngine - Logical functions", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineLogicalfunctions", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -195,7 +195,7 @@ TEST_CASE("XLFormulaEngine - Logical functions", "[XLFormulaEngine]")
     }
 }
 
-TEST_CASE("XLFormulaEngine - Text functions", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineTextfunctions", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -215,7 +215,7 @@ TEST_CASE("XLFormulaEngine - Text functions", "[XLFormulaEngine]")
     SECTION("Integer returning text functions") { REQUIRE(eng.evaluate("=LEN(\"hello\")").get<int64_t>() == 5); }
 }
 
-TEST_CASE("XLFormulaEngine - Info functions", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineInfofunctions", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
     auto            resolver = makeMapResolver({{"A1", XLCellValue(42.0)}, {"B1", XLCellValue("hello")}, {"C1", XLCellValue{}}});
@@ -229,7 +229,7 @@ TEST_CASE("XLFormulaEngine - Info functions", "[XLFormulaEngine]")
     SECTION("ISTEXT true") { REQUIRE(eng.evaluate("=ISTEXT(B1)", resolver).get<bool>() == true); }
 }
 
-TEST_CASE("XLFormulaEngine - MATCH", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineMATCH", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
     // Array: A1=10, B1=20, C1=30
@@ -238,7 +238,7 @@ TEST_CASE("XLFormulaEngine - MATCH", "[XLFormulaEngine]")
     SECTION("MATCH not found") { REQUIRE(eng.evaluate("=MATCH(99,A1:C1,0)", resolver).type() == XLValueType::Error); }
 }
 
-TEST_CASE("XLFormulaEngine - VLOOKUP", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineVLOOKUP", "[XLFormulaEngine]")
 {
     //  Table (A1:B3):  1,"apple"  / 2,"banana"  / 3,"cherry"
     //  colIdx=2, exact match
@@ -255,7 +255,7 @@ TEST_CASE("XLFormulaEngine - VLOOKUP", "[XLFormulaEngine]")
     SECTION("VLOOKUP not found") { REQUIRE(eng.evaluate("=VLOOKUP(99,A1:B3,2,0)", resolver).type() == XLValueType::Error); }
 }
 
-TEST_CASE("XLFormulaEngine - XLOOKUP", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineXLOOKUP", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
     auto            resolver = makeMapResolver({
@@ -349,7 +349,7 @@ TEST_CASE("XLFormulaEngine - XLOOKUP", "[XLFormulaEngine]")
     }
 }
 
-TEST_CASE("XLFormulaEngine - Integration with XLDocument", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineIntegrationwithXLDocument", "[XLFormulaEngine]")
 {
     XLDocument doc;
     doc.create("./testXLFormulaEngine_integration.xlsx", XLForceOverwrite);
@@ -375,7 +375,7 @@ TEST_CASE("XLFormulaEngine - Integration with XLDocument", "[XLFormulaEngine]")
 // New Tests - Date functions
 // =============================================================================
 
-TEST_CASE("XLFormulaEngine - Date functions", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineDatefunctions", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -409,7 +409,7 @@ TEST_CASE("XLFormulaEngine - Date functions", "[XLFormulaEngine]")
 // New Tests - Work-date functions
 // =============================================================================
 
-TEST_CASE("XLFormulaEngine - Work date functions", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineWorkdatefunctions", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -432,7 +432,7 @@ TEST_CASE("XLFormulaEngine - Work date functions", "[XLFormulaEngine]")
 // New Tests - Financial functions
 // =============================================================================
 
-TEST_CASE("XLFormulaEngine - Financial functions", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineFinancialfunctions", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -457,7 +457,7 @@ TEST_CASE("XLFormulaEngine - Financial functions", "[XLFormulaEngine]")
 // New Tests - Math extended
 // =============================================================================
 
-TEST_CASE("XLFormulaEngine - Math extended", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineMathextended", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -496,7 +496,7 @@ TEST_CASE("XLFormulaEngine - Math extended", "[XLFormulaEngine]")
 // New Tests - Text extended
 // =============================================================================
 
-TEST_CASE("XLFormulaEngine - Text extended", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineTextextended", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -542,7 +542,7 @@ TEST_CASE("XLFormulaEngine - Text extended", "[XLFormulaEngine]")
 // New Tests - Statistical / Conditional
 // =============================================================================
 
-TEST_CASE("XLFormulaEngine - Statistical extended", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineStatisticalextended", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -609,7 +609,7 @@ TEST_CASE("XLFormulaEngine - Statistical extended", "[XLFormulaEngine]")
 // New Tests - Info extended
 // =============================================================================
 
-TEST_CASE("XLFormulaEngine - Info extended", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineInfoextended", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -629,7 +629,7 @@ TEST_CASE("XLFormulaEngine - Info extended", "[XLFormulaEngine]")
 // New Tests - SUMPRODUCT scalar
 // =============================================================================
 
-TEST_CASE("XLFormulaEngine - SUMPRODUCT edge cases", "[XLFormulaEngine]")
+TEST_CASE("XLFormulaEngineSUMPRODUCTedgecases", "[XLFormulaEngine]")
 {
     XLFormulaEngine eng;
 
@@ -646,7 +646,7 @@ TEST_CASE("XLFormulaEngine - SUMPRODUCT edge cases", "[XLFormulaEngine]")
 #include <fstream>
 #include <sstream>
 
-TEST_CASE("XLFormulaEngine - Data-driven Quirks from CSV", "[XLFormulaEngine][Quirks]")
+TEST_CASE("XLFormulaEngineDatadrivenQuirksfromCSV", "[XLFormulaEngine][Quirks]")
 {
     XLFormulaEngine eng;
     
@@ -700,7 +700,7 @@ TEST_CASE("XLFormulaEngine - Data-driven Quirks from CSV", "[XLFormulaEngine][Qu
     }
 }
 
-TEST_CASE("XLFormulaEngine - Newly Implemented Functions", "[XLFormulaEngine][MissingChecklist]")
+TEST_CASE("XLFormulaEngineNewlyImplementedFunctions", "[XLFormulaEngine][MissingChecklist]")
 {
     XLFormulaEngine eng;
     auto resolver = makeMapResolver({
@@ -794,20 +794,20 @@ TEST_CASE("XLFormulaEngine - Newly Implemented Functions", "[XLFormulaEngine][Mi
         REQUIRE(eng.evaluate("=ISLOGICAL(TRUE)").get<bool>() == true);
     }
 }
-TEST_CASE("XLFormulaEngine - Bugfixes", "[Bugfixes]")
+TEST_CASE("XLFormulaEngineBugfixes", "[Bugfixes]")
 {
     XLFormulaEngine eng;
     REQUIRE(eng.evaluate("=CEILING.MATH(4.3)").get<double>() == Catch::Approx(5.0));
     REQUIRE(eng.evaluate("=FLOOR.MATH(4.7)").get<double>() == Catch::Approx(4.0));
 }
-TEST_CASE("XLFormulaEngine - Bugfixes 2", "[Bugfixes2]")
+TEST_CASE("XLFormulaEngineBugfixes2", "[Bugfixes2]")
 {
     XLFormulaEngine eng;
     auto val = eng.evaluate("=SLN(10000, 1000, 5)");
     REQUIRE(val.type() == XLValueType::Float);
     REQUIRE(val.get<double>() == Catch::Approx(1800.0));
 }
-TEST_CASE("XLFormulaEngine - Bugfixes 3", "[Bugfixes3]")
+TEST_CASE("XLFormulaEngineBugfixes3", "[Bugfixes3]")
 {
     XLFormulaEngine eng;
     REQUIRE(eng.evaluate("=CEILING.MATH(4.3)").get<double>() == Catch::Approx(5.0));

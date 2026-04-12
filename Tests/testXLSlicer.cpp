@@ -6,7 +6,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Table Slicer API and OOXML Validation", "[XLSlicer]")
+TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
 {
     // 1. Create a document with a table and two slicers
     XLDocument doc;

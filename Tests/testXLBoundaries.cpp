@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Excel Physical Boundaries", "[Boundaries]")
+TEST_CASE("ExcelPhysicalBoundaries", "[Boundaries]")
 {
     XLDocument doc;
     doc.create("./testXLBoundaries.xlsx", XLForceOverwrite);

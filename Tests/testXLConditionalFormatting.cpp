@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLConditionalFormatting Tests", "[ConditionalFormatting]")
+TEST_CASE("XLConditionalFormattingTests", "[ConditionalFormatting]")
 {
     SECTION("XLCfvo Property Tests")
     {
@@ -183,7 +183,7 @@ TEST_CASE("XLConditionalFormatting Tests", "[ConditionalFormatting]")
     }
 }
 
-TEST_CASE("Conditional Formatting Excel Generation", "[ConditionalFormattingGen]")
+TEST_CASE("ConditionalFormattingExcelGeneration", "[ConditionalFormattingGen]")
 {
     XLDocument doc;
     doc.create("ConditionalFormatting_Verification.xlsx", XLForceOverwrite);

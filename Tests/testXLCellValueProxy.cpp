@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLCellValueProxy Tests", "[XLCellValue]")
+TEST_CASE("XLCellValueProxyTests", "[XLCellValue]")
 {
     SECTION("XLCellValueProxy conversion to XLCellValue (XLCellValue constructor)")
     {

@@ -7,7 +7,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLRow Tests", "[XLRow]")
+TEST_CASE("XLRowTests", "[XLRow]")
 {
     SECTION("XLRow")
     {
@@ -63,7 +63,7 @@ TEST_CASE("XLRow Tests", "[XLRow]")
     }
 }
 
-TEST_CASE("XLRowData Tests", "[XLRowData]")
+TEST_CASE("XLRowDataTests", "[XLRowData]")
 {
     SECTION("XLRowData (vector<int>)")
     {
@@ -477,7 +477,7 @@ TEST_CASE("XLRowData Tests", "[XLRowData]")
     }
 }
 
-TEST_CASE("XLRowDataRange Tests", "[XLRowDataRange]")
+TEST_CASE("XLRowDataRangeTests", "[XLRowDataRange]")
 {
     SECTION("XLRowDataRange")
     {
@@ -576,7 +576,7 @@ TEST_CASE("XLRowDataRange Tests", "[XLRowDataRange]")
     }
 }
 
-TEST_CASE("XLRowIterator Tests", "[XLRowDataRange]")
+TEST_CASE("XLRowIteratorTests", "[XLRowDataRange]")
 {
     SECTION("XLRowIterator")
     {

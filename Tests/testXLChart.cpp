@@ -39,7 +39,7 @@ public:
     std::string getRawXml(const std::string& path) { return ::getRawXml(doc, path); }
 };
 
-TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
+TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
 {
     std::string filename = "test_chart_functional.xlsx";
 
@@ -309,7 +309,7 @@ TEST_CASE("Chart Creation and Verification", "[XLChart][OOXML]")
         std::filesystem::remove(filename);
     }
 }
-TEST_CASE("Chart Series Fluent API", "[XLChart][Fluent]")
+TEST_CASE("ChartSeriesFluentAPI", "[XLChart][Fluent]")
 {
     std::string filename_fluent = "test_chart_fluent" + std::to_string(rand()) + ".xlsx";
 
@@ -349,7 +349,7 @@ TEST_CASE("Chart Series Fluent API", "[XLChart][Fluent]")
     }
 }
 
-TEST_CASE("Chart Anchor API", "[XLChart][Anchor]")
+TEST_CASE("ChartAnchorAPI", "[XLChart][Anchor]")
 {
     std::string filename_anchor = "test_chart_anchor" + std::to_string(rand()) + ".xlsx";
 
@@ -395,7 +395,7 @@ TEST_CASE("Chart Anchor API", "[XLChart][Anchor]")
     }
 }
 
-TEST_CASE("Chart Cell Range API", "[XLChart][Range]")
+TEST_CASE("ChartCellRangeAPI", "[XLChart][Range]")
 {
     std::string filename_range = "test_chart_range" + std::to_string(rand()) + ".xlsx";
 
@@ -434,7 +434,7 @@ TEST_CASE("Chart Cell Range API", "[XLChart][Range]")
     }
 }
 
-TEST_CASE("Chart Phase1 Phase2 Features", "[XLChart][Phase12]")
+TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 {
     auto containsOneOf = [](const std::string& xml, std::initializer_list<std::string> candidates) {
         for (const auto& c : candidates)
@@ -747,7 +747,7 @@ TEST_CASE("Chart Phase1 Phase2 Features", "[XLChart][Phase12]")
     }
 }
 
-TEST_CASE("Stock OHLC Chart Comparison Test", "[XLChart][Stock]")
+TEST_CASE("StockOHLCChartComparisonTest", "[XLChart][Stock]")
 {
     const std::string fname = "test_stock_ohlc.xlsx";
     {
@@ -780,7 +780,7 @@ TEST_CASE("Stock OHLC Chart Comparison Test", "[XLChart][Stock]")
     }
 }
 
-TEST_CASE("Surface3D Chart Comparison Test", "[XLChart][Surface3D]")
+TEST_CASE("Surface3DChartComparisonTest", "[XLChart][Surface3D]")
 {
     const std::string fname = "test_surface3d.xlsx";
     {

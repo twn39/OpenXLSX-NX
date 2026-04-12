@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Comprehensive Integration Tests", "[Integration]")
+TEST_CASE("ComprehensiveIntegrationTests", "[Integration]")
 {
     const std::string filename = "ComprehensiveIntegration.xlsx";
 

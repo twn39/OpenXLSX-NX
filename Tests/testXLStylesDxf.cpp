@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLDxf Tests", "[Dxf]")
+TEST_CASE("XLDxfTests", "[Dxf]")
 {
     SECTION("Standalone XLDxf Properties")
     {

@@ -5,7 +5,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("AutoFilter and SortState Generation", "[XLAutoFilter]")
+TEST_CASE("AutoFilterandSortStateGeneration", "[XLAutoFilter]")
 {
     // === Functionality Setup ===
     XLDocument doc;
@@ -89,7 +89,7 @@ TEST_CASE("AutoFilter and SortState Generation", "[XLAutoFilter]")
     doc2.close();
 }
 
-TEST_CASE("AutoFilter Advanced Conditions", "[XLAutoFilter][Advanced]")
+TEST_CASE("AutoFilterAdvancedConditions", "[XLAutoFilter][Advanced]")
 {
     XLDocument doc;
     doc.create("./AutoFilterAdvancedTest.xlsx", XLForceOverwrite);

@@ -5,7 +5,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLDrawing (VML) and XLTables Tests", "[Drawing][Tables]")
+TEST_CASE("XLDrawingVMLandXLTablesTests", "[Drawing][Tables]")
 {
     const std::string filename = "DrawingTablesIntegration.xlsx";
 

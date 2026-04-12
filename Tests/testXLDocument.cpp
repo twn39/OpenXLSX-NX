@@ -8,7 +8,7 @@ using namespace OpenXLSX;
  * @brief The purpose of this test case is to test the creation of XLDocument objects. Each section section
  * tests document creation using a different method. In addition, saving, closing and copying is tested.
  */
-TEST_CASE("XLDocument Tests", "[XLDocument]")
+TEST_CASE("XLDocumentTests", "[XLDocument]")
 {
     std::string file    = "./testXLDocument.xlsx";
     std::string newfile = "./TestDocumentCreationNew.xlsx";

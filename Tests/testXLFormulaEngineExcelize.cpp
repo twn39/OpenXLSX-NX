@@ -180,7 +180,7 @@ std::vector<TestCase> getTestCases() {
     };
 }
 
-TEST_CASE("Formula Engine vs Excelize Standard", "[XLFormulaEngine][Excelize]") {
+TEST_CASE("FormulaEnginevsExcelizeStandard", "[XLFormulaEngine][Excelize]") {
     XLDocument doc;
     std::string testPath = "./excelize_test_doc_new.xlsx";
     doc.create(std::string_view(testPath));

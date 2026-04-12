@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLFormula Tests", "[XLFormula]")
+TEST_CASE("XLFormulaTests", "[XLFormula]")
 {
     SECTION("Default Constructor")
     {

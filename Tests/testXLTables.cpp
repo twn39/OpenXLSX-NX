@@ -47,7 +47,7 @@ bool checkAttributeOrder(const pugi::xml_node& node, const std::vector<std::stri
     return true;
 }
 
-TEST_CASE("XLTables OOXML Compliance & Stability", "[XLTables]")
+TEST_CASE("XLTablesOOXMLComplianceStability", "[XLTables]")
 {
     const std::string filename = "ComplianceTest.xlsx";
 
@@ -142,7 +142,7 @@ TEST_CASE("XLTables OOXML Compliance & Stability", "[XLTables]")
     }
 }
 
-TEST_CASE("XLTables Ergonomic Add API", "[XLTables][Range]")
+TEST_CASE("XLTablesErgonomicAddAPI", "[XLTables][Range]")
 {
     const std::string filename = "TableErgonomicsTest.xlsx";
 

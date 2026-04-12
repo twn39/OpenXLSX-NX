@@ -39,7 +39,7 @@ namespace
     };
 }    // namespace
 
-TEST_CASE("Advanced Chart Axis Features", "[XLChart][Axis]")
+TEST_CASE("AdvancedChartAxisFeatures", "[XLChart][Axis]")
 {
     std::string filename = "test_chart_advanced_axis.xlsx";
 

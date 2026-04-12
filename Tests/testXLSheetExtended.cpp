@@ -3,7 +3,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLWorksheet Extended Tests", "[XLSheet]")
+TEST_CASE("XLWorksheetExtendedTests", "[XLSheet]")
 {
     SECTION("Sheet Protection")
     {

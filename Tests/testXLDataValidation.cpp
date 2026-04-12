@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLDataValidation Tests", "[XLDataValidation]")
+TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
 {
     SECTION("Create and set data validations")
     {

@@ -30,7 +30,7 @@ namespace
     }
 }    // namespace
 
-TEST_CASE("XLSheet Tests", "[XLSheet]")
+TEST_CASE("XLSheetTests", "[XLSheet]")
 {
     SECTION("XLSheet Visibility")
     {
@@ -540,7 +540,7 @@ TEST_CASE("XLSheet Tests", "[XLSheet]")
         doc3.close();
     }
 }
-TEST_CASE("Worksheet Slicing and Batch Insertion API", "[XLWorksheet][Range][Row]")
+TEST_CASE("WorksheetSlicingandBatchInsertionAPI", "[XLWorksheet][Range][Row]")
 {
     std::string filename = "test_worksheet_slicing.xlsx";
 
@@ -589,7 +589,7 @@ TEST_CASE("Worksheet Slicing and Batch Insertion API", "[XLWorksheet][Range][Row
     }
 }
 
-TEST_CASE("Worksheet Peek API", "[XLWorksheet][Peek]")
+TEST_CASE("WorksheetPeekAPI", "[XLWorksheet][Peek]")
 {
     std::string filename = "test_worksheet_peek.xlsx";
 
@@ -629,7 +629,7 @@ TEST_CASE("Worksheet Peek API", "[XLWorksheet][Peek]")
     }
 }
 
-TEST_CASE("Worksheet mergeCells API", "[XLWorksheet][Merge]")
+TEST_CASE("WorksheetmergeCellsAPI", "[XLWorksheet][Merge]")
 {
     std::string filename = "test_worksheet_merge.xlsx";
 
@@ -662,7 +662,7 @@ TEST_CASE("Worksheet mergeCells API", "[XLWorksheet][Merge]")
     }
 }
 
-TEST_CASE("Worksheet Strong Index API", "[XLWorksheet][Index]")
+TEST_CASE("WorksheetStrongIndexAPI", "[XLWorksheet][Index]")
 {
     std::string filename = "test_worksheet_index.xlsx";
 
@@ -692,7 +692,7 @@ TEST_CASE("Worksheet Strong Index API", "[XLWorksheet][Index]")
     }
 }
 
-TEST_CASE("Page Setup Ergonomics Validation", "[XLPageSetup][Fluent]")
+TEST_CASE("PageSetupErgonomicsValidation", "[XLPageSetup][Fluent]")
 {
     const std::string filename = "PageSetupDXTest.xlsx";
 

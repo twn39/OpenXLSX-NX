@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Streaming Reader Functional Tests", "[XLStreamReader]")
+TEST_CASE("StreamingReaderFunctionalTests", "[XLStreamReader]")
 {
     // Generate a file using StreamWriter
     {
@@ -47,7 +47,7 @@ TEST_CASE("Streaming Reader Functional Tests", "[XLStreamReader]")
 
     doc.close();
 }
-TEST_CASE("Streaming Reader Skipping Empty Rows and Cells", "[XLStreamReader]")
+TEST_CASE("StreamingReaderSkippingEmptyRowsandCells", "[XLStreamReader]")
 {
     {
         XLDocument doc;
@@ -83,7 +83,7 @@ TEST_CASE("Streaming Reader Skipping Empty Rows and Cells", "[XLStreamReader]")
     REQUIRE(reader.hasNext() == false);
 }
 
-TEST_CASE("Streaming Reader Large File Test", "[XLStreamReader]")
+TEST_CASE("StreamingReaderLargeFileTest", "[XLStreamReader]")
 {
     {
         XLDocument doc;
@@ -112,7 +112,7 @@ TEST_CASE("Streaming Reader Large File Test", "[XLStreamReader]")
     doc.close();
 }
 
-TEST_CASE("SAX Parser Edge Cases", "[XLStreamReader][SAX]")
+TEST_CASE("SAXParserEdgeCases", "[XLStreamReader][SAX]")
 {
     // Write a file with boolean, error cell, and column-skipping patterns
     {

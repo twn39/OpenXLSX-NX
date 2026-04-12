@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Stream Writer Advanced Features", "[XLStreamWriter][Styles]")
+TEST_CASE("StreamWriterAdvancedFeatures", "[XLStreamWriter][Styles]")
 {
     XLDocument doc;
     doc.create("stream_style_test.xlsx", XLForceOverwrite);
@@ -56,7 +56,7 @@ TEST_CASE("Stream Writer Advanced Features", "[XLStreamWriter][Styles]")
     doc2.close();
     std::filesystem::remove("stream_style_test.xlsx");
 }
-TEST_CASE("Generate User Review Styled Streaming File", "[XLStreamWriter][User]")
+TEST_CASE("GenerateUserReviewStyledStreamingFile", "[XLStreamWriter][User]")
 {
     XLDocument doc;
     doc.create("StreamingStyledTest.xlsx", XLForceOverwrite);

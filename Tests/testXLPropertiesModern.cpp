@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Modern XLProperties Tests", "[XLProperties]")
+TEST_CASE("ModernXLPropertiesTests", "[XLProperties]")
 {
     SECTION("Core Properties Getters/Setters")
     {

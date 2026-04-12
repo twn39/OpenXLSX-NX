@@ -14,7 +14,7 @@ namespace
     }
 }    // namespace
 
-TEST_CASE("XML Object Round-Trip Tests", "[XMLRoundTrip]")
+TEST_CASE("XMLObjectRoundTripTests", "[XMLRoundTrip]")
 {
     XMLDocument doc;
 

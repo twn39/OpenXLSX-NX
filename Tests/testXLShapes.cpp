@@ -5,7 +5,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Shapes and Form Controls functionality and OOXML verification")
+TEST_CASE("ShapesandFormControlsfunctionalityandOOXMLverification")
 {
     XLDocument doc;
     doc.create("TestShapes.xlsx", XLForceOverwrite);
@@ -110,7 +110,7 @@ TEST_CASE("Shapes and Form Controls functionality and OOXML verification")
     REQUIRE(hasTxBody == true);
 }
 
-TEST_CASE("Vector Shape Enhancements Validation")
+TEST_CASE("VectorShapeEnhancementsValidation")
 {
     XLDocument doc;
     doc.create("TestShapeEnhancements.xlsx", XLForceOverwrite);

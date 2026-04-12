@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Conditional Formatting Advanced Features and OOXML Validation", "[ConditionalFormatting][OOXML]")
+TEST_CASE("ConditionalFormattingAdvancedFeaturesandOOXMLValidation", "[ConditionalFormatting][OOXML]")
 {
     XLDocument doc;
     doc.create("CF_Advanced_OOXML_Test.xlsx", XLForceOverwrite);
@@ -109,7 +109,7 @@ TEST_CASE("Conditional Formatting Advanced Features and OOXML Validation", "[Con
     doc.close();
 }
 
-TEST_CASE("Conditional Formatting Advanced DataBar Extensions", "[ConditionalFormatting][OOXML]")
+TEST_CASE("ConditionalFormattingAdvancedDataBarExtensions", "[ConditionalFormatting][OOXML]")
 {
     XLDocument doc;
     doc.create("CF_DataBar_Advanced_Test.xlsx", XLForceOverwrite);

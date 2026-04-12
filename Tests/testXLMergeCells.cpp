@@ -3,7 +3,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLMergeCells Tests", "[XLMergeCells]")
+TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
 {
     SECTION("Basic Merge and Unmerge")
     {

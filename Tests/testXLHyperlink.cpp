@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLWorksheet Hyperlink Support", "[XLWorksheet]")
+TEST_CASE("XLWorksheetHyperlinkSupport", "[XLWorksheet]")
 {
     SECTION("Add External Hyperlink")
     {

@@ -8,7 +8,7 @@ using namespace OpenXLSX;
 // Row Insert / Delete Tests
 // =============================================================================
 
-TEST_CASE("XLRowColInsertDelete Tests", "[XLRowColInsertDelete]")
+TEST_CASE("XLRowColInsertDeleteTests", "[XLRowColInsertDelete]")
 {
     SECTION("deleteRow basic — subsequent rows shift up")
     {

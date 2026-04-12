@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLCellRange Tests", "[XLCellRange]")
+TEST_CASE("XLCellRangeTests", "[XLCellRange]")
 {
     XLDocument doc;
     doc.create("./testXLCellRange.xlsx", XLForceOverwrite);
@@ -214,7 +214,7 @@ TEST_CASE("XLCellRange Tests", "[XLCellRange]")
         REQUIRE(rng1.intersect(rngFar).empty());
     }
 }
-TEST_CASE("XLCellRange Bulk Operations", "[XLCellRange]")
+TEST_CASE("XLCellRangeBulkOperations", "[XLCellRange]")
 {
     XLDocument doc;
     doc.create("./testXLCellRange_bulk.xlsx", XLForceOverwrite);

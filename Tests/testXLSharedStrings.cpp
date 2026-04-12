@@ -3,7 +3,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLSharedStrings Tests", "[XLSharedStrings]")
+TEST_CASE("XLSharedStringsTests", "[XLSharedStrings]")
 {
     SECTION("Basic String Operations")
     {
@@ -53,7 +53,7 @@ TEST_CASE("XLSharedStrings Tests", "[XLSharedStrings]")
     }
 }
 
-TEST_CASE("Shared Strings Index Cache Coherency", "[SharedStrings][Bugfix]")
+TEST_CASE("SharedStringsIndexCacheCoherency", "[SharedStrings][Bugfix]")
 {
     XLDocument doc;
     doc.create("SharedStrings_Cache_Test.xlsx", XLForceOverwrite);
@@ -70,7 +70,7 @@ TEST_CASE("Shared Strings Index Cache Coherency", "[SharedStrings][Bugfix]")
     doc.close();
 }
 
-TEST_CASE("SharedStrings Lazy DOM and Reservation", "[XLSharedStrings]")
+TEST_CASE("SharedStringsLazyDOMandReservation", "[XLSharedStrings]")
 {
     SECTION("reserveStrings pre-allocates capacity")
     {

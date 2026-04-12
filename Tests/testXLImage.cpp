@@ -13,7 +13,7 @@ std::string readBinaryFile(const std::string& path)
     return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 }
 
-TEST_CASE("XLImage Tests", "[XLImage]")
+TEST_CASE("XLImageTests", "[XLImage]")
 {
     SECTION("Add and read images")
     {

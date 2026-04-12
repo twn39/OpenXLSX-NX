@@ -3,7 +3,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLColumn Tests", "[XLColumn]")
+TEST_CASE("XLColumnTests", "[XLColumn]")
 {
     SECTION("Basic Column Operations")
     {

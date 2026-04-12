@@ -3,7 +3,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLProperties Tests", "[XLProperties]")
+TEST_CASE("XLPropertiesTests", "[XLProperties]")
 {
     SECTION("Core Properties")
     {
@@ -46,7 +46,7 @@ TEST_CASE("XLProperties Tests", "[XLProperties]")
     }
 }
 
-TEST_CASE("XLWorkbook Tests", "[XLWorkbook]")
+TEST_CASE("XLWorkbookTests", "[XLWorkbook]")
 {
     SECTION("Sheet Management")
     {

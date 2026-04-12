@@ -32,7 +32,7 @@ namespace
     }
 }    // namespace
 
-TEST_CASE("XLDateTime Tests", "[XLDateTime]")
+TEST_CASE("XLDateTimeTests", "[XLDateTime]")
 {
     SECTION("Default construction")
     {

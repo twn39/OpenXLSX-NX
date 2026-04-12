@@ -5,7 +5,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Negative Tests - Corrupt Files and Exceptions", "[CorruptFiles]")
+TEST_CASE("NegativeTestsCorruptFilesandExceptions", "[CorruptFiles]")
 {
     SECTION("File Not Found")
     {

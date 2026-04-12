@@ -5,7 +5,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Security and Exploitation Edge Cases", "[EdgeCases][Security]")
+TEST_CASE("SecurityandExploitationEdgeCases", "[EdgeCases][Security]")
 {
     SECTION("Billion Laughs (XXE) Prevention")
     {
@@ -32,7 +32,7 @@ TEST_CASE("Security and Exploitation Edge Cases", "[EdgeCases][Security]")
     }
 }
 
-TEST_CASE("Date System Edge Cases (1900 Leap Year Bug)", "[EdgeCases][Date]")
+TEST_CASE("DateSystemEdgeCases1900LeapYearBug", "[EdgeCases][Date]")
 {
     SECTION("Serial Number 60 (1900-02-29)")
     {
@@ -60,7 +60,7 @@ TEST_CASE("Date System Edge Cases (1900 Leap Year Bug)", "[EdgeCases][Date]")
     }
 }
 
-TEST_CASE("Whitespace Preservation Edge Cases", "[EdgeCases][Whitespace]")
+TEST_CASE("WhitespacePreservationEdgeCases", "[EdgeCases][Whitespace]")
 {
     XLDocument doc;
     doc.create("whitespace_test.xlsx", XLForceOverwrite);
@@ -85,7 +85,7 @@ TEST_CASE("Whitespace Preservation Edge Cases", "[EdgeCases][Whitespace]")
     std::filesystem::remove("whitespace_test.xlsx");
 }
 
-TEST_CASE("Sheet Naming and Escaping Edge Cases", "[EdgeCases][SheetNames]")
+TEST_CASE("SheetNamingandEscapingEdgeCases", "[EdgeCases][SheetNames]")
 {
     XLDocument doc;
     doc.create("sheetnames_test.xlsx", XLForceOverwrite);
@@ -110,7 +110,7 @@ TEST_CASE("Sheet Naming and Escaping Edge Cases", "[EdgeCases][SheetNames]")
     std::filesystem::remove("sheetnames_test.xlsx");
 }
 
-TEST_CASE("String-to-Number Coercion Edge Cases", "[EdgeCases][Coercion]")
+TEST_CASE("StringtoNumberCoercionEdgeCases", "[EdgeCases][Coercion]")
 {
     XLDocument doc;
     doc.create("coercion_test.xlsx", XLForceOverwrite);

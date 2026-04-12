@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Advanced Dynamic Pivot Table Builder", "[XLPivotTable]")
+TEST_CASE("AdvancedDynamicPivotTableBuilder", "[XLPivotTable]")
 {
     XLDocument doc;
     doc.create("./PivotBuilderTest.xlsx", XLForceOverwrite);
@@ -70,7 +70,7 @@ options.setRowGrandTotals(false)
     REQUIRE(ptDefXmlStr.find("name=\"Average Sales\"") != std::string::npos);
 }
 
-TEST_CASE("Advanced Pivot Table Multi-Data Fields and Edge Cases", "[XLPivotTable]")
+TEST_CASE("AdvancedPivotTableMultiDataFieldsandEdgeCases", "[XLPivotTable]")
 {
     XLDocument doc;
     doc.create("./PivotMultiDataTest.xlsx", XLForceOverwrite);
@@ -130,7 +130,7 @@ TEST_CASE("Advanced Pivot Table Multi-Data Fields and Edge Cases", "[XLPivotTabl
     std::remove("./PivotMultiDataTest.xlsx");
 }
 
-TEST_CASE("Advanced Pivot Table DataOnRows and NumFmt", "[XLPivotTable]")
+TEST_CASE("AdvancedPivotTableDataOnRowsandNumFmt", "[XLPivotTable]")
 {
     XLDocument doc;
     doc.create("./PivotDataOnRowsTest.xlsx", XLForceOverwrite);
@@ -181,7 +181,7 @@ TEST_CASE("Advanced Pivot Table DataOnRows and NumFmt", "[XLPivotTable]")
     std::remove("./PivotDataOnRowsTest.xlsx");
 }
 
-TEST_CASE("Advanced Pivot Table Styling and Formatting Regression", "[XLPivotTable]")
+TEST_CASE("AdvancedPivotTableStylingandFormattingRegression", "[XLPivotTable]")
 {
     XLDocument doc;
     doc.create("./PivotStyleRegressionTest.xlsx", XLForceOverwrite);
@@ -226,7 +226,7 @@ TEST_CASE("Advanced Pivot Table Styling and Formatting Regression", "[XLPivotTab
     std::remove("./PivotStyleRegressionTest.xlsx");
 }
 
-TEST_CASE("Advanced Pivot Table Multiple Data Fields Base Attributes Regression", "[XLPivotTable][Regression]")
+TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPivotTable][Regression]")
 {
     // This test ensures we NEVER regress on the critical OOXML requirement where multiple
     // <dataField> items MUST possess baseField="0" and baseItem="0". Without these, Microsoft Excel 
@@ -281,7 +281,7 @@ TEST_CASE("Advanced Pivot Table Multiple Data Fields Base Attributes Regression"
     std::remove("./PivotBaseFieldTest.xlsx");
 }
 
-TEST_CASE("Advanced Pivot Table Named Range / Table Source Binding", "[XLPivotTable]")
+TEST_CASE("AdvancedPivotTableNamedRangeTableSourceBinding", "[XLPivotTable]")
 {
     XLDocument doc;
     doc.create("./PivotNamedSourceTest.xlsx", XLForceOverwrite);

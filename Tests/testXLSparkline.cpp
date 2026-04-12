@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Sparkline Creation", "[XLSparkline]")
+TEST_CASE("SparklineCreation", "[XLSparkline]")
 {
     // === Functionality Setup ===
     XLDocument doc;
@@ -64,7 +64,7 @@ TEST_CASE("Sparkline Creation", "[XLSparkline]")
     doc2.close();
 }
 
-TEST_CASE("Sparkline Advanced Configuration", "[XLSparkline]")
+TEST_CASE("SparklineAdvancedConfiguration", "[XLSparkline]")
 {
     XLDocument doc;
     doc.create("./SparklineAdvTest.xlsx", XLForceOverwrite);

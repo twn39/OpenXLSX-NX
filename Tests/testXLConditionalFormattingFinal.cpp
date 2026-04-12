@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Conditional Formatting OOXML Structure Validation", "[ConditionalFormatting][OOXML]")
+TEST_CASE("ConditionalFormattingOOXMLStructureValidation", "[ConditionalFormatting][OOXML]")
 {
     XLDocument doc;
     doc.create("CF_OOXML_Validation.xlsx", XLForceOverwrite);
@@ -70,7 +70,7 @@ TEST_CASE("Conditional Formatting OOXML Structure Validation", "[ConditionalForm
     doc.close();
 }
 
-TEST_CASE("Conditional Formatting Advanced Rules and Deletion", "[ConditionalFormatting][OOXML]")
+TEST_CASE("ConditionalFormattingAdvancedRulesandDeletion", "[ConditionalFormatting][OOXML]")
 {
     XLDocument doc;
     doc.create("CF_Advanced_Deletion.xlsx", XLForceOverwrite);

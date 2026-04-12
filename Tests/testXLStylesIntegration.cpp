@@ -3,7 +3,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLStyles Integration Tests", "[XLStyles]")
+TEST_CASE("XLStylesIntegrationTests", "[XLStyles]")
 {
     SECTION("Font Style Round-trip")
     {
@@ -105,7 +105,7 @@ TEST_CASE("XLStyles Integration Tests", "[XLStyles]")
     }
 }
 
-TEST_CASE("High-Level XLStyle Facade Integration", "[XLStyle]")
+TEST_CASE("HighLevelXLStyleFacadeIntegration", "[XLStyle]")
 {
     XLDocument doc;
     doc.create("./testXLStyleFacade.xlsx", XLForceOverwrite);

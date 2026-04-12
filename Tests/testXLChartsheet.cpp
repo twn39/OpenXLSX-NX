@@ -38,7 +38,7 @@ public:
     std::string getRawXml(const std::string& path) { return ::getRawXml(doc, path); }
 };
 
-TEST_CASE("Chartsheet Creation and Verification", "[XLChartsheet][OOXML]")
+TEST_CASE("ChartsheetCreationandVerification", "[XLChartsheet][OOXML]")
 {
     std::string filename = "test_chartsheet.xlsx";
 

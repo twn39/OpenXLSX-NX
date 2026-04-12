@@ -43,7 +43,7 @@ public:
     std::string property(XLProperty prop) { return doc.property(prop); }
 };
 
-TEST_CASE("OOXML Verification Tests", "[OOXML]")
+TEST_CASE("OOXMLVerificationTests", "[OOXML]")
 {
     SECTION("Verify Document Properties in core.xml")
     {

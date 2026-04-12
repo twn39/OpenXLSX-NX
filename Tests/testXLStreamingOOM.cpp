@@ -41,7 +41,7 @@ size_t getCurrentRSS()
 #endif
 }
 
-TEST_CASE("Streaming Giant Document Memory Test", "[Streaming][OOM]")
+TEST_CASE("StreamingGiantDocumentMemoryTest", "[Streaming][OOM]")
 {
     const std::string filename = "GiantStreamingTest.xlsx";
     // 1 Million cells. DOM parsing this would easily take 100-200MB natively. 

@@ -3,7 +3,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Advanced Print Layout", "[PrintLayout]")
+TEST_CASE("AdvancedPrintLayout", "[PrintLayout]")
 {
     XLDocument doc;
     doc.create("Layout_Test.xlsx", XLForceOverwrite);

@@ -6,7 +6,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLConcurrent Tests", "[XLConcurrent]")
+TEST_CASE("XLConcurrentTests", "[XLConcurrent]")
 {
     SECTION("Concurrent writes to different worksheets")
     {

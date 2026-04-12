@@ -8,7 +8,7 @@ using namespace OpenXLSX;
  * @brief The purpose of this test case is to test the creation of XLDocument objects. Each section section
  * tests document creation using a different method. In addition, saving, closing and copying is tested.
  */
-TEST_CASE("XLCellValue Tests", "[XLCellValue]")
+TEST_CASE("XLCellValueTests", "[XLCellValue]")
 {
     SECTION("Default Constructor")
     {

@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("XLCustomProperties Tests", "[XLCustomProperties]")
+TEST_CASE("XLCustomPropertiesTests", "[XLCustomProperties]")
 {
     SECTION("Create and set custom properties")
     {

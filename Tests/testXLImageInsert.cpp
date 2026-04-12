@@ -6,7 +6,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Image Insert Advanced API Tests", "[XLImageInsert]")
+TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
 {
     XLDocument doc;
     doc.create("testXLImageInsert.xlsx", XLForceOverwrite);

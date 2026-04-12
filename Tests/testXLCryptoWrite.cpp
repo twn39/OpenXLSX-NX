@@ -6,7 +6,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Crypto Encryption and Decryption Cycle") {
+TEST_CASE("CryptoEncryptionandDecryptionCycle") {
     SECTION("Standard Encryption Export and Readback") {
         XLDocument doc;
         doc.create("./OpenXLSX_Encrypted_Cycle_Test.xlsx", XLForceOverwrite);

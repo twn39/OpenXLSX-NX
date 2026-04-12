@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Generate Formula Test Document", "[FormulaEngine]")
+TEST_CASE("GenerateFormulaTestDocument", "[FormulaEngine]")
 {
     XLDocument doc;
     doc.create("./FormulaDemo.xlsx", XLForceOverwrite);

@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Comments RichText Validation", "[Comments][RichText]")
+TEST_CASE("CommentsRichTextValidation", "[Comments][RichText]")
 {
     XLDocument doc;
     doc.create("Comments_RichText_Test.xlsx", XLForceOverwrite);

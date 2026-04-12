@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Named Styles Creation and Application", "[Styles][NamedStyle]")
+TEST_CASE("NamedStylesCreationandApplication", "[Styles][NamedStyle]")
 {
     XLDocument doc;
     doc.create("NamedStyles_Test.xlsx", XLForceOverwrite);

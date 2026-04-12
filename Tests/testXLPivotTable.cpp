@@ -4,7 +4,7 @@
 
 using namespace OpenXLSX;
 
-TEST_CASE("Dynamic Pivot Table Generation", "[XLPivotTable]")
+TEST_CASE("DynamicPivotTableGeneration", "[XLPivotTable]")
 {
     // === Functionality Setup ===
     XLDocument doc;
@@ -98,7 +98,7 @@ TEST_CASE("Dynamic Pivot Table Generation", "[XLPivotTable]")
     doc2.close();
 }
 
-TEST_CASE("Pivot Table Advanced: Slicers and RefreshOnLoad", "[XLPivotTable]")
+TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
 {
     XLDocument doc;
     doc.create("./PivotSlicerTest.xlsx", XLForceOverwrite);

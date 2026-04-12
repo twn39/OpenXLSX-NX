@@ -30,7 +30,7 @@ namespace
     }
 }    // namespace
 
-TEST_CASE("XLComments Tests", "[XLComments]")
+TEST_CASE("XLCommentsTests", "[XLComments]")
 {
     SECTION("Basic Comment Operations")
     {
@@ -187,7 +187,7 @@ TEST_CASE("XLComments Tests", "[XLComments]")
     }
 }
 
-TEST_CASE("Comments Fluent and Worksheet DX", "[XLComments][Fluent]")
+TEST_CASE("CommentsFluentandWorksheetDX", "[XLComments][Fluent]")
 {
     const std::string filename = "CommentsFluentDXTest.xlsx";
 
