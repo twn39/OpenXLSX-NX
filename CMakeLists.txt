@@ -191,6 +191,10 @@ if(OPENXLSX_BUILD_TESTS)
     add_test(NAME OpenXLSX_All_Tests COMMAND OpenXLSXTests)
     target_link_libraries(OpenXLSXTests PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2WithMain)
     
+    if(OPENXLSX_ENABLE_LTO)
+        set_property(TARGET OpenXLSXTests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
+
     if(OPENXLSX_ENABLE_SANITIZERS AND NOT MSVC)
         target_compile_options(OpenXLSXTests PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
         target_link_options(OpenXLSXTests PRIVATE -fsanitize=address,undefined)
@@ -248,6 +252,9 @@ endif()
 if(OPENXLSX_BUILD_BENCHMARKS)
     add_executable(OpenXLSXBenchmark Benchmarks/Benchmark.cpp)
     target_link_libraries(OpenXLSXBenchmark PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2)
+    if(OPENXLSX_ENABLE_LTO)
+        set_property(TARGET OpenXLSXBenchmark PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
 endif()
 
 #=======================================================================================================================
