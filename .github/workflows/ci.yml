@@ -55,10 +55,5 @@ jobs:
         run: cmake --build build
 
       - name: Run Tests
-        run: |
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            cd build && ./OpenXLSXTests.exe
-          else
-            cd build && ./OpenXLSXTests
-          fi
-        shell: bash
+        working-directory: build
+        run: ctest --output-on-failure -C Release

@@ -173,11 +173,13 @@ endif()
 # TESTS (Merged configuration)
 #=======================================================================================================================
 if(OPENXLSX_BUILD_TESTS)
+    enable_testing()
     file(GLOB TEST_SOURCES Tests/testXL*.cpp)
     # Exclude fuzzer from regular Catch2 tests
     list(FILTER TEST_SOURCES EXCLUDE REGEX "testXL.*Fuzzer\\.cpp")
     
     add_executable(OpenXLSXTests ${TEST_SOURCES})
+    add_test(NAME OpenXLSX_All_Tests COMMAND OpenXLSXTests)
 
     add_executable(OpenXLSXTestsTSAN ${TEST_SOURCES})
     target_link_libraries(OpenXLSXTestsTSAN PRIVATE OpenXLSX::OpenXLSX Catch2::Catch2WithMain)
