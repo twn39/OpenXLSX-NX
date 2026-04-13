@@ -1,3 +1,4 @@
+#include "TestHelpers.hpp"
 #include "OpenXLSX.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
@@ -160,7 +161,7 @@ TEST_CASE("AdvancedPivotTableMultiDataFieldsandEdgeCases", "[XLPivotTable]")
     REQUIRE(ptDefXmlStr.find("<colFields count=\"1\">") != std::string::npos);
     REQUIRE(ptDefXmlStr.find("x=\"-2\"") != std::string::npos); // -2 is the special index for the values field
     
-    std::remove(__global_unique_file_0());
+    std::remove(__global_unique_file_0().c_str());
 }
 
 TEST_CASE("AdvancedPivotTableDataOnRowsandNumFmt", "[XLPivotTable]")
@@ -211,7 +212,7 @@ TEST_CASE("AdvancedPivotTableDataOnRowsandNumFmt", "[XLPivotTable]")
     REQUIRE(ptDefXmlStr.find("name=\"Total Revenue\"") != std::string::npos); REQUIRE(ptDefXmlStr.find("numFmtId=\"4\"") != std::string::npos);
     REQUIRE(ptDefXmlStr.find("name=\"Total Costs\"") != std::string::npos); REQUIRE(ptDefXmlStr.find("numFmtId=\"3\"") != std::string::npos);
     
-    std::remove(__global_unique_file_5());
+    std::remove(__global_unique_file_5().c_str());
 }
 
 TEST_CASE("AdvancedPivotTableStylingandFormattingRegression", "[XLPivotTable]")
@@ -256,7 +257,7 @@ TEST_CASE("AdvancedPivotTableStylingandFormattingRegression", "[XLPivotTable]")
     REQUIRE(ptDefXmlStr.find("showRowHeaders=\"1\"", stylePos) != std::string::npos);
     REQUIRE(ptDefXmlStr.find("showColHeaders=\"1\"", stylePos) != std::string::npos);
     
-    std::remove(__global_unique_file_2());
+    std::remove(__global_unique_file_2().c_str());
 }
 
 TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPivotTable][Regression]")
@@ -311,7 +312,7 @@ TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPi
     
     REQUIRE(dataFieldCount == 2);
     
-    std::remove(__global_unique_file_3());
+    std::remove(__global_unique_file_3().c_str());
 }
 
 TEST_CASE("AdvancedPivotTableNamedRangeTableSourceBinding", "[XLPivotTable]")
@@ -347,5 +348,5 @@ TEST_CASE("AdvancedPivotTableNamedRangeTableSourceBinding", "[XLPivotTable]")
     bool hasName = ptCacheStr.find("name=\"MyTable1\"") != std::string::npos || ptCacheStr.find("ref=\"MyTable1\"") != std::string::npos;
     REQUIRE(hasName);
     
-    std::remove(__global_unique_file_4());
+    std::remove(__global_unique_file_4().c_str());
 }

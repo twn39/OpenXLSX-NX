@@ -1,3 +1,4 @@
+#include "TestHelpers.hpp"
 #include "OpenXLSX.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
@@ -126,5 +127,5 @@ TEST_CASE("SparklineAdvancedConfiguration", "[XLSparkline]")
     REQUIRE(ok2);
 
     doc2.close();
-    std::remove(__global_unique_file_0());
+    std::remove(__global_unique_file_0().c_str());
 }

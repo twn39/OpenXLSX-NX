@@ -59,6 +59,12 @@ XLWorksheet::XLWorksheet(const XLWorksheet& other) : XLSheetBase<XLWorksheet>(ot
     m_comments        = other.m_comments;
     m_threadedComments = other.m_threadedComments;
     m_tables          = other.m_tables;
+
+    // Hint cache is deliberately NOT copied to prevent UAF/invalid state across copies
+    m_hintRowNumber = 0;
+    m_hintRowNode   = XMLNode{};
+    m_hintColNumber = 0;
+    m_hintCellNode  = XMLNode{};
 }
 
 XLWorksheet::XLWorksheet(XLWorksheet&& other) : XLSheetBase<XLWorksheet>(std::move(other))
@@ -71,6 +77,17 @@ XLWorksheet::XLWorksheet(XLWorksheet&& other) : XLSheetBase<XLWorksheet>(std::mo
     m_comments        = std::move(other.m_comments);
     m_threadedComments = std::move(other.m_threadedComments);
     m_tables          = std::move(other.m_tables);
+
+    // Take ownership of hint cache
+    m_hintRowNumber = other.m_hintRowNumber;
+    m_hintRowNode   = other.m_hintRowNode;
+    m_hintColNumber = other.m_hintColNumber;
+    m_hintCellNode  = other.m_hintCellNode;
+
+    other.m_hintRowNumber = 0;
+    other.m_hintRowNode   = XMLNode{};
+    other.m_hintColNumber = 0;
+    other.m_hintCellNode  = XMLNode{};
 }
 
 XLWorksheet& XLWorksheet::operator=(const XLWorksheet& other)
@@ -85,6 +102,12 @@ XLWorksheet& XLWorksheet::operator=(const XLWorksheet& other)
         m_comments        = other.m_comments;
         m_threadedComments = other.m_threadedComments;
         m_tables          = other.m_tables;
+
+        // Reset hint cache on new assignment
+        m_hintRowNumber = 0;
+        m_hintRowNode   = XMLNode{};
+        m_hintColNumber = 0;
+        m_hintCellNode  = XMLNode{};
     }
     return *this;
 }
@@ -101,6 +124,17 @@ XLWorksheet& XLWorksheet::operator=(XLWorksheet&& other)
         m_comments        = std::move(other.m_comments);
         m_threadedComments = std::move(other.m_threadedComments);
         m_tables          = std::move(other.m_tables);
+
+        // Take ownership of hint cache
+        m_hintRowNumber = other.m_hintRowNumber;
+        m_hintRowNode   = other.m_hintRowNode;
+        m_hintColNumber = other.m_hintColNumber;
+        m_hintCellNode  = other.m_hintCellNode;
+
+        other.m_hintRowNumber = 0;
+        other.m_hintRowNode   = XMLNode{};
+        other.m_hintColNumber = 0;
+        other.m_hintCellNode  = XMLNode{};
     }
     return *this;
 }
@@ -434,6 +468,10 @@ uint32_t XLWorksheet::rowCount() const noexcept
 
 bool XLWorksheet::deleteRow(uint32_t rowNumber)
 {
+    // Invalidate hint cache
+    m_hintRowNumber = 0; m_hintRowNode = XMLNode{};
+    m_hintColNumber = 0; m_hintCellNode = XMLNode{};
+
     XMLNode row     = xmlDocument().document_element().child("sheetData").first_child_of_type(pugi::node_element);
     XMLNode lastRow = xmlDocument().document_element().child("sheetData").last_child_of_type(pugi::node_element);
     if (row.empty() or rowNumber < row.attribute("r").as_ullong() or rowNumber > lastRow.attribute("r").as_ullong()) return false;
@@ -1196,6 +1234,10 @@ void XLWorksheet::shiftAutoFilter(int32_t rowDelta, int32_t colDelta, uint32_t f
 
 bool XLWorksheet::insertRow(uint32_t rowNumber, uint32_t count)
 {
+    // Invalidate hint cache
+    m_hintRowNumber = 0; m_hintRowNode = XMLNode{};
+    m_hintColNumber = 0; m_hintCellNode = XMLNode{};
+
     using namespace std::literals::string_literals;
     if (rowNumber < 1 || count == 0) throw XLInputError("XLWorksheet::insertRow: rowNumber must be >= 1 and count > 0"s);
 
@@ -1243,6 +1285,10 @@ bool XLWorksheet::deleteRow(uint32_t rowNumber, uint32_t count)
 
 bool XLWorksheet::insertColumn(uint16_t colNumber, uint16_t count)
 {
+    // Invalidate hint cache
+    m_hintRowNumber = 0; m_hintRowNode = XMLNode{};
+    m_hintColNumber = 0; m_hintCellNode = XMLNode{};
+
     using namespace std::literals::string_literals;
     if (colNumber < 1 || count == 0) throw XLInputError("XLWorksheet::insertColumn: colNumber must be >= 1 and count > 0"s);
 
@@ -1262,6 +1308,10 @@ bool XLWorksheet::insertColumn(uint16_t colNumber, uint16_t count)
 
 bool XLWorksheet::deleteColumn(uint16_t colNumber, uint16_t count)
 {
+    // Invalidate hint cache
+    m_hintRowNumber = 0; m_hintRowNode = XMLNode{};
+    m_hintColNumber = 0; m_hintCellNode = XMLNode{};
+
     using namespace std::literals::string_literals;
     if (colNumber < 1 || count == 0) throw XLInputError("XLWorksheet::deleteColumn: colNumber must be >= 1 and count > 0"s);
 

@@ -1,3 +1,4 @@
+#include "TestHelpers.hpp"
 #include "OpenXLSX.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <fstream>
@@ -80,8 +81,8 @@ TEST_CASE("MacroPreservationxlsm", "[XLMacro]")
 
     // Cleanup generated files
     std::remove("dummy_vba.bin");
-    std::remove(__global_unique_file_1());
-    std::remove(__global_unique_file_2());
+    std::remove(__global_unique_file_1().c_str());
+    std::remove(__global_unique_file_2().c_str());
 }
 
 TEST_CASE("MacroExtensionMutationandSanitization", "[XLMacro][Security]")
@@ -136,8 +137,8 @@ TEST_CASE("MacroExtensionMutationandSanitization", "[XLMacro][Security]")
 
     // Cleanup generated files
     std::remove("dummy_vba2.bin");
-    std::remove(__global_unique_file_3());
-    std::remove(__global_unique_file_0());
+    std::remove(__global_unique_file_3().c_str());
+    std::remove(__global_unique_file_0().c_str());
 }
 
 TEST_CASE("MacroPreservationxlsmusingexternalfile", "[XLMacro]")

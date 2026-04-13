@@ -345,7 +345,7 @@ TEST_CASE("XLCellValueTests", "[XLCellValue]")
         REQUIRE(readBack == expectedString);
 
         doc.close();
-        std::remove(__global_unique_file_0());
+        std::remove(__global_unique_file_0().c_str());
     }
 
     SECTION("Clear")

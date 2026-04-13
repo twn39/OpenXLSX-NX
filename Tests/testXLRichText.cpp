@@ -122,7 +122,7 @@ TEST_CASE("RichTextFluidAPITests", "[XLRichText]")
         REQUIRE(runs[4].fontSize() == 24);
 
         doc2.close();
-        std::remove(__global_unique_file_2());
+        std::remove(__global_unique_file_2().c_str());
     }
 
     SECTION("Shared Strings Rich Text Integration")
@@ -140,6 +140,6 @@ TEST_CASE("RichTextFluidAPITests", "[XLRichText]")
         // Since XLSharedStrings API doesn't fully expose adding raw XML or RichText objects easily,
         // we'll mainly verify the core parseRichText works on advanced nodes.
         doc.close();
-        std::remove(__global_unique_file_1());
+        std::remove(__global_unique_file_1().c_str());
     }
 }

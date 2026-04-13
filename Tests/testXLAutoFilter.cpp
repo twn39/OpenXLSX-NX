@@ -1,3 +1,4 @@
+#include "TestHelpers.hpp"
 #include "OpenXLSX.hpp"
 #include "XLDynamicFilter.hpp"
 #include <catch2/catch_test_macros.hpp>
@@ -143,5 +144,5 @@ TEST_CASE("AutoFilterAdvancedConditions", "[XLAutoFilter][Advanced]")
     REQUIRE(sheetXmlStr.find("<top10 val=\"3\"") != std::string::npos);
 
     doc2.close();
-    std::remove(__global_unique_file_0());
+    std::remove(__global_unique_file_0().c_str());
 }

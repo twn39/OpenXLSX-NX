@@ -203,7 +203,7 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
         REQUIRE(wks.cell(topLeft).value().get<std::string>() == "Merged Title");
 
         doc.close();
-        std::remove(__global_unique_file_1());
+        std::remove(__global_unique_file_1().c_str());
     }
 
     SECTION("Boundary Overflow Tests")
@@ -220,6 +220,6 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
         REQUIRE(wks.merges().findMergeByCell("ZZ999") == 0);
 
         doc.close();
-        std::remove(__global_unique_file_4());
+        std::remove(__global_unique_file_4().c_str());
     }
 }
