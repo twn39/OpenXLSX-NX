@@ -101,6 +101,21 @@ const char* XLSharedStrings::getString(int32_t index) const
     return m_state->cache[static_cast<size_t>(index)].data();
 }
 
+std::string_view XLSharedStrings::getStringView(int32_t index) const
+{
+    Expects(m_state != nullptr);
+
+    std::shared_lock<std::shared_mutex> lock;
+    if (m_state->mutex) lock = std::shared_lock<std::shared_mutex>(*m_state->mutex);
+
+    if (index < 0 or static_cast<size_t>(index) >= m_state->cache.size()) {
+        using namespace std::literals::string_literals;
+        throw XLInternalError("XLSharedStrings::getStringView: index "s + std::to_string(index) + " is out of range"s);
+    }
+    return m_state->cache[static_cast<size_t>(index)];
+}
+
+
 /**
  * @details Append a string by creating a new node in the XML file and adding the string to it. The index to the
  * shared string is returned

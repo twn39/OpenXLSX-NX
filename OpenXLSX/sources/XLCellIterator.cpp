@@ -181,7 +181,7 @@ void XLCellIterator::updateCurrentCell(bool createIfMissing) const
         m_currentCellStatus = CellStatus::NoSuchCell;
     else {
         // Cache the result to optimize subsequent lookups.
-        m_hintNode          = *m_currentCell.m_cellNode;
+        m_hintNode          = m_currentCell.m_cellNode;
         m_hintRow           = m_currentRow;
         m_currentCellStatus = CellStatus::Loaded;
     }

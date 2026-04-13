@@ -265,18 +265,6 @@ namespace OpenXLSX
         T get() const
         {
             try {
-                // BUGFIX 2025-01-10: can not return const char* of a temporary object - use a static variable as workaround
-                // CAUTION: This is not thread-safe and this template return type really shouldn't be used.
-                //          Accordingly, an exception should be thrown in the future
-                if constexpr (std::is_same_v<std::decay_t<T>, std::string_view> or std::is_same_v<std::decay_t<T>, const char*> ||
-                              (std::is_same_v<std::decay_t<T>, char*> and !std::is_same_v<T, bool>))
-                {
-                    // throw XLValueTypeError("(temporary) XLCellValue should not be requested as a reference type (string_view, (const)
-                    // char*) - please fetch std::string");
-                    static std::string s = std::get<std::string>(m_value);
-                    return s.c_str();
-                }
-                // for all other template types, use the private getter:
                 return privateGet<T>();
             }
 
@@ -525,7 +513,19 @@ namespace OpenXLSX
                      std::is_same_v<std::decay_t<T>, std::string_view> or std::is_same_v<std::decay_t<T>, const char*> ||
                      std::is_same_v<std::decay_t<T>, char*> or std::is_same_v<T, OpenXLSX::XLRichText> or std::is_same_v<T, XLDateTime>>>
         T get() const
-        { return getValue().get<T>(); }
+        {
+            if constexpr (std::is_same_v<std::decay_t<T>, std::string_view> || std::is_same_v<std::decay_t<T>, const char*>) {
+                auto view = getStringView();
+                if constexpr (std::is_same_v<std::decay_t<T>, const char*>) return view.data();
+                else return view;
+            }
+            else if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
+                return std::string(getStringView());
+            }
+            else {
+                return getValue().get<T>();
+            }
+        }
 
         /**
          * @brief Clear the contents of the cell.
@@ -575,6 +575,12 @@ namespace OpenXLSX
          * @return A std::string representation of value
          * @throws XLValueTypeError if the XLCellValue object is not convertible to string.
          */
+        
+        /**
+         * @brief Get string view of the string cell
+         * @return A std::string_view representation of value
+         */
+        std::string_view getStringView() const;
         std::string getString() const    // pull request #158 is covered by this
         {
             try {

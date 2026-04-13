@@ -675,3 +675,35 @@ bool XLCellValueProxy::setStringIndex(int32_t newIndex)
     if (newIndex < 0 or std::string_view(m_cellNode->attribute("t").value()) != "s") return false;    // cell value is not a shared string
     return m_cellNode->child("v").text().set(newIndex);    // set the shared string index directly
 }
+
+
+std::string_view XLCellValueProxy::getStringView() const
+{
+    // ===== Check that the m_cellNode is valid.
+    assert(m_cellNode != nullptr);      // NOLINT
+    assert(not m_cellNode->empty());    // NOLINT
+
+    std::string_view typeAttr = m_cellNode->attribute("t").value();
+    if (typeAttr == "s") {
+        int32_t index = static_cast<int32_t>(m_cellNode->child("v").text().as_ullong());
+        return m_cell->m_sharedStrings.get().getStringView(index);
+    }
+    else if (typeAttr == "str") {
+        return m_cellNode->child("v").text().get();
+    }
+    else if (typeAttr == "inlineStr") {
+        XMLNode isNode = m_cellNode->child("is");
+        if (!isNode.child("r").empty()) {
+            throw XLValueTypeError("Cannot return string_view for RichText cell. Use getString() instead.");
+        }
+        return isNode.child("t").text().get();
+    }
+    else if (typeAttr == "e") {
+        return m_cellNode->child("v").text().get();
+    }
+    else if (typeAttr == "" && m_cellNode->child("v").empty()) {
+        return ""; // Empty cell
+    }
+    throw XLValueTypeError("XLCellValue object does not contain a string type.");
+}
+

@@ -120,7 +120,7 @@ namespace OpenXLSX
         XLRowDataIterator(const XLRowDataRange& rowDataRange, XLIteratorLocation loc);
 
         std::unique_ptr<XLRowDataRange> m_dataRange;   /**< A pointer to the range to iterate over. */
-        std::unique_ptr<XMLNode>        m_cellNode;    /**< The XML node representing the cell currently pointed at. */
+        XMLNode m_cellNode;    /**< The XML node representing the cell currently pointed at. */
         XLCell                          m_currentCell; /**< The XLCell currently pointed at. */
     };
 

@@ -8,14 +8,13 @@ namespace OpenXLSX
 {
     XLRowDataIterator::XLRowDataIterator(const XLRowDataRange& rowDataRange, XLIteratorLocation loc)
         : m_dataRange(std::make_unique<XLRowDataRange>(rowDataRange)),
-          m_cellNode(
-              std::make_unique<XMLNode>(getCellNode((m_dataRange->size() ? *m_dataRange->m_rowNode : XMLNode{}), m_dataRange->m_firstCol))),
-          m_currentCell(loc == XLIteratorLocation::End ? XLCell() : XLCell(*m_cellNode, m_dataRange->m_sharedStrings.get()))
+          m_cellNode(getCellNode((m_dataRange->size() ? *m_dataRange->m_rowNode : XMLNode{}), m_dataRange->m_firstCol)),
+          m_currentCell(loc == XLIteratorLocation::End ? XLCell() : XLCell(m_cellNode, m_dataRange->m_sharedStrings.get()))
     {}
     XLRowDataIterator::~XLRowDataIterator() = default;
     XLRowDataIterator::XLRowDataIterator(const XLRowDataIterator& other)
         : m_dataRange(std::make_unique<XLRowDataRange>(*other.m_dataRange)),
-          m_cellNode(std::make_unique<XMLNode>(*other.m_cellNode)),
+          m_cellNode(other.m_cellNode),
           m_currentCell(other.m_currentCell)
     {}
     XLRowDataIterator::XLRowDataIterator(XLRowDataIterator&& other) noexcept = default;
@@ -33,12 +32,12 @@ namespace OpenXLSX
         if (not m_currentCell)    // 2025-07-14 BUGFIX issue #368: check that m_currentCell is valid
             throw XLInputError("XLRowDataIterator: tried to increment beyond end operator");
         const uint16_t cellNumber = m_currentCell.cellReference().column() + 1;
-        XMLNode        cellNode   = m_currentCell.m_cellNode->next_sibling_of_type(pugi::node_element);
+        XMLNode        cellNode   = m_currentCell.m_cellNode.next_sibling_of_type(pugi::node_element);
         if (cellNumber > m_dataRange->m_lastCol)
             m_currentCell = XLCell();
 
         else if (cellNode.empty() or extractColumnFromCellRef(cellNode.attribute("r").value()) > cellNumber) {
-            cellNode = m_dataRange->m_rowNode->insert_child_after("c", *m_currentCell.m_cellNode);
+            cellNode = m_dataRange->m_rowNode->insert_child_after("c", m_currentCell.m_cellNode);
             char cellAddrBuf[16];
             makeCellAddress(static_cast<uint32_t>(m_dataRange->m_rowNode->attribute("r").as_ullong()), cellNumber, cellAddrBuf);
             setDefaultCellAttributes(cellNode, cellAddrBuf, *m_dataRange->m_rowNode, cellNumber);

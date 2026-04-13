@@ -153,6 +153,13 @@ namespace OpenXLSX
         const char* getString(int32_t index) const;
 
         /**
+         * @brief Get a string view from the list of shared strings.
+         * @param index The index of the string to get.
+         * @return A std::string_view object with the string.
+         */
+        std::string_view getStringView(int32_t index) const;
+
+        /**
          * @brief Append a new string to the list of shared strings.
          * @param str The string to append.
          * @return An int32_t with the index of the appended string

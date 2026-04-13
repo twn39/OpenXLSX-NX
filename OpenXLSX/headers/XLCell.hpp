@@ -213,7 +213,7 @@ namespace OpenXLSX
          * @return
          */
         static bool              isEqual(const XLCell& lhs, const XLCell& rhs);
-        std::unique_ptr<XMLNode> m_cellNode;      /**< A pointer to the root XMLNode for the cell. */
+        XMLNode m_cellNode;      /**< A pointer to the root XMLNode for the cell. */
         XLSharedStringsRef       m_sharedStrings; /**< */
         XLCellValueProxy         m_valueProxy;    /**< */
         XLFormulaProxy           m_formulaProxy;  /**< */
