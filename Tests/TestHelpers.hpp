@@ -2,7 +2,7 @@
 #define OPENXLSX_TESTHELPERS_HPP
 
 #include <string>
-#include <random>
+#include <chrono>
 #include <filesystem>
 #include <atomic>
 
@@ -11,15 +11,13 @@ namespace TestHelpers {
 
     inline std::string getUniqueFilename(const std::string& prefix = "test") {
         static std::atomic<uint64_t> counter{0};
-        static std::random_device rd;
-        static std::mt19937_64 gen(rd());
-        static std::uniform_int_distribution<uint64_t> dis;
+        auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
 
-        std::filesystem::path tmpDir = std::filesystem::current_path() / "tmp";
         std::error_code ec;
+        std::filesystem::path tmpDir = std::filesystem::current_path() / "tmp";
         std::filesystem::create_directories(tmpDir, ec);
 
-        std::string filename = prefix + "_" + std::to_string(counter++) + "_" + std::to_string(dis(gen)) + ".xlsx";
+        std::string filename = prefix + "_" + std::to_string(now) + "_" + std::to_string(counter++) + ".xlsx";
         return (tmpDir / filename).string();
     }
 
