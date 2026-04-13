@@ -40,6 +40,16 @@ bool XLZipArchive::isValid() const { return m_archive != nullptr; }
 
 bool XLZipArchive::isOpen() const { return m_archive && m_archive->archive != nullptr; }
 
+void XLZipArchive::setCompressionLevel(int level)
+{
+    m_compressionLevel = level;
+}
+
+int XLZipArchive::compressionLevel() const
+{
+    return m_compressionLevel;
+}
+
 void XLZipArchive::open(std::string_view fileName)
 {
     if (isOpen()) close();
@@ -88,6 +98,14 @@ void XLZipArchive::close()
         // If save() was called, we should commit changes.
         // Otherwise, we discard to prevent silent corruption on read-only operations.
         if (m_archive->isModified) {
+            zip_int64_t numEntries = zip_get_num_entries(ptr, 0);
+            for (zip_int64_t i = 0; i < numEntries; ++i) {
+                if (zip_get_name(ptr, i, 0) != nullptr) {
+                    zip_int32_t method = (m_compressionLevel == 0) ? ZIP_CM_STORE : ZIP_CM_DEFLATE;
+                    zip_set_file_compression(ptr, i, method, m_compressionLevel);
+                }
+            }
+
             if (zip_close(ptr) < 0) {
                 std::string msg = zip_strerror(ptr);
                 zip_discard(ptr);

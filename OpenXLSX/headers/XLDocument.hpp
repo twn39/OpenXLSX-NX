@@ -250,6 +250,17 @@ namespace OpenXLSX
         [[nodiscard]] bool isOpen() const;
 
         /**
+         * @brief Set the compression level for packing the document.
+         * @param level Compression level (1-9). Default is 1.
+         */
+        void setCompressionLevel(int level);
+
+        /**
+         * @brief Get the current compression level.
+         */
+        int compressionLevel() const;
+
+        /**
          * @brief Provides access to shared document styles (fonts, fills, borders, cell formats).
          */
         [[nodiscard]] XLStyles& styles();

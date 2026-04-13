@@ -679,6 +679,10 @@ XLDocument::operator bool() const
  */
 bool XLDocument::isOpen() const { return this->operator bool(); }
 
+void XLDocument::setCompressionLevel(int level) { m_archive.setCompressionLevel(level); }
+
+int XLDocument::compressionLevel() const { return m_archive.compressionLevel(); }
+
 /**
  * @details Provides access to the global stylesheet manager to retrieve or define fonts, fills, borders, and number formats used across the
  * workbook.

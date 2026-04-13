@@ -124,6 +124,9 @@ namespace OpenXLSX
 
         inline std::vector<std::string> entryNames() const { return m_zipArchive->entryNames(); }
 
+        inline void setCompressionLevel(int level) { m_zipArchive->setCompressionLevel(level); }
+        inline int  compressionLevel() const { return m_zipArchive->compressionLevel(); }
+
     private:
         /**
          * @brief
@@ -194,6 +197,9 @@ namespace OpenXLSX
             inline virtual bool hasEntry(const std::string& entryName) const = 0;
 
             inline virtual std::vector<std::string> entryNames() const = 0;
+
+            inline virtual void setCompressionLevel(int level) = 0;
+            inline virtual int  compressionLevel() const = 0;
         };
 
         /**
@@ -274,6 +280,9 @@ namespace OpenXLSX
             inline bool hasEntry(const std::string& entryName) const override { return ZipType.hasEntry(entryName); }
 
             inline std::vector<std::string> entryNames() const override { return ZipType.entryNames(); }
+
+            inline void setCompressionLevel(int level) override { ZipType.setCompressionLevel(level); }
+            inline int  compressionLevel() const override { return ZipType.compressionLevel(); }
 
         private:
             mutable T ZipType;

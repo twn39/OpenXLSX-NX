@@ -150,9 +150,21 @@ namespace OpenXLSX
          */
         [[nodiscard]] std::vector<std::string> entryNames() const;
 
+        /**
+         * @brief Set the compression level for packing the archive.
+         * @param level The compression level to use (e.g., 1 for fastest, 9 for best). Default is 1.
+         */
+        void setCompressionLevel(int level);
+
+        /**
+         * @brief Get the current compression level.
+         */
+        int compressionLevel() const;
+
     private:
         struct LibZipApp;
         std::shared_ptr<LibZipApp> m_archive; /**< */
+        int m_compressionLevel{1}; /**< Compression level for the archive. Default is 1. */
     };
 }    // namespace OpenXLSX
 
