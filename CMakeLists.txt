@@ -14,7 +14,7 @@ option(OPENXLSX_BUILD_TESTS "Build and run library tests" ON)
 option(OPENXLSX_BUILD_BENCHMARKS "Build benchmark programs" OFF)
 option(OPENXLSX_BUILD_FUZZERS "Build libFuzzer targets (Clang only)" OFF)
 option(OPENXLSX_CREATE_DOCS "Build library documentation" OFF)
-option(OPENXLSX_ENABLE_LTO "Enable Link-Time Optimization (LTO/IPO) if supported" ON)
+option(OPENXLSX_ENABLE_LTO "Enable Link-Time Optimization (LTO/IPO) if supported" OFF)
 option(OPENXLSX_ENABLE_SANITIZERS "Enable ASan and UBSan for memory/undefined behavior analysis (GCC/Clang only)" OFF)
 option(OPENXLSX_OPTIMIZE_NATIVE "Enable architecture-native optimizations (-march=native or /arch:AVX2) for peak performance" OFF)
 
