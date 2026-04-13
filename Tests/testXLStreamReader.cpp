@@ -1,5 +1,8 @@
 #include "TestHelpers.hpp"
 #include "OpenXLSX.hpp"
+#include "XLStreamWriter.hpp"
+#include "XLStreamReader.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
 

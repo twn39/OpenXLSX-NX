@@ -1,4 +1,5 @@
 #include <optional>
+#include <memory>
 
 #ifndef OPENXLSX_XLWORKSHEET_HPP
 #    define OPENXLSX_XLWORKSHEET_HPP
@@ -15,24 +16,28 @@
 #    include "XLCellReference.hpp"
 #    include "XLChart.hpp"
 #    include "XLColumn.hpp"
-#    include "XLComments.hpp"
 #    include "XLConditionalFormatting.hpp"
-#    include "XLDataValidation.hpp"
-#    include "XLDrawing.hpp"
-#    include "XLImageOptions.hpp"
-#    include "XLMergeCells.hpp"
 #    include "XLPageSetup.hpp"
-#    include "XLPivotTable.hpp"
-#    include "XLRelationships.hpp"
 #    include "XLRow.hpp"
 #    include "XLSparkline.hpp"
-#    include "XLStreamReader.hpp"
-#    include "XLStreamWriter.hpp"
-#    include "XLTables.hpp"
-#    include "XLThreadedComments.hpp"
 
 namespace OpenXLSX
 {
+    struct XLWorksheetImpl;
+    class XLComments;
+    class XLDataValidations;
+    class XLDrawing;
+    class XLVmlDrawing;
+    class XLMergeCells;
+    class XLPivotTable;
+    class XLPivotTableOptions;
+    struct XLSlicerOptions;
+    class XLRelationships;
+    class XLStreamReader;
+    class XLStreamWriter;
+    class XLTableCollection;
+    class XLThreadedComments;
+
     const std::vector<std::string_view> XLWorksheetNodeOrder = {    // worksheet XML root node required child sequence
         "sheetPr",
         "dimension",
@@ -118,11 +123,11 @@ namespace OpenXLSX
         friend class XLSheetBase<XLWorksheet>;
 
     public:
-        XLWorksheet() : XLSheetBase(nullptr) {};
+        XLWorksheet();
         explicit XLWorksheet(XLXmlData* xmlData);
-        ~XLWorksheet() = default;
+        ~XLWorksheet();
         XLWorksheet(const XLWorksheet& other);
-        XLWorksheet(XLWorksheet&& other);
+        XLWorksheet(XLWorksheet&& other) noexcept;
         XLWorksheet& operator=(const XLWorksheet& other);
         XLWorksheet& operator=(XLWorksheet&& other);
 
@@ -606,14 +611,7 @@ namespace OpenXLSX
         void shiftAutoFilter(int32_t rowDelta, int32_t colDelta, uint32_t fromRow, uint16_t fromCol);
 
     private:
-        XLRelationships                                    m_relationships{};
-        XLMergeCells                                       m_merges{};
-        XLDataValidations                                  m_dataValidations{};
-        XLDrawing                                          m_drawing{};
-        XLVmlDrawing                                       m_vmlDrawing{};
-        XLComments                                         m_comments{};
-        XLThreadedComments                                 m_threadedComments{};
-        XLTableCollection                                  m_tables{};
+        std::unique_ptr<XLWorksheetImpl> m_impl;
         inline static const std::vector<std::string_view>& m_nodeOrder = XLWorksheetNodeOrder;
 
         // O(1) Hint Cache for cell node DOM traversal

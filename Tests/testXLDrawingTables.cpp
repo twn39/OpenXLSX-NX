@@ -1,4 +1,10 @@
 #include <OpenXLSX.hpp>
+#include "XLComments.hpp"
+
+#include "XLTables.hpp"
+
+#include "XLDrawing.hpp"
+
 #include <catch2/catch_all.hpp>
 #include "TestHelpers.hpp"
 #include <iostream>

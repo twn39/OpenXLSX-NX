@@ -2,6 +2,22 @@
 #include "XLUtilities.hpp"
 #include "XLWorkbook.hpp"
 #include "XLWorksheet.hpp"
+
+#include "XLChart.hpp"
+#include "XLComments.hpp"
+#include "XLConditionalFormatting.hpp"
+#include "XLDataValidation.hpp"
+#include "XLDrawing.hpp"
+#include "XLImageOptions.hpp"
+#include "XLMergeCells.hpp"
+#include "XLPageSetup.hpp"
+#include "XLPivotTable.hpp"
+#include "XLRelationships.hpp"
+#include "XLSparkline.hpp"
+#include "XLStreamReader.hpp"
+#include "XLStreamWriter.hpp"
+#include "XLTables.hpp"
+#include "XLThreadedComments.hpp"
 #include <unordered_set>
 
 using namespace OpenXLSX;

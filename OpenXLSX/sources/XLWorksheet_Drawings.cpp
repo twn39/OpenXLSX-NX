@@ -5,6 +5,22 @@
 #include "XLUtilities.hpp"
 #include "XLWorksheet.hpp"
 
+#include "XLChart.hpp"
+#include "XLComments.hpp"
+#include "XLConditionalFormatting.hpp"
+#include "XLDataValidation.hpp"
+#include "XLDrawing.hpp"
+#include "XLImageOptions.hpp"
+#include "XLMergeCells.hpp"
+#include "XLPageSetup.hpp"
+#include "XLPivotTable.hpp"
+#include "XLRelationships.hpp"
+#include "XLSparkline.hpp"
+#include "XLStreamReader.hpp"
+#include "XLStreamWriter.hpp"
+#include "XLTables.hpp"
+#include "XLThreadedComments.hpp"
+
 using namespace OpenXLSX;
 
 bool XLWorksheet::hasRelationships() const { return parentDoc().hasSheetRelationships(sheetXmlNumber()); }
@@ -16,29 +32,29 @@ bool XLWorksheet::hasTables() const { return parentDoc().hasSheetTables(sheetXml
 
 XLRelationships& XLWorksheet::relationships()
 {
-    if (!m_relationships.valid()) { m_relationships = parentDoc().sheetRelationships(sheetXmlNumber()); }
-    if (!m_relationships.valid()) throw XLException("XLWorksheet::relationships(): could not create relationships XML");
-    return m_relationships;
+    if (!m_impl->m_relationships.valid()) { m_impl->m_relationships = parentDoc().sheetRelationships(sheetXmlNumber()); }
+    if (!m_impl->m_relationships.valid()) throw XLException("XLWorksheet::relationships(): could not create relationships XML");
+    return m_impl->m_relationships;
 }
 
 XLDrawing& XLWorksheet::drawing()
 {
-    if (!m_drawing.valid()) {
+    if (!m_impl->m_drawing.valid()) {
         XMLNode docElement = xmlDocument().document_element();
         std::ignore        = relationships();
 
         uint16_t sheetXmlNo = sheetXmlNumber();
-        m_drawing           = parentDoc().sheetDrawing(sheetXmlNo);
-        if (!m_drawing.valid()) throw XLException("XLWorksheet::drawing(): could not create drawing XML");
+        m_impl->m_drawing           = parentDoc().sheetDrawing(sheetXmlNo);
+        if (!m_impl->m_drawing.valid()) throw XLException("XLWorksheet::drawing(): could not create drawing XML");
 
-        std::string drawingPath         = m_drawing.getXmlPath();
+        std::string drawingPath         = m_impl->m_drawing.getXmlPath();
         std::string drawingRelativePath = getPathARelativeToPathB(drawingPath, getXmlPath());
 
         XLRelationshipItem drawingRelationship;
-        if (!m_relationships.targetExists(drawingRelativePath))
-            drawingRelationship = m_relationships.addRelationship(XLRelationshipType::Drawing, drawingRelativePath);
+        if (!m_impl->m_relationships.targetExists(drawingRelativePath))
+            drawingRelationship = m_impl->m_relationships.addRelationship(XLRelationshipType::Drawing, drawingRelativePath);
         else
-            drawingRelationship = m_relationships.relationshipByTarget(drawingRelativePath);
+            drawingRelationship = m_impl->m_relationships.relationshipByTarget(drawingRelativePath);
 
         if (drawingRelationship.empty()) throw XLException("XLWorksheet::drawing(): could not add sheet relationship for Drawing");
 
@@ -48,7 +64,7 @@ XLDrawing& XLWorksheet::drawing()
         }
     }
 
-    return m_drawing;
+    return m_impl->m_drawing;
 }
 
 void XLWorksheet::addImage(const std::string&    name,
@@ -117,7 +133,7 @@ XLChart XLWorksheet::addChart(XLChartType type, std::string_view name, uint32_t 
 std::vector<XLDrawingItem> XLWorksheet::images()
 {
     std::vector<XLDrawingItem> result;
-    if (!m_drawing.valid()) {
+    if (!m_impl->m_drawing.valid()) {
         std::string drawingRelativePath = "";
         for (auto& rel : relationships().relationships()) {
             if (rel.type() == XLRelationshipType::Drawing) {
@@ -126,29 +142,29 @@ std::vector<XLDrawingItem> XLWorksheet::images()
             }
         }
         if (drawingRelativePath.empty()) return result;
-        m_drawing = drawing();
+        m_impl->m_drawing = drawing();
     }
 
-    uint32_t count = m_drawing.imageCount();
-    for (uint32_t i = 0; i < count; ++i) { result.push_back(m_drawing.image(i)); }
+    uint32_t count = m_impl->m_drawing.imageCount();
+    for (uint32_t i = 0; i < count; ++i) { result.push_back(m_impl->m_drawing.image(i)); }
     return result;
 }
 
 XLVmlDrawing& XLWorksheet::vmlDrawing()
 {
-    if (!m_vmlDrawing.valid()) {
+    if (!m_impl->m_vmlDrawing.valid()) {
         XMLNode docElement = xmlDocument().document_element();
         std::ignore        = relationships();
 
         uint16_t sheetXmlNo = sheetXmlNumber();
-        m_vmlDrawing        = parentDoc().sheetVmlDrawing(sheetXmlNo);
-        if (!m_vmlDrawing.valid()) throw XLException("XLWorksheet::vmlDrawing(): could not create drawing XML");
-        std::string        drawingRelativePath = getPathARelativeToPathB(m_vmlDrawing.getXmlPath(), getXmlPath());
+        m_impl->m_vmlDrawing        = parentDoc().sheetVmlDrawing(sheetXmlNo);
+        if (!m_impl->m_vmlDrawing.valid()) throw XLException("XLWorksheet::vmlDrawing(): could not create drawing XML");
+        std::string        drawingRelativePath = getPathARelativeToPathB(m_impl->m_vmlDrawing.getXmlPath(), getXmlPath());
         XLRelationshipItem vmlDrawingRelationship;
-        if (!m_relationships.targetExists(drawingRelativePath))
-            vmlDrawingRelationship = m_relationships.addRelationship(XLRelationshipType::VMLDrawing, drawingRelativePath);
+        if (!m_impl->m_relationships.targetExists(drawingRelativePath))
+            vmlDrawingRelationship = m_impl->m_relationships.addRelationship(XLRelationshipType::VMLDrawing, drawingRelativePath);
         else
-            vmlDrawingRelationship = m_relationships.relationshipByTarget(drawingRelativePath);
+            vmlDrawingRelationship = m_impl->m_relationships.relationshipByTarget(drawingRelativePath);
         if (vmlDrawingRelationship.empty())
             throw XLException("XLWorksheet::vmlDrawing(): could not add determine sheet relationship for VML Drawing");
         XMLNode legacyDrawing = appendAndGetNode(docElement, "legacyDrawing", m_nodeOrder);
@@ -156,56 +172,56 @@ XLVmlDrawing& XLWorksheet::vmlDrawing()
         appendAndSetAttribute(legacyDrawing, "r:id", vmlDrawingRelationship.id());
     }
 
-    return m_vmlDrawing;
+    return m_impl->m_vmlDrawing;
 }
 
 XLComments& XLWorksheet::comments()
 {
-    if (!m_comments.valid()) {
+    if (!m_impl->m_comments.valid()) {
         std::ignore = relationships();
         std::ignore = vmlDrawing();
 
         uint16_t sheetXmlNo = sheetXmlNumber();
-        m_comments          = parentDoc().sheetComments(sheetXmlNo);
-        if (!m_comments.valid()) throw XLException("XLWorksheet::comments(): could not create comments XML");
-        m_comments.setVmlDrawing(m_vmlDrawing);
-        std::string commentsRelativePath = getPathARelativeToPathB(m_comments.getXmlPath(), getXmlPath());
-        if (!m_relationships.targetExists(commentsRelativePath))
-            m_relationships.addRelationship(XLRelationshipType::Comments, commentsRelativePath);
+        m_impl->m_comments          = parentDoc().sheetComments(sheetXmlNo);
+        if (!m_impl->m_comments.valid()) throw XLException("XLWorksheet::comments(): could not create comments XML");
+        m_impl->m_comments.setVmlDrawing(m_impl->m_vmlDrawing);
+        std::string commentsRelativePath = getPathARelativeToPathB(m_impl->m_comments.getXmlPath(), getXmlPath());
+        if (!m_impl->m_relationships.targetExists(commentsRelativePath))
+            m_impl->m_relationships.addRelationship(XLRelationshipType::Comments, commentsRelativePath);
     }
 
-    return m_comments;
+    return m_impl->m_comments;
 }
 
 XLThreadedComments& XLWorksheet::threadedComments()
 {
-    if (!m_threadedComments.valid()) {
+    if (!m_impl->m_threadedComments.valid()) {
         std::ignore        = relationships();
         uint16_t sheetXmlNo = sheetXmlNumber();
-        m_threadedComments  = parentDoc().sheetThreadedComments(sheetXmlNo);
-        if (!m_threadedComments.valid()) throw XLException("XLWorksheet::threadedComments(): could not create threadedComments XML");
+        m_impl->m_threadedComments  = parentDoc().sheetThreadedComments(sheetXmlNo);
+        if (!m_impl->m_threadedComments.valid()) throw XLException("XLWorksheet::threadedComments(): could not create threadedComments XML");
 
-        std::string commentsPath         = m_threadedComments.getXmlPath();
+        std::string commentsPath         = m_impl->m_threadedComments.getXmlPath();
         std::string commentsRelativePath = getPathARelativeToPathB(commentsPath, getXmlPath());
 
-        if (!m_relationships.targetExists(commentsRelativePath))
-            m_relationships.addRelationship(XLRelationshipType::ThreadedComments, commentsRelativePath);
+        if (!m_impl->m_relationships.targetExists(commentsRelativePath))
+            m_impl->m_relationships.addRelationship(XLRelationshipType::ThreadedComments, commentsRelativePath);
     }
-    return m_threadedComments;
+    return m_impl->m_threadedComments;
 }
 
 XLTableCollection& XLWorksheet::tables()
 {
-    if (!m_tables.valid()) { m_tables = XLTableCollection(xmlDocument().document_element(), this); }
+    if (!m_impl->m_tables.valid()) { m_impl->m_tables = XLTableCollection(xmlDocument().document_element(), this); }
 
-    return m_tables;
+    return m_impl->m_tables;
 }
 
 void XLWorksheet::addHyperlink(std::string_view cellRef, std::string_view url, std::string_view tooltip)
 {
     removeHyperlink(cellRef);
     std::ignore               = relationships();
-    const auto rel            = m_relationships.addRelationship(XLRelationshipType::Hyperlink, std::string(url), true);
+    const auto rel            = m_impl->m_relationships.addRelationship(XLRelationshipType::Hyperlink, std::string(url), true);
     XMLNode    docElement     = xmlDocument().document_element();
     XMLNode    hyperlinksNode = docElement.child("hyperlinks");
     if (hyperlinksNode.empty()) { hyperlinksNode = appendAndGetNode(docElement, "hyperlinks", m_nodeOrder); }

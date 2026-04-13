@@ -4,18 +4,34 @@
 #include "XLUtilities.hpp"
 #include "XLWorksheet.hpp"
 
+#include "XLChart.hpp"
+#include "XLComments.hpp"
+#include "XLConditionalFormatting.hpp"
+#include "XLDataValidation.hpp"
+#include "XLDrawing.hpp"
+#include "XLImageOptions.hpp"
+#include "XLMergeCells.hpp"
+#include "XLPageSetup.hpp"
+#include "XLPivotTable.hpp"
+#include "XLRelationships.hpp"
+#include "XLSparkline.hpp"
+#include "XLStreamReader.hpp"
+#include "XLStreamWriter.hpp"
+#include "XLTables.hpp"
+#include "XLThreadedComments.hpp"
+
 using namespace OpenXLSX;
 
 XLMergeCells& XLWorksheet::merges()
 {
-    if (!m_merges.valid()) m_merges = XLMergeCells(xmlDocument().document_element(), m_nodeOrder);
-    return m_merges;
+    if (!m_impl->m_merges.valid()) m_impl->m_merges = XLMergeCells(xmlDocument().document_element(), m_nodeOrder);
+    return m_impl->m_merges;
 }
 
 XLDataValidations& XLWorksheet::dataValidations()
 {
-    if (m_dataValidations.empty()) m_dataValidations = XLDataValidations(xmlDocument().document_element());
-    return m_dataValidations;
+    if (m_impl->m_dataValidations.empty()) m_impl->m_dataValidations = XLDataValidations(xmlDocument().document_element());
+    return m_impl->m_dataValidations;
 }
 
 XLCellRange XLWorksheet::mergeCells(XLCellRange const& rangeToMerge, bool emptyHiddenCells)

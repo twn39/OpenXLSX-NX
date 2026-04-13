@@ -1,4 +1,7 @@
 #include <OpenXLSX.hpp>
+#include "XLComments.hpp"
+#include "XLThreadedComments.hpp"
+
 #include <catch2/catch_all.hpp>
 #include "TestHelpers.hpp"
 

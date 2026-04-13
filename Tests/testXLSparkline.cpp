@@ -1,5 +1,7 @@
 #include "TestHelpers.hpp"
 #include "OpenXLSX.hpp"
+#include "XLSparkline.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
 

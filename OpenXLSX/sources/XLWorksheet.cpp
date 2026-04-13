@@ -1,4 +1,16 @@
 #include "XLWorksheet.hpp"
+
+#include "XLComments.hpp"
+#include "XLDataValidation.hpp"
+#include "XLDrawing.hpp"
+#include "XLMergeCells.hpp"
+#include "XLPivotTable.hpp"
+#include "XLRelationships.hpp"
+#include "XLStreamReader.hpp"
+#include "XLStreamWriter.hpp"
+#include "XLTables.hpp"
+#include "XLThreadedComments.hpp"
+#include "XLImageOptions.hpp"
 #include "XLCellRange.hpp"
 #include "XLDocument.hpp"
 #include "XLException.hpp"
@@ -11,10 +23,28 @@
 
 using namespace OpenXLSX;
 
+namespace OpenXLSX {
+    struct XLWorksheetImpl {
+        XLRelationships                                    m_relationships{};
+        XLMergeCells                                       m_merges{};
+        XLDataValidations                                  m_dataValidations{};
+        XLDrawing                                          m_drawing{};
+        XLVmlDrawing                                       m_vmlDrawing{};
+        XLComments                                         m_comments{};
+        XLThreadedComments                                 m_threadedComments{};
+        XLTableCollection                                  m_tables{};
+    };
+}
+
 /**
  * @details The constructor does some slight reconfiguration of the XML file, in order to make parsing easier.
  */
-XLWorksheet::XLWorksheet(XLXmlData* xmlData) : XLSheetBase(xmlData)
+
+XLWorksheet::XLWorksheet() : XLSheetBase(nullptr) {}
+
+XLWorksheet::~XLWorksheet() = default;
+
+XLWorksheet::XLWorksheet(XLXmlData* xmlData) : XLSheetBase(xmlData), m_impl(std::make_unique<XLWorksheetImpl>())
 {
     if (xmlDocument().document_element().child("cols").type() != pugi::node_null) {
         auto currentNode = xmlDocument().document_element().child("cols").first_child_of_type(pugi::node_element);
@@ -49,40 +79,24 @@ XLWorksheet::XLWorksheet(XLXmlData* xmlData) : XLSheetBase(xmlData)
     }
 }
 
-XLWorksheet::XLWorksheet(const XLWorksheet& other) : XLSheetBase<XLWorksheet>(other)
-{
-    m_relationships   = other.m_relationships;
-    m_merges          = other.m_merges;
-    m_dataValidations = other.m_dataValidations;
-    m_drawing         = other.m_drawing;
-    m_vmlDrawing      = other.m_vmlDrawing;
-    m_comments        = other.m_comments;
-    m_threadedComments = other.m_threadedComments;
-    m_tables          = other.m_tables;
 
-    // Hint cache is deliberately NOT copied to prevent UAF/invalid state across copies
-    m_hintRowNumber = 0;
-    m_hintRowNode   = XMLNode{};
-    m_hintColNumber = 0;
-    m_hintCellNode  = XMLNode{};
+XLWorksheet::XLWorksheet(const XLWorksheet& other)
+    : XLSheetBase(other)
+{
+    if (other.m_impl) {
+        m_impl = std::make_unique<XLWorksheetImpl>(*other.m_impl);
+    } else {
+        m_impl = std::make_unique<XLWorksheetImpl>();
+    }
 }
 
-XLWorksheet::XLWorksheet(XLWorksheet&& other) : XLSheetBase<XLWorksheet>(std::move(other))
+XLWorksheet::XLWorksheet(XLWorksheet&& other) noexcept
+    : XLSheetBase<XLWorksheet>(std::move(other)), m_impl(std::move(other.m_impl))
 {
-    m_relationships   = std::move(other.m_relationships);
-    m_merges          = std::move(other.m_merges);
-    m_dataValidations = std::move(other.m_dataValidations);
-    m_drawing         = std::move(other.m_drawing);
-    m_vmlDrawing      = std::move(other.m_vmlDrawing);
-    m_comments        = std::move(other.m_comments);
-    m_threadedComments = std::move(other.m_threadedComments);
-    m_tables          = std::move(other.m_tables);
-
-    // Take ownership of hint cache
     m_hintRowNumber = other.m_hintRowNumber;
-    m_hintRowNode   = other.m_hintRowNode;
+    m_hintRowNode   = std::move(other.m_hintRowNode);
     m_hintColNumber = other.m_hintColNumber;
-    m_hintCellNode  = other.m_hintCellNode;
+    m_hintCellNode  = std::move(other.m_hintCellNode);
 
     other.m_hintRowNumber = 0;
     other.m_hintRowNode   = XMLNode{};
@@ -90,46 +104,36 @@ XLWorksheet::XLWorksheet(XLWorksheet&& other) : XLSheetBase<XLWorksheet>(std::mo
     other.m_hintCellNode  = XMLNode{};
 }
 
+
 XLWorksheet& XLWorksheet::operator=(const XLWorksheet& other)
 {
     if (&other != this) {
-        XLSheetBase<XLWorksheet>::operator=(other);
-        m_relationships   = other.m_relationships;
-        m_merges          = other.m_merges;
-        m_dataValidations = other.m_dataValidations;
-        m_drawing         = other.m_drawing;
-        m_vmlDrawing      = other.m_vmlDrawing;
-        m_comments        = other.m_comments;
-        m_threadedComments = other.m_threadedComments;
-        m_tables          = other.m_tables;
-
-        // Reset hint cache on new assignment
-        m_hintRowNumber = 0;
-        m_hintRowNode   = XMLNode{};
-        m_hintColNumber = 0;
-        m_hintCellNode  = XMLNode{};
+        XLSheetBase::operator=(other);
+        if (other.m_impl) {
+            if (!m_impl) m_impl = std::make_unique<XLWorksheetImpl>();
+            *m_impl = *other.m_impl;
+        } else {
+            m_impl.reset();
+        }
+        m_hintRowNumber = other.m_hintRowNumber;
+        m_hintRowNode   = other.m_hintRowNode;
+        m_hintColNumber = other.m_hintColNumber;
+        m_hintCellNode  = other.m_hintCellNode;
     }
     return *this;
 }
+
 
 XLWorksheet& XLWorksheet::operator=(XLWorksheet&& other)
 {
     if (&other != this) {
         XLSheetBase<XLWorksheet>::operator=(std::move(other));
-        m_relationships   = std::move(other.m_relationships);
-        m_merges          = std::move(other.m_merges);
-        m_dataValidations = std::move(other.m_dataValidations);
-        m_drawing         = std::move(other.m_drawing);
-        m_vmlDrawing      = std::move(other.m_vmlDrawing);
-        m_comments        = std::move(other.m_comments);
-        m_threadedComments = std::move(other.m_threadedComments);
-        m_tables          = std::move(other.m_tables);
-
-        // Take ownership of hint cache
+        m_impl = std::move(other.m_impl); // Just move the pointer!
+        
         m_hintRowNumber = other.m_hintRowNumber;
-        m_hintRowNode   = other.m_hintRowNode;
+        m_hintRowNode   = std::move(other.m_hintRowNode);
         m_hintColNumber = other.m_hintColNumber;
-        m_hintCellNode  = other.m_hintCellNode;
+        m_hintCellNode  = std::move(other.m_hintCellNode);
 
         other.m_hintRowNumber = 0;
         other.m_hintRowNode   = XMLNode{};
@@ -1129,9 +1133,9 @@ void XLWorksheet::shiftFormulas(int32_t rowDelta, int32_t colDelta, uint32_t fro
 void XLWorksheet::shiftDrawingAnchors(int32_t rowDelta, int32_t colDelta, uint32_t fromRow, uint16_t fromCol)
 {
     if (rowDelta == 0 && colDelta == 0) return;
-    if (!m_drawing.valid()) return;
+    if (!m_impl->m_drawing.valid()) return;
 
-    XMLNode root = m_drawing.xmlDocument().document_element();
+    XMLNode root = m_impl->m_drawing.xmlDocument().document_element();
     if (root.empty()) return;
 
     // Shift 0-based thresholds
@@ -1247,7 +1251,7 @@ bool XLWorksheet::insertRow(uint32_t rowNumber, uint32_t count)
     shiftSheetDataRows(delta, rowNumber);
 
     // Shift all subsystems
-    if (m_merges.valid()) m_merges.shiftRows(delta, rowNumber);
+    if (m_impl->m_merges.valid()) m_impl->m_merges.shiftRows(delta, rowNumber);
 
     shiftFormulas(delta, 0, rowNumber, 1);
     shiftDrawingAnchors(delta, 0, rowNumber, 1);
@@ -1273,7 +1277,7 @@ bool XLWorksheet::deleteRow(uint32_t rowNumber, uint32_t count)
 
     // Step 3: shift all subsystems (fromRow = rowNumber: affects everything from the first
     //         deleted row onward)
-    if (m_merges.valid()) m_merges.shiftRows(delta, rowNumber);
+    if (m_impl->m_merges.valid()) m_impl->m_merges.shiftRows(delta, rowNumber);
 
     shiftFormulas(delta, 0, rowNumber + count, 1);
     shiftDrawingAnchors(delta, 0, rowNumber + count, 1);
@@ -1296,7 +1300,7 @@ bool XLWorksheet::insertColumn(uint16_t colNumber, uint16_t count)
 
     shiftSheetDataCols(delta, colNumber);
 
-    if (m_merges.valid()) m_merges.shiftCols(delta, colNumber);
+    if (m_impl->m_merges.valid()) m_impl->m_merges.shiftCols(delta, colNumber);
 
     shiftFormulas(0, delta, 1, colNumber);
     shiftDrawingAnchors(0, delta, 1, colNumber);
@@ -1342,7 +1346,7 @@ bool XLWorksheet::deleteColumn(uint16_t colNumber, uint16_t count)
     // Slide remaining columns left
     shiftSheetDataCols(delta, colNumber + count);
 
-    if (m_merges.valid()) m_merges.shiftCols(delta, colNumber);
+    if (m_impl->m_merges.valid()) m_impl->m_merges.shiftCols(delta, colNumber);
 
     shiftFormulas(0, delta, 1, colNumber + count);
     shiftDrawingAnchors(0, delta, 1, colNumber + count);

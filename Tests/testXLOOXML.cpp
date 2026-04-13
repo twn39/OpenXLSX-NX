@@ -1,4 +1,8 @@
 #include <OpenXLSX.hpp>
+#include "XLTables.hpp"
+
+#include "XLDataValidation.hpp"
+
 #include <catch2/catch_all.hpp>
 #include "TestHelpers.hpp"
 #include <filesystem>

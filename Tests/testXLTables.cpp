@@ -1,5 +1,7 @@
 #include <IZipArchive.hpp>
 #include <OpenXLSX.hpp>
+#include "XLTables.hpp"
+
 #include <catch2/catch_all.hpp>
 #include "TestHelpers.hpp"
 #include <pugixml.hpp>
