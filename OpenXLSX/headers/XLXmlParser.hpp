@@ -16,17 +16,14 @@ namespace
 namespace OpenXLSX
 {
 #define ENABLE_XML_NAMESPACES 1       // disable this line to control behavior via compiler flag
-#define NO_MULTITHREADING_SAFETY 1    // if this is defined, the function namespaced_name_char will be used for XML namespace support,
-    //                                    //  using a static character array for improved performance when multithreading conflicts are not
-    //                                    a risk
 
 #ifdef ENABLE_XML_NAMESPACES
     // ===== Macro for NAMESPACED_NAME when node names might need to be prefixed with the current node's namespace
-#    ifdef NO_MULTITHREADING_SAFETY
-#        define NAMESPACED_NAME(name_, force_ns_) namespaced_name_char(name_, force_ns_)
-#    else
-#        define NAMESPACED_NAME(name_, force_ns_) namespaced_name_shared_ptr(name_, force_ns_).get()
-#    endif
+    // Uses namespaced_name_shared_ptr.get() which returns a pointer owned by a temporary shared_ptr.
+    // The C++ standard guarantees that temporary objects are destroyed as the last step in evaluating the
+    // full-expression that (lexically) contains the point where they were created.
+    // This makes it completely thread-safe and re-entrant without any static buffer side-effects.
+#    define NAMESPACED_NAME(name_, force_ns_) namespaced_name_shared_ptr(name_, force_ns_).get()
 #else
     // ===== Optimized version when no namespace support is desired - ignores force_ns_ setting
 #    define NAMESPACED_NAME(name_, force_ns_) name_
@@ -108,7 +105,6 @@ namespace OpenXLSX
          * @param force_ns if true, will return name_ unmodified
          * @return this node's current namespace + ":" + name_ as a const pugi::char_t *
          */
-        const pugi::char_t* namespaced_name_char(const pugi::char_t* name_, bool force_ns) const;
 
         /**
          * @brief add this node's namespace to name_

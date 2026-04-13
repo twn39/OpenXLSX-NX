@@ -39,24 +39,7 @@ namespace OpenXLSX
         return name_ + pos + 1;
     }
 
-    const pugi::char_t* XMLNode::namespaced_name_char(const pugi::char_t* name_, bool force_ns) const
-    {
-        // ===== If node has no namespace: Early pass-through return
-        if (!name_begin or force_ns) return name_;
-        if (name_begin + strlen(name_) > XLMaxNamespacedNameLen) {
-            using namespace std::literals::string_literals;
-            throw XLException("OpenXLSX_xml_node::"s + __func__ + ": strlen of "s + name_ + " exceeds XLMaxNamespacedNameLen "s +
-                              std::to_string(XLMaxNamespacedNameLen));
-        }
-
-        thread_local pugi::char_t
-            namespaced_name_[XLMaxNamespacedNameLen + 1];    // static memory allocation for concatenating node namespace and name_
-
-        // ===== If node has a namespace: create a namespaced version of name_
-        memcpy(namespaced_name_, xml_node::name(), name_begin);    // copy the node namespace
-        strcpy(namespaced_name_ + name_begin, name_);              // concatenate the name_ including the terminating zero
-        return namespaced_name_;
-    }
+    
 
     std::shared_ptr<pugi::char_t> XMLNode::namespaced_name_shared_ptr(const pugi::char_t* name_, bool force_ns) const
     {
