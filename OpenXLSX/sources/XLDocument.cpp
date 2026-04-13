@@ -235,8 +235,8 @@ void XLDocument::open(std::string_view fileName)
         if (not uniqueCountAttr.empty()) {
             auto count = uniqueCountAttr.as_ullong();
             if (count > 0) {
-                m_sharedStringCache.reserve(count);
-                m_sharedStringIndex.reserve(count);
+                m_sharedStringsState.cache.reserve(count);
+                m_sharedStringsState.index.reserve(count);
             }
             sharedStrings->document_element().remove_attribute("uniqueCount");
         }
@@ -276,9 +276,9 @@ void XLDocument::open(std::string_view fileName)
         }
         // ===== Append an empty string even if elem.empty(), to keep the index aligned with the <si> tag index in the shared strings table
         // <sst>
-        m_sharedStringCache.emplace_back(m_sharedStringArena.store(result));    // store result string in arena and get a persistent view
+        m_sharedStringsState.cache.emplace_back(m_sharedStringsState.arena.store(result));    // store result string in arena and get a persistent view
         // 2024-09-01 TBC BUGFIX: previously, a shared strings table entry that had neither <t> nor
-        /**/    //     <r> nodes would not have appended to m_sharedStringCache, causing an index misalignment
+        /**/    //     <r> nodes would not have appended to m_sharedStringsState.cache, causing an index misalignment
 
         node = node.next_sibling_of_type(pugi::node_element);
     }
@@ -303,10 +303,7 @@ void XLDocument::open(std::string_view fileName)
 
     if (getXmlData("xl/sharedStrings.xml", true)) {
         m_sharedStrings = XLSharedStrings(getXmlData("xl/sharedStrings.xml"),
-                                          &m_sharedStringArena,
-                                          &m_sharedStringCache,
-                                          &m_sharedStringIndex,
-                                          m_sharedStringMutex.get());
+                                          &m_sharedStringsState);
     }
     else {
         m_sharedStrings = XLSharedStrings();
@@ -424,9 +421,7 @@ void XLDocument::close()
     m_formulaNeedsRecalculation = false;
 
     m_data.clear();
-    m_sharedStringArena.clear();
-    m_sharedStringCache.clear();
-    m_sharedStringIndex.clear();
+    m_sharedStringsState.clear();
     m_sharedStrings    = XLSharedStrings();
     m_persons          = XLPersons();
     m_docRelationships = XLRelationships();
@@ -1077,8 +1072,10 @@ void XLDocument::setSavingDeclaration(XLXmlSavingDeclaration const& savingDeclar
 void XLDocument::cleanupSharedStrings()
 {
     std::unique_lock<std::shared_mutex> docLock(*m_docMutex);
-    std::unique_lock<std::shared_mutex> strLock(*m_sharedStringMutex);
-    const size_t                        oldStringCount = m_sharedStringCache.size();
+    std::unique_lock<std::shared_mutex> strLock(*m_sharedStringsState.mutex);
+    const size_t                        oldStringCount = m_sharedStringsState.cache.size();
+    if (oldStringCount == 0) return;
+
     std::vector<int32_t>                indexMap(oldStringCount, -1);
     int32_t                             newStringCount = 1;
 
@@ -1091,7 +1088,7 @@ void XLDocument::cleanupSharedStrings()
                 const int32_t    si  = val.stringIndex();
                 if (si < 0) continue;
                 if (indexMap[static_cast<size_t>(si)] == -1) {
-                    if (!m_sharedStringCache[static_cast<size_t>(si)].empty())
+                    if (!m_sharedStringsState.cache[static_cast<size_t>(si)].empty())
                         indexMap[static_cast<size_t>(si)] = newStringCount++;
                     else
                         indexMap[static_cast<size_t>(si)] = 0;
@@ -1101,24 +1098,7 @@ void XLDocument::cleanupSharedStrings()
         }
     }
 
-    XLStringArena                 newArena;
-    std::vector<std::string_view> newStringCache(static_cast<size_t>(newStringCount));
-    newStringCache[0] = newArena.store("");
-    for (size_t oldIdx = 0; oldIdx < oldStringCount; ++oldIdx) {
-        if (const int32_t newIdx = indexMap[oldIdx]; newIdx > 0)
-            newStringCache[static_cast<size_t>(newIdx)] = newArena.store(m_sharedStringCache[oldIdx]);
-    }
-
-    m_sharedStringArena = std::move(newArena);
-    m_sharedStringCache = std::move(newStringCache);
-    // rebuilding index
-    m_sharedStringIndex.clear();
-    for (size_t i = 0; i < m_sharedStringCache.size(); ++i) {
-        m_sharedStringIndex.emplace(m_sharedStringCache[i], static_cast<int32_t>(i));
-    }
-
-    if (static_cast<int32_t>(m_sharedStringCache.size()) != m_sharedStrings.rewriteXmlFromCache())
-        throw XLInternalError("XLDocument::cleanupSharedStrings: failed to rewrite shared string table - document would be corrupted");
+    m_sharedStrings.rebuild(indexMap, newStringCount);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

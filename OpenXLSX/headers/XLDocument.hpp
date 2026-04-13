@@ -447,10 +447,7 @@ namespace OpenXLSX
         XLXmlSavingDeclaration m_xmlSavingDeclaration;
 
         mutable std::list<XLXmlData>                                         m_data{};
-        mutable XLStringArena                                                m_sharedStringArena{};
-        mutable std::vector<std::string_view>                                m_sharedStringCache{};
-        mutable FlatHashMap<std::string_view, int32_t>                       m_sharedStringIndex{};
-        mutable std::unique_ptr<std::shared_mutex>                           m_sharedStringMutex{std::make_unique<std::shared_mutex>()};
+        mutable XLSharedStringsState                                         m_sharedStringsState{};
         mutable std::unique_ptr<std::shared_mutex>                           m_docMutex{std::make_unique<std::shared_mutex>()};
         mutable XLSharedStrings                                              m_sharedStrings{};
         mutable std::map<void*, std::unordered_map<uint32_t, SharedFormula>> m_sharedFormulas{};

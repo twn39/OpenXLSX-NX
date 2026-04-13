@@ -38,6 +38,20 @@ namespace OpenXLSX
     constexpr size_t XLMaxSharedStrings = (std::numeric_limits<int32_t>::max)();    // pull request #261: wrapped max in parentheses to
                                                                                     // prevent expansion of windows.h "max" macro
 
+    struct XLSharedStringsState {
+        XLStringArena                               arena{};
+        std::vector<std::string_view>               cache{};
+        FlatHashMap<std::string_view, int32_t>      index{};
+        std::unique_ptr<std::shared_mutex>          mutex{std::make_unique<std::shared_mutex>()};
+
+        void clear() {
+            arena.clear();
+            cache.clear();
+            index.clear();
+            // mutex remains intact
+        }
+    };
+
     class XLSharedStrings;    // forward declaration
     typedef std::reference_wrapper<const XLSharedStrings> XLSharedStringsRef;
 
@@ -67,16 +81,10 @@ namespace OpenXLSX
         /**
          * @brief
          * @param xmlData
-         * @param stringArena
-         * @param stringCache
-         * @param stringIndex O(1) lookup hash map: string -> index
-         * @param mutex Pointer to a shared mutex for thread safety
+         * @param state Pointer to the shared strings state
          */
-        explicit XLSharedStrings(XLXmlData*                              xmlData,
-                                 XLStringArena*                          stringArena,
-                                 std::vector<std::string_view>*          stringCache,
-                                 FlatHashMap<std::string_view, int32_t>* stringIndex,
-                                 std::shared_mutex*                      mutex = nullptr);
+        explicit XLSharedStrings(XLXmlData*            xmlData,
+                                 XLSharedStringsState* state);
 
         /**
          * @brief Destructor
@@ -115,11 +123,12 @@ namespace OpenXLSX
          */
         int32_t stringCount() const
         {
-            if (m_mutex) {
-                std::shared_lock<std::shared_mutex> lock(*m_mutex);
-                return static_cast<int32_t>(m_stringCache->size());
+            if (!m_state) return 0;
+            if (m_state->mutex) {
+                std::shared_lock<std::shared_mutex> lock(*m_state->mutex);
+                return static_cast<int32_t>(m_state->cache.size());
             }
-            return static_cast<int32_t>(m_stringCache->size());
+            return static_cast<int32_t>(m_state->cache.size());
         }
 
         /**
@@ -193,12 +202,16 @@ namespace OpenXLSX
          */
         int32_t rewriteXmlFromCache();
 
+        /**
+         * @brief Rebuilds the shared string arena and cache using the provided index mapping,
+         * keeping only the used strings, and rewrites the XML.
+         * @param indexMap Mapping from old string indices to new string indices.
+         * @param newStringCount The number of used strings (including empty string at index 0).
+         */
+        void rebuild(const std::vector<int32_t>& indexMap, int32_t newStringCount);
+
     private:
-        XLStringArena* m_stringArena{}; /** < String memory pool for contiguous zero-copy allocation */
-        std::vector<std::string_view>*
-            m_stringCache{}; /** < Each string must have an unchanging memory address; hence the use of std::vector of views into arena */
-        FlatHashMap<std::string_view, int32_t>* m_stringIndex{}; /** < O(1) string -> index lookup */
-        std::shared_mutex*                      m_mutex{};       /** < Pointer to shared mutex for thread-safe operations */
+        XLSharedStringsState* m_state{}; /** < Pointer to the shared strings state (arena, cache, index, mutex) */
 
         /**
          * @brief Tracks whether the pugi DOM is behind the string cache.
