@@ -615,6 +615,12 @@ namespace OpenXLSX
         XLThreadedComments                                 m_threadedComments{};
         XLTableCollection                                  m_tables{};
         inline static const std::vector<std::string_view>& m_nodeOrder = XLWorksheetNodeOrder;
+
+        // O(1) Hint Cache for cell node DOM traversal
+        mutable uint32_t                                   m_hintRowNumber{0};
+        mutable XMLNode                                    m_hintRowNode{};
+        mutable uint16_t                                   m_hintColNumber{0};
+        mutable XMLNode                                    m_hintCellNode{};
     };
 }    // namespace OpenXLSX
 

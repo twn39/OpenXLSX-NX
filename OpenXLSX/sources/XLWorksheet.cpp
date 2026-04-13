@@ -129,8 +129,8 @@ XLCellAssignable XLWorksheet::cell(const XLCellReference& ref) const { return ce
 
 XLCellAssignable XLWorksheet::cell(uint32_t rowNumber, uint16_t columnNumber) const
 {
-    const XMLNode rowNode  = getRowNode(xmlDocument().document_element().child("sheetData"), rowNumber);
-    const XMLNode cellNode = getCellNode(rowNode, columnNumber, rowNumber);
+    const XMLNode rowNode  = getRowNode(xmlDocument().document_element().child("sheetData"), rowNumber, &m_hintRowNumber, &m_hintRowNode);
+    const XMLNode cellNode = getCellNode(rowNode, columnNumber, rowNumber, {}, &m_hintColNumber, &m_hintCellNode);
     return XLCellAssignable(XLCell(cellNode, parentDoc().sharedStrings()));
 }
 

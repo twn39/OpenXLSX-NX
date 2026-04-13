@@ -367,7 +367,7 @@ namespace OpenXLSX
     /**
      * @details
      */
-    inline XMLNode getRowNode(XMLNode sheetDataNode, uint32_t rowNumber)
+    inline XMLNode getRowNode(XMLNode sheetDataNode, uint32_t rowNumber, uint32_t* hintRowNumber = nullptr, XMLNode* hintRowNode = nullptr)
     {
         if (rowNumber < 1 or rowNumber > OpenXLSX::MAX_ROWS) {    // 2024-05-28: added range check
             using namespace std::literals::string_literals;
@@ -375,50 +375,69 @@ namespace OpenXLSX
                                      std::to_string(OpenXLSX::MAX_ROWS) + "]"s);
         }
 
-        // ===== Get the last child of sheetDataNode that is of type node_element.
-        XMLNode result = sheetDataNode.last_child_of_type(pugi::node_element);
-
-        // ===== If there are now rows in the worksheet, or the requested row is beyond the current max row, append a new row to the end.
-        if (result.empty() or (rowNumber > result.attribute("r").as_ullong())) {
-            result                       = sheetDataNode.append_child("row");
-            result.append_attribute("r") = rowNumber;
-            //            result.append_attribute("x14ac:dyDescent") = "0.2";
-            //            result.append_attribute("spans")           = "1:1";
+        // ===== O(1) Hint Fast-Path
+        if (hintRowNumber && hintRowNode && *hintRowNumber == rowNumber && !hintRowNode->empty()) {
+            return *hintRowNode;
         }
 
-        // ===== If the requested node is closest to the end, start from the end and search backwards.
-        else if (result.attribute("r").as_ullong() - rowNumber < rowNumber) {
-            while (not result.empty() and (result.attribute("r").as_ullong() > rowNumber))
+        XMLNode result;
+
+        // ===== Optimized Hint Crawl (if the target row is exactly the next row or very close after the hint)
+        if (hintRowNumber && hintRowNode && !hintRowNode->empty() && rowNumber > *hintRowNumber) {
+            result = *hintRowNode;
+            while (!result.empty() && result.attribute("r").as_ullong() < rowNumber) {
+                result = result.next_sibling_of_type(pugi::node_element);
+            }
+            if (result.empty() || result.attribute("r").as_ullong() > rowNumber) {
+                if (result.empty()) result = sheetDataNode.append_child("row");
+                else result = sheetDataNode.insert_child_before("row", result);
+                result.append_attribute("r") = rowNumber;
+            }
+        }
+        else if (hintRowNumber && hintRowNode && !hintRowNode->empty() && rowNumber < *hintRowNumber) {
+            result = *hintRowNode;
+            while (!result.empty() && result.attribute("r").as_ullong() > rowNumber) {
                 result = result.previous_sibling_of_type(pugi::node_element);
-            // ===== If the backwards search failed to locate the requested row
-            if (result.empty() or (result.attribute("r").as_ullong() != rowNumber)) {
-                if (result.empty())
-                    result = sheetDataNode.prepend_child("row");    // insert a new row node at datasheet begin. When saving, this will keep
-                                                                    // whitespace formatting towards next row node
-                else
-                    result = sheetDataNode.insert_child_after("row", result);
+            }
+            if (result.empty() || result.attribute("r").as_ullong() < rowNumber) {
+                if (result.empty()) result = sheetDataNode.prepend_child("row");
+                else result = sheetDataNode.insert_child_after("row", result);
                 result.append_attribute("r") = rowNumber;
-                //                result.append_attribute("x14ac:dyDescent") = "0.2";
-                //                result.append_attribute("spans")           = "1:1";
+            }
+        }
+        else {
+            // ===== Original Binary/Edge crawling fallback
+            result = sheetDataNode.last_child_of_type(pugi::node_element);
+
+            if (result.empty() or (rowNumber > result.attribute("r").as_ullong())) {
+                result                       = sheetDataNode.append_child("row");
+                result.append_attribute("r") = rowNumber;
+            }
+            else if (result.attribute("r").as_ullong() - rowNumber < rowNumber) {
+                while (not result.empty() and (result.attribute("r").as_ullong() > rowNumber))
+                    result = result.previous_sibling_of_type(pugi::node_element);
+                if (result.empty() or (result.attribute("r").as_ullong() != rowNumber)) {
+                    if (result.empty())
+                        result = sheetDataNode.prepend_child("row");
+                    else
+                        result = sheetDataNode.insert_child_after("row", result);
+                    result.append_attribute("r") = rowNumber;
+                }
+            }
+            else {
+                result = sheetDataNode.first_child_of_type(pugi::node_element);
+                while (result.attribute("r").as_ullong() < rowNumber) result = result.next_sibling_of_type(pugi::node_element);
+                if (result.attribute("r").as_ullong() > rowNumber) {
+                    result = sheetDataNode.insert_child_before("row", result);
+                    result.append_attribute("r") = rowNumber;
+                }
             }
         }
 
-        // ===== Otherwise, start from the beginning
-        else {
-            // ===== At this point, it is guaranteed that there is at least one node_element in the row that is not empty.
-            result = sheetDataNode.first_child_of_type(pugi::node_element);
-
-            // ===== It has been verified above that the requested rowNumber is <= the row number of the last node_element, therefore this
-            // loop will halt.
-            while (result.attribute("r").as_ullong() < rowNumber) result = result.next_sibling_of_type(pugi::node_element);
-            // ===== If the forwards search failed to locate the requested row
-            if (result.attribute("r").as_ullong() > rowNumber) {
-                result = sheetDataNode.insert_child_before("row", result);
-
-                result.append_attribute("r") = rowNumber;
-                //                result.append_attribute("x14ac:dyDescent") = "0.2";
-                //                result.append_attribute("spans")           = "1:1";
-            }
+        // Update the hint for next time
+        if (hintRowNumber && hintRowNode) {
+            *hintRowNumber = rowNumber;
+            *hintRowNode = result;
         }
 
         return result;
@@ -515,7 +534,9 @@ namespace OpenXLSX
     inline XMLNode getCellNode(XMLNode                               rowNode,
                                uint16_t                              columnNumber,
                                uint32_t                              rowNumber = 0,
-                               /**/ std::vector<XLStyleIndex> const& colStyles = {})
+                               /**/ std::vector<XLStyleIndex> const& colStyles = {},
+                               uint16_t*                             hintColNumber = nullptr,
+                               XMLNode*                              hintCellNode = nullptr)
     {
         if (columnNumber < 1 or columnNumber > OpenXLSX::MAX_COLS) {    // 2024-08-05: added range check
             using namespace std::literals::string_literals;
@@ -524,62 +545,95 @@ namespace OpenXLSX
         }
         if (rowNode.empty()) return XMLNode{};    // 2024-05-28: return an empty node in case of empty rowNode
 
-        XMLNode cellNode = rowNode.last_child_of_type(pugi::node_element);
         if (!rowNumber) rowNumber = rowNode.attribute("r").as_uint();    // if not provided, determine from rowNode
 
-        // Performance optimization: use lightweight column extraction instead of creating XLCellReference objects
-        // This avoids repeated string parsing and object creation overhead in hot loops
-        uint16_t lastCellCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
-
-        // ===== If there are no cells in the current row, or the requested cell is beyond the last cell in the row...
-        if (cellNode.empty() or (lastCellCol < columnNumber)) {
-            // ===== append a new node to the end.
-            cellNode = rowNode.append_child("c");
-            // Performance optimization: use lightweight makeCellAddress instead of XLCellReference
-            char cellAddrBuf[16];
-            makeCellAddress(rowNumber, columnNumber, cellAddrBuf);
-            setDefaultCellAttributes(cellNode, cellAddrBuf, rowNode, columnNumber, colStyles);
+        // ===== O(1) Hint Fast-Path
+        if (hintColNumber && hintCellNode && *hintColNumber == columnNumber && !hintCellNode->empty() && hintCellNode->parent() == rowNode) {
+            return *hintCellNode;
         }
-        // ===== If the requested node is closest to the end, start from the end and search backwards...
-        else if (lastCellCol - columnNumber < columnNumber) {
-            uint16_t currentCol = lastCellCol;
-            while (not cellNode.empty() and (currentCol > columnNumber)) {
-                cellNode   = cellNode.previous_sibling_of_type(pugi::node_element);
-                currentCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
+
+        XMLNode cellNode;
+
+        // ===== Optimized Hint Crawl
+        if (hintColNumber && hintCellNode && !hintCellNode->empty() && hintCellNode->parent() == rowNode) {
+            cellNode = *hintCellNode;
+            if (columnNumber > *hintColNumber) {
+                uint16_t currentCol = *hintColNumber;
+                while (!cellNode.empty() && currentCol < columnNumber) {
+                    cellNode = cellNode.next_sibling_of_type(pugi::node_element);
+                    currentCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
+                }
+                if (currentCol > columnNumber || cellNode.empty()) {
+                    if (cellNode.empty()) cellNode = rowNode.append_child("c");
+                    else cellNode = rowNode.insert_child_before("c", cellNode);
+                    char cellAddrBuf[16];
+                    makeCellAddress(rowNumber, columnNumber, cellAddrBuf);
+                    setDefaultCellAttributes(cellNode, cellAddrBuf, rowNode, columnNumber, colStyles);
+                }
+                goto update_hint;
             }
-            // ===== If the backwards search failed to locate the requested cell
-            if (cellNode.empty() or (currentCol < columnNumber)) {
-                if (cellNode.empty())                         // If between row begin and higher column number, only non-element nodes exist
-                    cellNode = rowNode.prepend_child("c");    // insert a new cell node at row begin. When saving, this will keep whitespace
-                                                              // formatting towards next cell node
-                else
-                    cellNode = rowNode.insert_child_after("c", cellNode);
-                // Performance optimization: use lightweight makeCellAddress instead of XLCellReference
+            else if (columnNumber < *hintColNumber) {
+                uint16_t currentCol = *hintColNumber;
+                while (!cellNode.empty() && currentCol > columnNumber) {
+                    cellNode = cellNode.previous_sibling_of_type(pugi::node_element);
+                    currentCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
+                }
+                if (currentCol < columnNumber || cellNode.empty()) {
+                    if (cellNode.empty()) cellNode = rowNode.prepend_child("c");
+                    else cellNode = rowNode.insert_child_after("c", cellNode);
+                    char cellAddrBuf[16];
+                    makeCellAddress(rowNumber, columnNumber, cellAddrBuf);
+                    setDefaultCellAttributes(cellNode, cellAddrBuf, rowNode, columnNumber, colStyles);
+                }
+                goto update_hint;
+            }
+        }
+
+        // ===== Original Fallback Crawl
+        cellNode = rowNode.last_child_of_type(pugi::node_element);
+        {
+            uint16_t lastCellCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
+
+            if (cellNode.empty() or (lastCellCol < columnNumber)) {
+                cellNode = rowNode.append_child("c");
                 char cellAddrBuf[16];
                 makeCellAddress(rowNumber, columnNumber, cellAddrBuf);
                 setDefaultCellAttributes(cellNode, cellAddrBuf, rowNode, columnNumber, colStyles);
             }
+            else if (lastCellCol - columnNumber < columnNumber) {
+                uint16_t currentCol = lastCellCol;
+                while (not cellNode.empty() and (currentCol > columnNumber)) {
+                    cellNode   = cellNode.previous_sibling_of_type(pugi::node_element);
+                    currentCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
+                }
+                if (cellNode.empty() or (currentCol < columnNumber)) {
+                    if (cellNode.empty()) cellNode = rowNode.prepend_child("c");
+                    else cellNode = rowNode.insert_child_after("c", cellNode);
+                    char cellAddrBuf[16];
+                    makeCellAddress(rowNumber, columnNumber, cellAddrBuf);
+                    setDefaultCellAttributes(cellNode, cellAddrBuf, rowNode, columnNumber, colStyles);
+                }
+            }
+            else {
+                cellNode = rowNode.first_child_of_type(pugi::node_element);
+                uint16_t currentCol = extractColumnFromCellRef(cellNode.attribute("r").value());
+                while (currentCol < columnNumber) {
+                    cellNode   = cellNode.next_sibling_of_type(pugi::node_element);
+                    currentCol = extractColumnFromCellRef(cellNode.attribute("r").value());
+                }
+                if (currentCol > columnNumber) {
+                    cellNode = rowNode.insert_child_before("c", cellNode);
+                    char cellAddrBuf[16];
+                    makeCellAddress(rowNumber, columnNumber, cellAddrBuf);
+                    setDefaultCellAttributes(cellNode, cellAddrBuf, rowNode, columnNumber, colStyles);
+                }
+            }
         }
-        // ===== Otherwise, start from the beginning
-        else {
-            // ===== At this point, it is guaranteed that there is at least one node_element in the row that is not empty.
-            cellNode = rowNode.first_child_of_type(pugi::node_element);
 
-            // ===== It has been verified above that the requested columnNumber is <= the column number of the last node_element, therefore
-            // this loop will halt:
-            uint16_t currentCol = extractColumnFromCellRef(cellNode.attribute("r").value());
-            while (currentCol < columnNumber) {
-                cellNode   = cellNode.next_sibling_of_type(pugi::node_element);
-                currentCol = extractColumnFromCellRef(cellNode.attribute("r").value());
-            }
-            // ===== If the forwards search failed to locate the requested cell
-            if (currentCol > columnNumber) {
-                cellNode = rowNode.insert_child_before("c", cellNode);
-                // Performance optimization: use lightweight makeCellAddress instead of XLCellReference
-                char cellAddrBuf[16];
-                makeCellAddress(rowNumber, columnNumber, cellAddrBuf);
-                setDefaultCellAttributes(cellNode, cellAddrBuf, rowNode, columnNumber, colStyles);
-            }
+update_hint:
+        if (hintColNumber && hintCellNode) {
+            *hintColNumber = columnNumber;
+            *hintCellNode = cellNode;
         }
         return cellNode;
     }
