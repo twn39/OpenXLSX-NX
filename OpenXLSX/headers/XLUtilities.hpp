@@ -449,6 +449,32 @@ namespace OpenXLSX
      * @param colNo the column for which to obtain the style
      * @return the XLStyleIndex stored for the column, or XLDefaultCellFormat if none
      */
+    /**
+     * @brief Pre-compute all column styles for a row up to a given column count to avoid O(N) DOM lookups
+     * @param rowNode the row node
+     * @param count the maximum column number to fetch styles for
+     * @return a vector where index 0 is column 1's style, index 1 is column 2's style, etc.
+     */
+    inline std::vector<XLStyleIndex> getColumnStyles(XMLNode rowNode, uint16_t count)
+    {
+        std::vector<XLStyleIndex> styles(count, XLDefaultCellFormat);
+        XMLNode cols = rowNode.parent().parent().child("cols");
+        if (not cols.empty()) {
+            XMLNode col = cols.first_child_of_type(pugi::node_element);
+            while (not col.empty()) {
+                int minCol = col.attribute("min").as_int(MAX_COLS + 1);
+                int maxCol = col.attribute("max").as_int(0);
+                uint32_t style = col.attribute("style").as_uint(XLDefaultCellFormat);
+                
+                for (int i = minCol; i <= maxCol && i <= count; ++i) {
+                    if (i > 0) styles[i - 1] = style;
+                }
+                col = col.next_sibling_of_type(pugi::node_element);
+            }
+        }
+        return styles;
+    }
+
     inline XLStyleIndex getColumnStyle(XMLNode rowNode, uint16_t colNo)
     {
         XMLNode cols = rowNode.parent().parent().child("cols");

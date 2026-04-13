@@ -124,14 +124,23 @@ namespace OpenXLSX
         if (values.size() > MAX_COLS) throw XLOverflowError("vector<XLCellValue> size exceeds maximum number of columns.");
         if (values.empty()) return *this;
         deleteCellValues(static_cast<uint16_t>(values.size()));
+        
         XMLNode        curNode{};
         uint16_t       colNo  = static_cast<uint16_t>(values.size());
         const uint32_t rowNum = m_row->rowNumber();
         char           addrBuffer[16];    // Buffer for cell address (e.g., "XFD1048576")
+        
+        // ===== Pre-compute column styles once for the whole vector assignment instead of jumping to the parent node N times
+        std::vector<XLStyleIndex> colStyles;
+        XMLAttribute rowStyle = m_rowNode->attribute("s");
+        if (rowStyle.empty()) {
+            colStyles = getColumnStyles(*m_rowNode, colNo);
+        }
+
         for (auto value = values.rbegin(); value != values.rend(); ++value) {
             curNode = m_rowNode->prepend_child("c");
             makeCellAddress(rowNum, colNo, addrBuffer);
-            setDefaultCellAttributes(curNode, addrBuffer, *m_rowNode, colNo);
+            setDefaultCellAttributes(curNode, addrBuffer, *m_rowNode, colNo, colStyles);
             XLCell(curNode, m_row->m_sharedStrings.get()).value() = *value;
             --colNo;
         }
