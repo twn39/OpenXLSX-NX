@@ -75,7 +75,7 @@ namespace OpenXLSX
         std::string m_str;
         const pugi::char_t* m_ptr;
     public:
-        NameProxy(const pugi::char_t* ptr) : m_ptr(ptr) {}
+        NameProxy(const pugi::char_t* ptr) : m_str(), m_ptr(ptr) {}
         NameProxy(std::string str) : m_str(std::move(str)), m_ptr(m_str.c_str()) {}
         const pugi::char_t* c_str() const { return m_ptr; }
     };
