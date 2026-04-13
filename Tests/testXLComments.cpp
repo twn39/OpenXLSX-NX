@@ -304,4 +304,49 @@ TEST_CASE("CommentsFluentandWorksheetDX", "[XLComments][Fluent]")
         // Note: we do NOT std::remove this file because it is for human verification.
         REQUIRE(std::filesystem::exists(filename));
     }
+
+    SECTION("Modern Threaded Comments Demo Generation")
+    {
+        XLDocument doc;
+        std::string filename = "Modern_Threaded_Comments_Demo.xlsx";
+        doc.create(filename, XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        // Scenario 1: Simple Modern Threaded Comment
+        wks.cell("B2").value() = "Review Needed";
+        wks.addComment("B2", "Please check these Q3 figures.", "Alice Manager");
+
+        // Scenario 2: Active Discussion (Thread with multiple replies from different users)
+        wks.cell("D2").value() = "Active Discussion";
+        wks.addComment("D2", "Is the final report ready for presentation?", "Alice Manager");
+        
+        auto tcDiscussion = wks.threadedComments().comment("D2");
+        if (tcDiscussion.valid()) {
+            std::string bobId = doc.persons().addPerson("Bob Data");
+            std::string charlieId = doc.persons().addPerson("Charlie Sales");
+            
+            wks.threadedComments().addReply(tcDiscussion.id(), bobId, "I am still gathering the marketing data.");
+            wks.threadedComments().addReply(tcDiscussion.id(), charlieId, "Sales data has been uploaded to the shared drive.");
+            wks.threadedComments().addReply(tcDiscussion.id(), bobId, "Thanks Charlie, compiling the final slides now.");
+        }
+
+        // Scenario 3: Resolved Threaded Comment
+        wks.cell("B6").value() = "Resolved Issue";
+        wks.addComment("B6", "There is a calculation error in this cell.", "Bob Data");
+        
+        auto tcResolved = wks.threadedComments().comment("B6");
+        if (tcResolved.valid()) {
+            std::string aliceId = doc.persons().addPerson("Alice Manager");
+            wks.threadedComments().addReply(tcResolved.id(), aliceId, "Good catch. I've updated the formula.");
+            
+            // Mark the entire thread as resolved (Supported in Excel 365+)
+            tcResolved.setResolved(true);
+        }
+
+        doc.save();
+        doc.close();
+
+        // Keep file for human verification
+        REQUIRE(std::filesystem::exists(filename));
+    }
 }
