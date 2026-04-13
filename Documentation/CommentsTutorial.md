@@ -1,22 +1,17 @@
 # Quick Start: Cell Comments & Threads {#comments_tutorial}
 
-[TOC]
+OpenXLSX-NX provides robust, full-featured support for cell annotations in Microsoft Excel, supporting both the classic 97-2016 comment boxes and the modern Office 365 threaded conversations.
 
-## Introduction
-
-OpenXLSX supports two different types of cell annotations provided by Microsoft Excel:
 1. **Traditional Comments (Notes):** The classic floating yellow boxes with a red triangle indicator in the cell corner. These are typically used for static annotations or instructions.
 2. **Modern Threaded Comments:** The modern conversational UI (introduced in Office 365) with a purple indicator. These allow multiple users to have a back-and-forth discussion directly tied to a cell.
 
-This tutorial covers:
-- Adding, sizing, and attributing traditional comments.
-- Initiating modern threaded conversations.
-- Adding replies to existing conversation threads.
-- Removing comments programmatically.
+OpenXLSX-NX offers a highly ergonomic **Fluent Chaining API** and **Document-Level Default Authors** to make generating these annotations seamless and zero-boilerplate.
 
-## 1. Traditional Comments (Notes)
+---
 
-To add traditional comments, you interact with the `comments()` collection on the worksheet. First, you register an author name, which returns an author ID. You then use `set()` to attach a comment to a specific cell reference.
+## 1. Fluent Setup & Default Authors
+
+When generating reports programmatically, you often act on behalf of a system or a single user. You can set a global default author to avoid passing the same name repeatedly.
 
 ```cpp
 #include <OpenXLSX.hpp>
@@ -27,79 +22,71 @@ int main() {
     XLDocument doc;
     doc.create("CommentsDemo.xlsx", XLForceOverwrite);
     
+    // 1. Set a global default author for all generated comments/notes
+    doc.setDefaultAuthor("Financial Auditor");
+    
     auto wks = doc.workbook().worksheet("Sheet1");
-    wks.setName("Traditional Comments");
-
-    // 1. Register authors (returns a 0-based author ID)
-    uint16_t authorAdmin = wks.comments().addAuthor("System Admin");
-    uint16_t authorAudit = wks.comments().addAuthor("Financial Auditor");
-
-    // 2. Add a standard-sized comment to a cell
-    wks.cell("A2").value() = "Default Size Comment";
-    wks.comments().set("A2", "This is a standard sized note.", authorAdmin);
-
-    // 3. Add a large comment 
-    // The set() method accepts optional width (in columns) and height (in rows)
-    wks.cell("B2").value() = "Large Comment";
-    wks.comments().set("B2", "This comment is much larger to accommodate\nmultiple lines\nof text.", authorAdmin, 6, 10);
-    
-    // 4. Add a comment by a different author
-    wks.cell("C2").value() = "Auditor Comment";
-    wks.comments().set("C2", "Please review these numbers.", authorAudit);
+    wks.setName("Modern Comments");
 ```
 
-## 2. Modern Threaded Comments
+---
 
-For modern conversational comments, OpenXLSX provides highly streamlined, integrated methods directly on the `XLWorksheet` object: `addThreadedComment()` and `addThreadedReply()`. 
+## 2. Modern Threaded Comments (Excel 365)
 
-These methods automatically manage the underlying XML structures and "Person" identities required by modern Excel versions.
+For modern conversational comments, OpenXLSX-NX provides highly streamlined, object-oriented methods directly on the `XLCell` object. When you create a modern comment, OpenXLSX-NX *automatically* generates the invisible legacy fallback structures required by the OOXML standard for backward compatibility with older Excel versions.
 
 ```cpp
-    doc.workbook().addWorksheet("Threaded Comments");
-    auto wksThreaded = doc.workbook().worksheet("Threaded Comments");
-
-    wksThreaded.cell("A3").value() = "Q3 Projections";
-    
-    // 1. Start a new conversation thread on a cell
-    // Signature: addThreadedComment(CellReference, Text, AuthorName)
-    // Returns an XLThreadedComment object which contains the unique thread ID.
-    auto thread1 = wksThreaded.addThreadedComment("A3", "Can we update the Q3 projections?", "Alice Smith");
-    
-    // 2. Add replies to the conversation thread
-    // Signature: addThreadedReply(ParentThreadID, Text, AuthorName)
-    wksThreaded.addThreadedReply(thread1.id(), "Yes, I will have them ready by tomorrow.", "Bob Johnson");
-    wksThreaded.addThreadedReply(thread1.id(), "Great, thanks Bob!", "Alice Smith");
-
-
-    wksThreaded.cell("C3").value() = "Revenue Figures";
-    
-    // 3. Start a separate conversation thread on a different cell
-    auto thread2 = wksThreaded.addThreadedComment("C3", "Is this figure correct?", "Bob Johnson");
-    wksThreaded.addThreadedReply(thread2.id(), "I believe so, let me double check the raw data.", "Alice Smith");
+    // 1. Start a new conversation thread on a cell fluently
+    // Signature: addComment(Text, [Optional AuthorName])
+    // Returns an XLThreadedComment object which you can chain replies to.
+    auto thread = wks.cell("A3")
+                     .value() = "Q3 Projections";
+                     
+    wks.cell("A3").addComment("Can we update the Q3 projections?", "Alice Smith")
+                  .addReply("Yes, I will have them ready by tomorrow.", "Bob Johnson")
+                  .addReply("Great, thanks Bob!", "Alice Smith")
+                  .setResolved(true); // Mark the entire thread as resolved (Excel 365 feature)
 ```
 
-## 3. Removing Comments
+---
 
-You can programmatically remove comments and entire threaded conversations from cells using the corresponding deletion methods.
+## 3. Traditional Comments (Notes)
+
+If you strictly need the classic yellow boxes, you can use the `addNote()` fluent method. You also have full access to the underlying `XLComments` system to manipulate the VML drawing shapes (e.g., resizing the box or making it permanently visible).
 
 ```cpp
-    // Remove a legacy traditional comment
-    wks.deleteComment("B2");
+    // 1. Add a classic yellow note to a cell
+    wks.cell("C2").value() = "Audit Target";
+    wks.cell("C2").addNote("Please review these numbers."); // Uses the default "Financial Auditor" author
 
-    // Remove a modern threaded comment AND all of its replies
-    wksThreaded.deleteThreadedComment("C3");
+    // 2. Advanced: Modify the physical shape of the Note box
+    // To modify the shape, we must query the worksheet's comments() collection.
+    auto shape = wks.comments().shape("C2");
+    
+    // Make the comment box always visible
+    shape.style().show();
+    
+    // Resize the comment box
+    shape.style().setWidth(300);
+    shape.style().setHeight(150);
 ```
 
-## Summary
+---
 
-Save and close your document. 
+## 4. Removing Comments
+
+Removing comments can be done directly from the worksheet.
 
 ```cpp
+    // 1. Remove a modern threaded comment and all its replies
+    wks.deleteComment("A3");
+    
+    // 2. Remove a traditional note
+    wks.deleteNote("C2");
+
     doc.save();
     doc.close();
     
     return 0;
 }
 ```
-
-The generated file will natively display the red/purple indicators and provide the rich interaction features users expect within Microsoft Excel.

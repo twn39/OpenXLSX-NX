@@ -195,7 +195,22 @@ auto extracted = range.getValue<int>();
 range.setBorderOutline(XLLineStyleThick, XLColor("0000FF"));
 ```
 
-### 2. Stream Reading (For Multi-Gigabyte Files)
+### 2. Fluent Chaining & Conversational Threads
+Stop jumping between Worksheet and Cell scopes. Manage values, formats, and Excel 365 modern threaded discussions in one breath.
+```cpp
+doc.setDefaultAuthor("System Manager");
+
+wks.cell("A1").setValue("Audit Required")
+              .addNote("Please check this ASAP.") // Legacy yellow note
+              .getStyle().setFontColor(XLColor::Red);
+
+// Object-Oriented Reply Cascades for modern Excel 365 threaded comments
+wks.cell("C3").addComment("Is the Q3 data finalized?", "Alice")
+              .addReply("Uploading now.", "Bob")
+              .addReply("Got it.", "Alice").setResolved(true);
+```
+
+### 11. Stream Reading (For Multi-Gigabyte Files)
 Never worry about `std::bad_alloc` again. `XLStreamReader` uses a micro-DOM sliding window to read massive files with virtually zero memory overhead.
 ```cpp
 auto reader = doc.workbook().worksheet("MassiveData").streamReader();
@@ -205,7 +220,7 @@ while (reader.hasNext()) {
 }
 ```
 
-### 3. Smart Image Insertion
+### 11. Smart Image Insertion
 Insert any `png`, `jpg`, or `gif` using natural cell coordinates. The engine automatically parses the binary header to detect the image dimensions without depending on OpenCV or libpng.
 ```cpp
 XLImageOptions opts;
@@ -215,7 +230,7 @@ opts.positioning = XLImagePositioning::TwoCell; // Stretch with cell bounds
 wks.insertImage("B2", "company_logo.png", opts);
 ```
 
-### 4. Fluent Data Validation (Dropdowns)
+### 11. Fluent Data Validation (Dropdowns)
 Build complex dropdown lists and warnings with method chaining.
 ```cpp
 wks.dataValidations().add("C2:C100")
@@ -223,7 +238,7 @@ wks.dataValidations().add("C2:C100")
    .setErrorAlert("Invalid", "Please select a valid state from the list.");
 ```
 
-### 5. UI Behaviors (Freeze Panes & AutoFit)
+### 11. UI Behaviors (Freeze Panes & AutoFit)
 ```cpp
 // Instantly freeze Row 1 and Column A
 wks.freezePanes("B2"); 
@@ -235,7 +250,7 @@ wks.autoFitColumn(2);
 wks.column("C").setHidden(true);
 ```
 
-### 6. Formulas & Merge Cells
+### 11. Formulas & Merge Cells
 ```cpp
 // Write a formula
 wks.cell("E1").formula() = "SUM(A1:D1)";
@@ -244,7 +259,7 @@ wks.cell("E1").formula() = "SUM(A1:D1)";
 wks.mergeCells("A1:D1");
 ```
 
-### 7. Thread-Safe Concurrent Access
+### 11. Thread-Safe Concurrent Access
 OpenXLSX features a thread-safe two-tier lock architecture that enables high-performance parallel processing, allowing multiple threads to write to **different** worksheets simultaneously without data races.
 
 #### Thread Safety Guarantees
@@ -277,7 +292,7 @@ doc.save();
 ```
 *Note: The underlying Shared String Table is automatically protected by a dedicated mutex, making concurrent text insertions entirely thread-safe. Writing to the **same** worksheet from multiple threads is not supported.*
 
-### 8. Built-in Formula Evaluation Engine
+### 11. Built-in Formula Evaluation Engine
 Evaluate formulas directly in C++ without needing MS Excel to recalculate the file.
 ```cpp
 wks.cell("A1").value() = 10.5;
@@ -294,7 +309,7 @@ double sumResult = engine.evaluate(wks.cell("B1").formula().get(), resolver).get
 std::string logicResult = engine.evaluate(wks.cell("B2").formula().get(), resolver).getString();
 ```
 
-### 9. Dynamic Row/Column Insertion
+### 11. Dynamic Row/Column Insertion
 Insert or delete rows and columns on the fly. Existing data and coordinates shift automatically.
 ```cpp
 // Insert 2 blank rows starting at row 5 (existing row 5 becomes row 7)
@@ -304,7 +319,7 @@ wks.insertRow(5, 2);
 wks.deleteColumn(3, 1); 
 ```
 
-### 10. Configurable ZIP Packing Compression
+### 11. Configurable ZIP Packing Compression
 Optimize save performance or file size by setting the internal ZIP compression level.
 ```cpp
 // 0: Store (Fastest, Largest file)
