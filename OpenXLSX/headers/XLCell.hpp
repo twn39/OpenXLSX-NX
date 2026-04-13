@@ -194,12 +194,12 @@ namespace OpenXLSX
         /**
          * @brief Add a modern threaded comment (Excel 365) to this cell fluently.
          */
-        XLThreadedComment addComment(const std::string& text, const std::string& author = "");
+        XLThreadedComment addComment(std::string_view text, std::string_view author = "");
 
         /**
          * @brief Add a legacy yellow note to this cell fluently.
          */
-        XLCell& addNote(const std::string& text, const std::string& author = "");
+        XLCell& addNote(std::string_view text, std::string_view author = "");
 
         /**
          * @brief Print the XML contents of the XLCell using the underlying XMLNode print function
@@ -260,7 +260,7 @@ namespace OpenXLSX
         XLCellAssignable& operator=(XLCell&& other) noexcept override;
         XLCellAssignable& operator=(XLCellAssignable&& other) noexcept;
 
-        XLCellAssignable& addNote(const std::string& text, const std::string& author = "") {
+        XLCellAssignable& addNote(std::string_view text, std::string_view author = "") {
             XLCell::addNote(text, author);
             return *this;
         }

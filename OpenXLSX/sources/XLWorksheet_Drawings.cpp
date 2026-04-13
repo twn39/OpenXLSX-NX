@@ -295,17 +295,17 @@ XLChart XLWorksheet::addChart(XLChartType type, const XLChartAnchor& anchor)
     return chart;
 }
 
-void XLWorksheet::addNote(const std::string& cellRef, const std::string& text, const std::string& author)
+void XLWorksheet::addNote(std::string_view cellRef, std::string_view text, std::string_view author)
 {
-    std::string finalAuthor = author.empty() ? parentDoc().defaultAuthor() : author;
-    comments().set(cellRef, text, finalAuthor);
+    std::string finalAuthor = author.empty() ? parentDoc().defaultAuthor() : std::string(author);
+    comments().set(std::string(cellRef), std::string(text), finalAuthor);
 }
 
-XLThreadedComment XLWorksheet::addComment(const std::string& cellRef, const std::string& text, const std::string& author)
+XLThreadedComment XLWorksheet::addComment(std::string_view cellRef, std::string_view text, std::string_view author)
 {
-    std::string finalAuthor = author.empty() ? parentDoc().defaultAuthor() : author;
+    std::string finalAuthor = author.empty() ? parentDoc().defaultAuthor() : std::string(author);
     std::string personId = parentDoc().persons().addPerson(finalAuthor);
-    auto tc = threadedComments().addComment(cellRef, personId, text);
+    auto tc = threadedComments().addComment(std::string(cellRef), personId, std::string(text));
     
     // Add legacy note for fallback and to generate the hidden VML box required by Excel.
     // Excel strictly requires the legacy author name to be "tc=" + the threaded comment ID!
@@ -356,18 +356,18 @@ XLThreadedComment XLWorksheet::addReply(const std::string& parentId, const std::
     tc.setWorksheet(this); return tc;
 }
 
-void XLWorksheet::deleteComment(const std::string& cellRef)
+void XLWorksheet::deleteComment(std::string_view cellRef)
 {
     if (hasThreadedComments()) {
-        threadedComments().deleteComment(cellRef);
+        threadedComments().deleteComment(std::string(cellRef));
     }
     deleteNote(cellRef); // remove the legacy hidden box
 }
 
-void XLWorksheet::deleteNote(const std::string& cellRef)
+void XLWorksheet::deleteNote(std::string_view cellRef)
 {
     if (hasComments()) {
-        comments().deleteComment(cellRef);
+        comments().deleteComment(std::string(cellRef));
     }
 }
 

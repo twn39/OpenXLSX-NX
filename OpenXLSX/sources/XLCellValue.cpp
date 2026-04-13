@@ -487,7 +487,7 @@ void XLCellValueProxy::setFloat(double numberValue)
  * @pre The m_cellNode must not be null, and must point to a valid XMLNode object.
  * @post The underlying XMLNode has been updated correctly, representing a string value.
  */
-void XLCellValueProxy::setString(const char* stringValue)    // NOLINT
+void XLCellValueProxy::setString(std::string_view stringValue)    // NOLINT
 {
     // ===== Check that the m_cellNode is valid.
     assert(m_cellNode != nullptr);      // NOLINT

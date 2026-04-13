@@ -64,7 +64,7 @@ XLSharedStrings::~XLSharedStrings() = default;
  * @details Look up a string index by the string content. If the string does not exist, the returned index is -1.
  * Optimized to use O(1) hash lookup when available.
  */
-int32_t XLSharedStrings::getStringIndex(const std::string& str) const
+int32_t XLSharedStrings::getStringIndex(std::string_view str) const
 {
     Expects(m_stringIndex != nullptr || m_stringCache != nullptr);
 
@@ -85,7 +85,7 @@ int32_t XLSharedStrings::getStringIndex(const std::string& str) const
 /**
  * @details Check if a string exists in the shared strings table. O(1) with hash index.
  */
-bool XLSharedStrings::stringExists(const std::string& str) const
+bool XLSharedStrings::stringExists(std::string_view str) const
 {
     std::shared_lock<std::shared_mutex> lock;
     if (m_mutex) lock = std::shared_lock<std::shared_mutex>(*m_mutex);
@@ -118,7 +118,7 @@ const char* XLSharedStrings::getString(int32_t index) const
  * @details Append a string by creating a new node in the XML file and adding the string to it. The index to the
  * shared string is returned
  */
-int32_t XLSharedStrings::appendString(const std::string& str) const
+int32_t XLSharedStrings::appendString(std::string_view str) const
 {
     if (!isCleanXmlString(str)) {
         return appendString(sanitizeXmlString(str));
@@ -192,7 +192,7 @@ int32_t XLSharedStrings::getOrCreateStringIndex(std::string_view str) const
         }
     }
 
-    return appendString(std::string(str));
+    return appendString(str);
 }
 
 /**

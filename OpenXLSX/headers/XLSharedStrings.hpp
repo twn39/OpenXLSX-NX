@@ -127,14 +127,14 @@ namespace OpenXLSX
          * @param str
          * @return
          */
-        int32_t getStringIndex(const std::string& str) const;
+        int32_t getStringIndex(std::string_view str) const;
 
         /**
          * @brief
          * @param str
          * @return
          */
-        bool stringExists(const std::string& str) const;
+        bool stringExists(std::string_view str) const;
 
         /**
          * @brief
@@ -148,7 +148,7 @@ namespace OpenXLSX
          * @param str The string to append.
          * @return An int32_t with the index of the appended string
          */
-        int32_t appendString(const std::string& str) const;
+        int32_t appendString(std::string_view str) const;
 
         /**
          * @brief Pre-reserve capacity in the string cache and index for n strings.

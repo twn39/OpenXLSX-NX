@@ -75,7 +75,7 @@ namespace OpenXLSX
         /**
          * @brief Add a new top-level threaded comment.
          */
-        XLThreadedComment addComment(const std::string& ref, const std::string& personId, const std::string& text);
+        XLThreadedComment addComment(std::string_view ref, std::string_view personId, std::string_view text);
 
         /**
          * @brief Add a reply to an existing threaded comment.

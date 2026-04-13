@@ -469,12 +469,7 @@ namespace OpenXLSX
                                std::is_same_v<std::decay_t<T>, const char*> ||
                                (std::is_same_v<std::decay_t<T>, char*> and !std::is_same_v<T, bool> and !std::is_same_v<T, XLCellValue>))
             {
-                if constexpr (std::is_same_v<std::decay_t<T>, const char*> or std::is_same_v<std::decay_t<T>, char*>)
-                    setString(value);
-                else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>)
-                    setString(std::string(value).c_str());
-                else
-                    setString(value.c_str());
+                setString(value);
             }
 
             if constexpr (std::is_same_v<T, XLCellValue>) {
@@ -639,7 +634,7 @@ namespace OpenXLSX
          * @brief Set the cell to a string value.
          * @param stringValue The value to be set.
          */
-        void setString(const char* stringValue);
+        void setString(std::string_view stringValue);
 
         /**
          * @brief Set the cell to a rich text value.

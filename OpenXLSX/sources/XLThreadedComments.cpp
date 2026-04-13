@@ -117,7 +117,7 @@ std::vector<XLThreadedComment> XLThreadedComments::replies(const std::string& pa
     return result;
 }
 
-XLThreadedComment XLThreadedComments::addComment(const std::string& ref, const std::string& personId, const std::string& text)
+XLThreadedComment XLThreadedComments::addComment(std::string_view ref, std::string_view personId, std::string_view text)
 {
     XMLNode root = xmlDocument().document_element();
     if (!root) {
@@ -126,13 +126,13 @@ XLThreadedComment XLThreadedComments::addComment(const std::string& ref, const s
         root.append_attribute("xmlns:x").set_value("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
     }
     XMLNode commentNode = root.append_child("threadedComment");
-    commentNode.append_attribute("ref").set_value(ref.c_str());
+    commentNode.append_attribute("ref").set_value(std::string(ref).c_str());
     commentNode.append_attribute("dT").set_value("2024-01-01T12:00:00.00");
-    commentNode.append_attribute("personId").set_value(personId.c_str());
+    commentNode.append_attribute("personId").set_value(std::string(personId).c_str());
     commentNode.append_attribute("id").set_value(GenerateGUID().c_str());
     
     XMLNode textNode = commentNode.append_child("text");
-    textNode.text().set(text.c_str());
+    textNode.text().set(std::string(text).c_str());
 
     return XLThreadedComment(commentNode);
 }

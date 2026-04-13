@@ -257,7 +257,7 @@ bool XLCell::isEqual(const XLCell& lhs, const XLCell& rhs) { return *lhs.m_cellN
 /**
  * @details Applies a high-level XLStyle object by resolving it into the underlying OpenXLSX XLStyles system.
  */
-XLCell& XLCell::addNote(const std::string& text, const std::string& author)
+XLCell& XLCell::addNote(std::string_view text, std::string_view author)
 {
     if (m_wks && m_cellNode) {
         m_wks->addNote(m_cellNode->attribute("r").value(), text, author);
@@ -265,7 +265,7 @@ XLCell& XLCell::addNote(const std::string& text, const std::string& author)
     return *this;
 }
 
-XLThreadedComment XLCell::addComment(const std::string& text, const std::string& author)
+XLThreadedComment XLCell::addComment(std::string_view text, std::string_view author)
 {
     if (m_wks && m_cellNode) {
         return m_wks->addComment(m_cellNode->attribute("r").value(), text, author);
