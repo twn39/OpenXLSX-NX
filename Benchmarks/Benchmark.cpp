@@ -156,6 +156,29 @@ TEST_CASE("OpenXLSX Benchmarks", "[.benchmark]")
             return dummy_sum;
         };
 
+        BENCHMARK("Random DOM Access (Backward Col Write)")
+        {
+            XLDocument doc;
+            doc.create("./benchmark_reverse.xlsx", XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+            
+            // Sequential forward: O(N)
+            for (int col = 1; col <= 5000; ++col) {
+                wks.cell(1, col).value() = "Init";
+            }
+            
+            // Random Backward:
+            // Without hint cache: O(N^2) (12.5 million DOM node jumps)
+            // WITH hint cache: Amortized O(N) (5000 previous_sibling jumps)
+            for (int col = 5000; col >= 1; --col) {
+                wks.cell(1, col).value() = "Backward";
+            }
+            
+            doc.save();
+            doc.close();
+            return 5000;
+        };
+
         BENCHMARK("Style Pool - Deduplication")
         {
             XLDocument doc;
