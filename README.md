@@ -1,7 +1,7 @@
 # OpenXLSX-NX
 
-[![OpenXLSX CI](https://github.com/twn39/OpenXLSX/actions/workflows/ci.yml/badge.svg)](https://github.com/twn39/OpenXLSX/actions/workflows/ci.yml)
-[![GitHub Pages](https://github.com/twn39/OpenXLSX/actions/workflows/doxygen-pages.yml/badge.svg)](https://twn39.github.io/OpenXLSX-NX/)
+[![OpenXLSX CI](https://github.com/twn39/OpenXLSX-NX/actions/workflows/ci.yml/badge.svg)](https://github.com/twn39/OpenXLSX-NX/actions/workflows/ci.yml)
+[![GitHub Pages](https://github.com/twn39/OpenXLSX-NX/actions/workflows/doxygen-pages.yml/badge.svg)](https://twn39.github.io/OpenXLSX-NX/)
 
 **OpenXLSX-NX** (Next Generation) is an advanced, high-performance C++ library for reading, writing, creating, and modifying Microsoft Excel® files in the `.xlsx` format. It is designed to be fast, cross-platform, and has minimal external dependencies.
 
@@ -304,9 +304,22 @@ wks.insertRow(5, 2);
 wks.deleteColumn(3, 1); 
 ```
 
+### 10. Configurable ZIP Packing Compression
+Optimize save performance or file size by setting the internal ZIP compression level.
+```cpp
+// 0: Store (Fastest, Largest file)
+// 1: Fast (Default, Best balance)
+// 9: Best (Slowest, Smallest file)
+doc.setCompressionLevel(1); 
+doc.save();
+```
+
 ## 📜 Changelog
 <details>
 <summary><b>Detailed Change Log</b></summary>
+
+### 2026-04-13: Configurable ZIP Packing Compression
+- **Save Optimization**: Added `setCompressionLevel()` to allow fine-tuning the ZIP deflation ratio. The default has been set to 1 (Fastest) to prioritize maximum save performance without unnecessarily re-compressing structural XML files.
 
 ### 2026-04-06: 120+ Formula Engine Cross-Validation (Excelize Parity)
 - **100% Deterministic Parity**: Executed full data-driven validation against the Go **Excelize** math engine. Achieved 100% equivalence on over 120 supported Math, Logic, Date/Time, and Financial functions.
