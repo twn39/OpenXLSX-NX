@@ -458,9 +458,9 @@ void XLCellValueProxy::setFloat(double numberValue)
         // ===== The type ("t") attribute is not required for number values.
         m_cellNode->remove_attribute("t");
 
-        // ===== Set the text of the value node using fmt for speed.
+        // ===== Set the text of the value node using fmt for speed, enforcing Excel's 15 significant digits protocol.
         char buffer[32];
-        auto res = fmt::format_to(buffer, "{}", numberValue);
+        auto res = fmt::format_to(buffer, "{:.15g}", numberValue);
         *res     = '\0';
         m_cellNode->child("v").text().set(buffer);
 

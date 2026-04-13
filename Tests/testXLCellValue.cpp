@@ -231,6 +231,13 @@ TEST_CASE("XLCellValueTests", "[XLCellValue]")
         REQUIRE_THROWS(value.get<int>());
         REQUIRE(value.get<double>() == 3.14159);
         REQUIRE_THROWS(value.get<bool>());
+
+        // Microsoft Excel only supports up to 15 significant digits (IEEE 754 precision limit rule).
+        // 0.1 + 0.2 creates a 0.30000000000000004 float jitter.
+        double jitteryFloat = 0.1 + 0.2;
+        value.set(jitteryFloat);
+        // It must round to exactly 15 digits internally and be readable as clean 0.3
+        REQUIRE(value.get<double>() == Catch::Approx(0.3).epsilon(1e-15));
     }
 
     SECTION("Set Nan Float")
