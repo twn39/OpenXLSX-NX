@@ -1,6 +1,7 @@
 #include <OpenXLSX.hpp>
 #include <atomic>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <thread>
 #include <vector>
 
@@ -10,7 +11,7 @@ TEST_CASE("XLConcurrentTests", "[XLConcurrent]")
 {
     SECTION("Concurrent writes to different worksheets")
     {
-        const std::string filename  = "./testXLConcurrent.xlsx";
+        const std::string filename  = OpenXLSX::TestHelpers::getUniqueFilename();
         constexpr int     numSheets = 4;
         constexpr int     numRows   = 200;
 
@@ -67,7 +68,7 @@ TEST_CASE("XLConcurrentTests", "[XLConcurrent]")
 
     SECTION("Concurrent reads after writes")
     {
-        const std::string filename = "./testXLConcurrentRead.xlsx";
+        const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         constexpr int     numRows  = 100;
 
         // Setup: create and populate
@@ -130,7 +131,7 @@ TEST_CASE("XLConcurrentTests", "[XLConcurrent]")
 
     SECTION("Shared string table thread safety")
     {
-        const std::string filename   = "./testXLConcurrentSST.xlsx";
+        const std::string filename   = OpenXLSX::TestHelpers::getUniqueFilename();
         constexpr int     numThreads = 4;
         constexpr int     numStrings = 100;
 
@@ -181,7 +182,7 @@ TEST_CASE("XLConcurrentTests", "[XLConcurrent]")
     {
         // Verifies that setName (unique_lock on doc mutex) doesn't deadlock
         // or corrupt state when cell-writer threads hold the SST mutex.
-        const std::string filename  = "./testXLConcurrentMutate.xlsx";
+        const std::string filename  = OpenXLSX::TestHelpers::getUniqueFilename();
         constexpr int     numSheets = 4;
         constexpr int     numRows   = 200;
 

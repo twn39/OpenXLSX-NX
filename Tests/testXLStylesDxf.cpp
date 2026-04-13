@@ -4,6 +4,14 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("DXFTest_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("XLDxfTests", "[Dxf]")
 {
     SECTION("Standalone XLDxf Properties")
@@ -33,7 +41,7 @@ TEST_CASE("XLDxfTests", "[Dxf]")
     SECTION("Integration: Apply DXF to Conditional Formatting")
     {
         XLDocument doc;
-        doc.create("DXFTest.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // 1. Create a DXF (Red font, bold)

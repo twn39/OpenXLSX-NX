@@ -1,5 +1,6 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -43,7 +44,7 @@ size_t getCurrentRSS()
 
 TEST_CASE("StreamingGiantDocumentMemoryTest", "[Streaming][OOM]")
 {
-    const std::string filename = "GiantStreamingTest.xlsx";
+    const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
     // 1 Million cells. DOM parsing this would easily take 100-200MB natively. 
     // Streaming should theoretically keep this under 50MB (mostly string buffer overhead).
     // NOTE: Memory fragmentation and AddressSanitizer (ASan) quarantine can heavily inflate RSS

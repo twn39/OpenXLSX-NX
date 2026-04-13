@@ -5,11 +5,24 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__AutoFilterAdvancedTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__AutoFilterTest_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("AutoFilterandSortStateGeneration", "[XLAutoFilter]")
 {
     // === Functionality Setup ===
     XLDocument doc;
-    doc.create("./AutoFilterTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_1(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // Add some sample data
@@ -55,7 +68,7 @@ TEST_CASE("AutoFilterandSortStateGeneration", "[XLAutoFilter]")
 
     // === Read-back and OOXML Verification ===
     XLDocument doc2;
-    doc2.open("./AutoFilterTest.xlsx");
+    doc2.open(__global_unique_file_1());
     auto wks2 = doc2.workbook().worksheet("Sheet1");
 
     REQUIRE(wks2.hasAutoFilter() == true);
@@ -92,7 +105,7 @@ TEST_CASE("AutoFilterandSortStateGeneration", "[XLAutoFilter]")
 TEST_CASE("AutoFilterAdvancedConditions", "[XLAutoFilter][Advanced]")
 {
     XLDocument doc;
-    doc.create("./AutoFilterAdvancedTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     wks.cell("A1").value() = "ID";
@@ -117,7 +130,7 @@ TEST_CASE("AutoFilterAdvancedConditions", "[XLAutoFilter][Advanced]")
     doc.close();
 
     XLDocument doc2;
-    REQUIRE_NOTHROW(doc2.open("./AutoFilterAdvancedTest.xlsx"));
+    REQUIRE_NOTHROW(doc2.open(__global_unique_file_0()));
     
     std::string sheetXmlStr = doc2.extractXmlFromArchive("xl/worksheets/sheet1.xml");
 
@@ -130,5 +143,5 @@ TEST_CASE("AutoFilterAdvancedConditions", "[XLAutoFilter][Advanced]")
     REQUIRE(sheetXmlStr.find("<top10 val=\"3\"") != std::string::npos);
 
     doc2.close();
-    std::remove("./AutoFilterAdvancedTest.xlsx");
+    std::remove(__global_unique_file_0());
 }

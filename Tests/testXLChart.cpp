@@ -1,9 +1,18 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 #include <fstream>
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("test_chart_functional_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 namespace
 {
@@ -41,13 +50,13 @@ public:
 
 TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
 {
-    std::string filename = "test_chart_functional.xlsx";
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("Stock and Surface Chart Creation")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
             for (int i = 1; i <= 5; ++i) { wks.cell(i, 1).value() = i; }
 
@@ -81,7 +90,7 @@ TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
             for (int i = 1; i <= 3; ++i) { wks.cell(i, 1).value() = i; }
 
@@ -113,7 +122,7 @@ TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
 
             // Add some data
@@ -172,7 +181,7 @@ TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Line, "Line Chart", 2, 4, 400, 300);
             chart.addSeries("Sheet1!$A$1:$A$10");
@@ -195,7 +204,7 @@ TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Pie, "Pie Chart", 2, 4, 400, 300);
             chart.addSeries("Sheet1!$A$1:$A$10");
@@ -219,7 +228,7 @@ TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Scatter, "Scatter Chart", 2, 4, 400, 300);
             chart.addSeries("Sheet1!$A$1:$A$10");
@@ -243,7 +252,7 @@ TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Bar, "Bar Chart", 2, 4, 400, 300);
 
@@ -277,7 +286,7 @@ TEST_CASE("ChartCreationandVerification", "[XLChart][OOXML]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks   = doc.workbook().worksheet("Sheet1");
             auto chart = wks.addChart(XLChartType::Scatter, "Scatter", 2, 4, 400, 300);
 
@@ -444,7 +453,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
     SECTION("P1.1 Series Color")
     {
-        const std::string fname = "test_p1_series_color.xlsx";
+        const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(fname, XLForceOverwrite);
@@ -469,7 +478,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
     SECTION("P1.2 Data Point Color")
     {
-        const std::string fname = "test_p1_datapoint_color.xlsx";
+        const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(fname, XLForceOverwrite);
@@ -496,7 +505,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
     SECTION("P1.3 Gap Width and Overlap")
     {
-        const std::string fname = "test_p1_gap_overlap.xlsx";
+        const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(fname, XLForceOverwrite);
@@ -524,7 +533,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
     SECTION("P1.4 Axis Number Format")
     {
-        const std::string fname = "test_p1_axis_numfmt.xlsx";
+        const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(fname, XLForceOverwrite);
@@ -549,7 +558,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
     SECTION("P1.5 Scatter Sub-type ScatterSmooth")
     {
-        const std::string fname = "test_p1_scatter_smooth.xlsx";
+        const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(fname, XLForceOverwrite);
@@ -576,7 +585,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
     SECTION("P2.1 Plot Area Color")
     {
-        const std::string fname = "test_p2_plotarea_color.xlsx";
+        const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(fname, XLForceOverwrite);
@@ -601,7 +610,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
     SECTION("P2.2 Chart Area Color")
     {
-        const std::string fname = "test_p2_chartarea_color.xlsx";
+        const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(fname, XLForceOverwrite);
@@ -626,7 +635,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
     SECTION("P2.3 Bubble Chart")
     {
-        const std::string fname = "test_p2_bubble.xlsx";
+        const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(fname, XLForceOverwrite);
@@ -660,7 +669,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
             
             // Base Data
@@ -711,7 +720,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
     {
         {
             XLDocument doc;
-            doc.create("test_chart_functional.xlsx", XLForceOverwrite);
+            doc.create(__global_unique_file_0(), XLForceOverwrite);
             auto wks = doc.workbook().worksheet("Sheet1");
             for (int i = 1; i <= 5; ++i) { wks.cell(i, 1).value() = i * i; } // 1, 4, 9, 16, 25
             
@@ -749,7 +758,7 @@ TEST_CASE("ChartPhase1Phase2Features", "[XLChart][Phase12]")
 
 TEST_CASE("StockOHLCChartComparisonTest", "[XLChart][Stock]")
 {
-    const std::string fname = "test_stock_ohlc.xlsx";
+    const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
     {
         XLDocument doc;
         doc.create(fname, XLForceOverwrite);
@@ -782,7 +791,7 @@ TEST_CASE("StockOHLCChartComparisonTest", "[XLChart][Stock]")
 
 TEST_CASE("Surface3DChartComparisonTest", "[XLChart][Surface3D]")
 {
-    const std::string fname = "test_surface3d.xlsx";
+    const std::string fname = OpenXLSX::TestHelpers::getUniqueFilename();
     {
         XLDocument doc;
         doc.create(fname, XLForceOverwrite);

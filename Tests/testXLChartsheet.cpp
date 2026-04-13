@@ -1,5 +1,6 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 #include <fstream>
 
@@ -40,7 +41,7 @@ public:
 
 TEST_CASE("ChartsheetCreationandVerification", "[XLChartsheet][OOXML]")
 {
-    std::string filename = "test_chartsheet.xlsx";
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("Create Chartsheet")
     {

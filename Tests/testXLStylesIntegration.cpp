@@ -1,13 +1,22 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLStyleFacade_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 TEST_CASE("XLStylesIntegrationTests", "[XLStyles]")
 {
     SECTION("Font Style Round-trip")
     {
-        const std::string filename = "StyleIntegrationTest.xlsx";
+        const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
         // 1. Create and apply style
         {
@@ -61,7 +70,7 @@ TEST_CASE("XLStylesIntegrationTests", "[XLStyles]")
 
     SECTION("Fill Style Round-trip")
     {
-        const std::string filename = "FillIntegrationTest.xlsx";
+        const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
         // 1. Create and apply fill
         {
@@ -108,7 +117,7 @@ TEST_CASE("XLStylesIntegrationTests", "[XLStyles]")
 TEST_CASE("HighLevelXLStyleFacadeIntegration", "[XLStyle]")
 {
     XLDocument doc;
-    doc.create("./testXLStyleFacade.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     XLStyle style;
@@ -136,7 +145,7 @@ TEST_CASE("HighLevelXLStyleFacadeIntegration", "[XLStyle]")
 
     // Verify it was correctly persisted
     XLDocument doc2;
-    doc2.open("./testXLStyleFacade.xlsx");
+    doc2.open(__global_unique_file_0());
     auto wks2 = doc2.workbook().worksheet("Sheet1");
     auto cell = wks2.cell("A1");
 

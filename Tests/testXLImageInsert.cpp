@@ -1,15 +1,24 @@
 #include "OpenXLSX.hpp"
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 #include <iostream>
 #include <fstream>
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("testXLImageInsert_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
 {
     XLDocument doc;
-    doc.create("testXLImageInsert.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     SECTION("OneCell Anchor (Default)")
@@ -21,7 +30,7 @@ TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
         doc.close();
 
         XLDocument doc2;
-        REQUIRE_NOTHROW(doc2.open("testXLImageInsert.xlsx"));
+        REQUIRE_NOTHROW(doc2.open(__global_unique_file_0()));
         auto wks2   = doc2.workbook().worksheet("Sheet1");
         auto images = wks2.images();
         REQUIRE(images.size() == 1);
@@ -66,7 +75,7 @@ TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
         doc.close();
 
         XLDocument doc2;
-        REQUIRE_NOTHROW(doc2.open("testXLImageInsert.xlsx"));
+        REQUIRE_NOTHROW(doc2.open(__global_unique_file_0()));
 
         std::string drawingStr = doc2.extractXmlFromArchive("xl/drawings/drawing1.xml");
         REQUIRE(drawingStr.find("<xdr:twoCellAnchor>") != std::string::npos);
@@ -98,7 +107,7 @@ TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
         doc.close();
 
         XLDocument doc2;
-        REQUIRE_NOTHROW(doc2.open("testXLImageInsert.xlsx"));
+        REQUIRE_NOTHROW(doc2.open(__global_unique_file_0()));
         std::string drawingStr = doc2.extractXmlFromArchive("xl/drawings/drawing1.xml");
         REQUIRE(drawingStr.find("<xdr:absoluteAnchor>") != std::string::npos);
         // 50 * 9525 = 476250 EMUs
@@ -109,5 +118,5 @@ TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
         doc2.close();
     }
 
-    std::filesystem::remove("testXLImageInsert.xlsx");
+    std::filesystem::remove(__global_unique_file_0());
 }

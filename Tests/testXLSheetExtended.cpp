@@ -1,14 +1,33 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheetProtection_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLRowColFormat_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLTabProperties_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 TEST_CASE("XLWorksheetExtendedTests", "[XLSheet]")
 {
     SECTION("Sheet Protection")
     {
         XLDocument doc;
-        doc.create("./testXLSheetProtection.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         REQUIRE(wks.sheetProtected() == false);
@@ -43,7 +62,7 @@ TEST_CASE("XLWorksheetExtendedTests", "[XLSheet]")
     SECTION("Tab Properties")
     {
         XLDocument doc;
-        doc.create("./testXLTabProperties.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_2(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.setColor(XLColor(255, 0, 0));
@@ -62,7 +81,7 @@ TEST_CASE("XLWorksheetExtendedTests", "[XLSheet]")
     SECTION("Row/Column Formatting")
     {
         XLDocument doc;
-        doc.create("./testXLRowColFormat.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_1(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // Set row format

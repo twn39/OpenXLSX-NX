@@ -4,10 +4,18 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__FormulaDemo_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("GenerateFormulaTestDocument", "[FormulaEngine]")
 {
     XLDocument doc;
-    doc.create("./FormulaDemo.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // Add some raw data

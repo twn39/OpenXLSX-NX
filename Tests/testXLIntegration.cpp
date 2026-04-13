@@ -1,12 +1,13 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <ctime>
 
 using namespace OpenXLSX;
 
 TEST_CASE("ComprehensiveIntegrationTests", "[Integration]")
 {
-    const std::string filename = "ComprehensiveIntegration.xlsx";
+    const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("Data Types and Formulas Round-trip")
     {

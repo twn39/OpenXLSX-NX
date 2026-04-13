@@ -4,11 +4,24 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__SparklineAdvTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__SparklineTest_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("SparklineCreation", "[XLSparkline]")
 {
     // === Functionality Setup ===
     XLDocument doc;
-    doc.create("./SparklineTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_1(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // Add some sample data
@@ -27,7 +40,7 @@ TEST_CASE("SparklineCreation", "[XLSparkline]")
 
     // === Read-back and OOXML Verification ===
     XLDocument doc2;
-    doc2.open("./SparklineTest.xlsx");
+    doc2.open(__global_unique_file_1());
     auto wks2 = doc2.workbook().worksheet("Sheet1");
 
     // Check if basic data was saved correctly
@@ -67,7 +80,7 @@ TEST_CASE("SparklineCreation", "[XLSparkline]")
 TEST_CASE("SparklineAdvancedConfiguration", "[XLSparkline]")
 {
     XLDocument doc;
-    doc.create("./SparklineAdvTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     for (uint16_t col = 1; col <= 5; ++col) {
@@ -94,7 +107,7 @@ TEST_CASE("SparklineAdvancedConfiguration", "[XLSparkline]")
 
     // Verify
     XLDocument doc2;
-    doc2.open("./SparklineAdvTest.xlsx");
+    doc2.open(__global_unique_file_0());
     std::string sheetXmlStr = doc2.extractXmlFromArchive("xl/worksheets/sheet1.xml");
 
     REQUIRE(sheetXmlStr.find("displayEmptyCellsAs=\"zero\"") != std::string::npos);
@@ -113,5 +126,5 @@ TEST_CASE("SparklineAdvancedConfiguration", "[XLSparkline]")
     REQUIRE(ok2);
 
     doc2.close();
-    std::remove("./SparklineAdvTest.xlsx");
+    std::remove(__global_unique_file_0());
 }

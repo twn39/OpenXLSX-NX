@@ -1,14 +1,58 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLMultipleMerges_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLMergeGetValue_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLMergeOverlap_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_3() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLMergeCacheConsistency_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_4() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLMergeBounds_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_5() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLEmptyHiddenCells_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_6() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLMergeByCell_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_7() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLMergeCells_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
 {
     SECTION("Basic Merge and Unmerge")
     {
         XLDocument doc;
-        doc.create("./testXLMergeCells.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_7(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.mergeCells("A1:B2");
@@ -26,7 +70,7 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
     SECTION("Multiple Merges")
     {
         XLDocument doc;
-        doc.create("./testXLMultipleMerges.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.mergeCells("A1:A2");
@@ -42,7 +86,7 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
     SECTION("Find Merge by Cell")
     {
         XLDocument doc;
-        doc.create("./testXLMergeByCell.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_6(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.mergeCells("B2:C3");
@@ -65,7 +109,7 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
     SECTION("Numerical Cache Consistency after Deletion")
     {
         XLDocument doc;
-        doc.create("./testXLMergeCacheConsistency.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_3(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.mergeCells("A1:B2");
@@ -90,7 +134,7 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
     SECTION("Overlap Detection (Optimized Path)")
     {
         XLDocument doc;
-        doc.create("./testXLMergeOverlap.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_2(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.mergeCells("B2:D4");
@@ -110,7 +154,7 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
     SECTION("Empty Hidden Cells")
     {
         XLDocument doc;
-        doc.create("./testXLEmptyHiddenCells.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_5(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.cell("A1").value() = 1;
@@ -130,7 +174,7 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
     SECTION("Get Value of Merged Cell")
     {
         XLDocument doc;
-        doc.create("./testXLMergeGetValue.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_1(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.cell("B2").value() = "Merged Title";
@@ -159,13 +203,13 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
         REQUIRE(wks.cell(topLeft).value().get<std::string>() == "Merged Title");
 
         doc.close();
-        std::remove("./testXLMergeGetValue.xlsx");
+        std::remove(__global_unique_file_1());
     }
 
     SECTION("Boundary Overflow Tests")
     {
         XLDocument doc;
-        doc.create("./testXLMergeBounds.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_4(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // Excel has max limits 1048576 x 16384
@@ -176,6 +220,6 @@ TEST_CASE("XLMergeCellsTests", "[XLMergeCells]")
         REQUIRE(wks.merges().findMergeByCell("ZZ999") == 0);
 
         doc.close();
-        std::remove("./testXLMergeBounds.xlsx");
+        std::remove(__global_unique_file_4());
     }
 }

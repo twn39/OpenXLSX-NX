@@ -1,5 +1,6 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <iostream>
 #include <sstream>
 
@@ -7,7 +8,7 @@ using namespace OpenXLSX;
 
 TEST_CASE("XLDrawingVMLandXLTablesTests", "[Drawing][Tables]")
 {
-    const std::string filename = "DrawingTablesIntegration.xlsx";
+    const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("XLVmlDrawing Shape Round-trip")
     {

@@ -1,7 +1,36 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLCommentsRichText_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLComments_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLCommentsOptimizations_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_3() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLCommentsShapes_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_4() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLCommentsMultiple_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 namespace
 {
@@ -35,7 +64,7 @@ TEST_CASE("XLCommentsTests", "[XLComments]")
     SECTION("Basic Comment Operations")
     {
         XLDocument doc;
-        doc.create("./testXLComments.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_1(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         REQUIRE(wks.hasComments() == false);
@@ -61,7 +90,7 @@ TEST_CASE("XLCommentsTests", "[XLComments]")
     SECTION("Multiple Authors and Comments")
     {
         XLDocument doc;
-        doc.create("./testXLCommentsMultiple.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_4(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         auto&    comments = wks.comments();
@@ -84,7 +113,7 @@ TEST_CASE("XLCommentsTests", "[XLComments]")
     SECTION("Comment Shape Properties")
     {
         XLDocument doc;
-        doc.create("./testXLCommentsShapes.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_3(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         wks.comments().set("D4", "Shape test");
@@ -102,7 +131,7 @@ TEST_CASE("XLCommentsTests", "[XLComments]")
     SECTION("Rich Text Comment Operations")
     {
         XLDocument doc;
-        doc.create("./testXLCommentsRichText.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         XLRichText    rt;
@@ -133,7 +162,7 @@ TEST_CASE("XLCommentsTests", "[XLComments]")
 
         // Re-open and verify formatting
         XLDocument doc2;
-        doc2.open("./testXLCommentsRichText.xlsx");
+        doc2.open(__global_unique_file_0());
         auto wks2 = doc2.workbook().worksheet("Sheet1");
 
         auto rt2 = wks2.comments().get(0).richText();
@@ -149,7 +178,7 @@ TEST_CASE("XLCommentsTests", "[XLComments]")
     SECTION("Optimized Comments Overloads, Deduplication and Custom Size")
     {
         XLDocument doc;
-        doc.create("./testXLCommentsOptimizations.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_2(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // 1. Author Deduplication Test
@@ -189,7 +218,7 @@ TEST_CASE("XLCommentsTests", "[XLComments]")
 
 TEST_CASE("CommentsFluentandWorksheetDX", "[XLComments][Fluent]")
 {
-    const std::string filename = "CommentsFluentDXTest.xlsx";
+    const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("addComment helper on Worksheet")
     {

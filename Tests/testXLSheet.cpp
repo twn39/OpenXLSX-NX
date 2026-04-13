@@ -1,7 +1,56 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheet_HF_Order_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheet5_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheet3_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_3() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheet4_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_4() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheetPanes_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_5() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheetGrouping_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_6() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheet2_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_7() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheet1_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_8() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLSheet6_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 namespace
 {
@@ -35,7 +84,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
     SECTION("XLSheet Visibility")
     {
         XLDocument doc;
-        doc.create("./testXLSheet1.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_7(), XLForceOverwrite);
 
         auto wks1 = doc.workbook().sheet(1);
         wks1.setName("VeryHidden");
@@ -68,7 +117,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
     SECTION("XLSheet Tab Color")
     {
         XLDocument doc;
-        doc.create("./testXLSheet2.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_6(), XLForceOverwrite);
 
         auto wks1 = doc.workbook().sheet(1);
         wks1.setName("Sheet1");
@@ -100,7 +149,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
     SECTION("XLSheet AutoFilter")
     {
         XLDocument doc;
-        doc.create("./testXLSheet3.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_2(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         REQUIRE_FALSE(wks.hasAutoFilter());
@@ -120,7 +169,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
     SECTION("XLSheet Panes (Freeze & Split)")
     {
         XLDocument doc;
-        doc.create("./testXLSheetPanes.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_4(), XLForceOverwrite);
 
         auto wks = doc.workbook().worksheet("Sheet1");
 
@@ -196,7 +245,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
     SECTION("XLSheet Grouping (Outline)")
     {
         XLDocument doc;
-        doc.create("./testXLSheetGrouping.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_5(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // Group rows 2-5 (Level 1), not collapsed
@@ -233,7 +282,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
 
     {
         XLDocument doc;
-        doc.create("./testXLSheet4.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_3(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // Test Page Margins
@@ -307,7 +356,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
 
         // Re-open and verify
         XLDocument doc2;
-        doc2.open("./testXLSheet4.xlsx");
+        doc2.open(__global_unique_file_3());
         auto wks2 = doc2.workbook().worksheet("Sheet1");
 
         REQUIRE(wks2.pageMargins().left() == 1.0);
@@ -367,7 +416,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
     SECTION("XLSheet HeaderFooter OOXML Strict Node Order")
     {
         XLDocument doc;
-        doc.create("./testXLSheet_HF_Order.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // Intentionally set in reverse/random order to trigger the NodeOrder re-arrangement
@@ -384,7 +433,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
 
         // Re-open and verify functionality
         XLDocument doc2;
-        doc2.open("./testXLSheet_HF_Order.xlsx");
+        doc2.open(__global_unique_file_0());
         auto wks2 = doc2.workbook().worksheet("Sheet1");
         auto hf2  = wks2.headerFooter();
 
@@ -425,7 +474,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
     SECTION("XLSheet Protection")
     {
         XLDocument doc;
-        doc.create("./testXLSheet5.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_1(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // 1. Test safety: should not crash and should return defaults (true = allowed) when node doesn't exist
@@ -490,7 +539,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
     SECTION("XLSheet Views and Page Breaks")
     {
         XLDocument doc;
-        doc.create("./testXLSheet6.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_8(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // Test Zoom
@@ -507,7 +556,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
 
         // Re-open and verify
         XLDocument doc2;
-        doc2.open("./testXLSheet6.xlsx");
+        doc2.open(__global_unique_file_8());
         auto wks2 = doc2.workbook().worksheet("Sheet1");
 
         REQUIRE(wks2.zoom() == 150);
@@ -532,7 +581,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
         doc2.close();
 
         XLDocument doc3;
-        doc3.open("./testXLSheet6.xlsx");
+        doc3.open(__global_unique_file_8());
         std::string sheetXml3 = getRawXml(doc3, "xl/worksheets/sheet1.xml");
         REQUIRE(sheetXml3.find("count=\"1\"") != std::string::npos);
         REQUIRE(sheetXml3.find("id=\"5\"") == std::string::npos);
@@ -542,7 +591,7 @@ TEST_CASE("XLSheetTests", "[XLSheet]")
 }
 TEST_CASE("WorksheetSlicingandBatchInsertionAPI", "[XLWorksheet][Range][Row]")
 {
-    std::string filename = "test_worksheet_slicing.xlsx";
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("appendRow and range slicing")
     {
@@ -591,7 +640,7 @@ TEST_CASE("WorksheetSlicingandBatchInsertionAPI", "[XLWorksheet][Range][Row]")
 
 TEST_CASE("WorksheetPeekAPI", "[XLWorksheet][Peek]")
 {
-    std::string filename = "test_worksheet_peek.xlsx";
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("peekCell prevents implicit node creation")
     {
@@ -631,7 +680,7 @@ TEST_CASE("WorksheetPeekAPI", "[XLWorksheet][Peek]")
 
 TEST_CASE("WorksheetmergeCellsAPI", "[XLWorksheet][Merge]")
 {
-    std::string filename = "test_worksheet_merge.xlsx";
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("mergeCells returns XLCellRange for fluent usage")
     {
@@ -664,7 +713,7 @@ TEST_CASE("WorksheetmergeCellsAPI", "[XLWorksheet][Merge]")
 
 TEST_CASE("WorksheetStrongIndexAPI", "[XLWorksheet][Index]")
 {
-    std::string filename = "test_worksheet_index.xlsx";
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("Use strong index literals for row and column")
     {
@@ -694,7 +743,7 @@ TEST_CASE("WorksheetStrongIndexAPI", "[XLWorksheet][Index]")
 
 TEST_CASE("PageSetupErgonomicsValidation", "[XLPageSetup][Fluent]")
 {
-    const std::string filename = "PageSetupDXTest.xlsx";
+    const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("Configure page setup seamlessly using fluent API and XLDistance")
     {

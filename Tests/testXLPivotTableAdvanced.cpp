@@ -4,10 +4,43 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__PivotMultiDataTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__PivotBuilderTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__PivotStyleRegressionTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_3() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__PivotBaseFieldTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_4() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__PivotNamedSourceTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_5() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__PivotDataOnRowsTest_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("AdvancedDynamicPivotTableBuilder", "[XLPivotTable]")
 {
     XLDocument doc;
-    doc.create("./PivotBuilderTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_1(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // Sample data
@@ -49,7 +82,7 @@ options.setRowGrandTotals(false)
 
     // Verify written values
     XLDocument doc2;
-    REQUIRE_NOTHROW(doc2.open("./PivotBuilderTest.xlsx"));
+    REQUIRE_NOTHROW(doc2.open(__global_unique_file_1()));
 
     std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
 
@@ -73,7 +106,7 @@ options.setRowGrandTotals(false)
 TEST_CASE("AdvancedPivotTableMultiDataFieldsandEdgeCases", "[XLPivotTable]")
 {
     XLDocument doc;
-    doc.create("./PivotMultiDataTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // Sample data
@@ -112,7 +145,7 @@ TEST_CASE("AdvancedPivotTableMultiDataFieldsandEdgeCases", "[XLPivotTable]")
 
     // Verify written values and XML structures for multi-data fields
     XLDocument doc2;
-    REQUIRE_NOTHROW(doc2.open("./PivotMultiDataTest.xlsx"));
+    REQUIRE_NOTHROW(doc2.open(__global_unique_file_0()));
 
     std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
 
@@ -127,13 +160,13 @@ TEST_CASE("AdvancedPivotTableMultiDataFieldsandEdgeCases", "[XLPivotTable]")
     REQUIRE(ptDefXmlStr.find("<colFields count=\"1\">") != std::string::npos);
     REQUIRE(ptDefXmlStr.find("x=\"-2\"") != std::string::npos); // -2 is the special index for the values field
     
-    std::remove("./PivotMultiDataTest.xlsx");
+    std::remove(__global_unique_file_0());
 }
 
 TEST_CASE("AdvancedPivotTableDataOnRowsandNumFmt", "[XLPivotTable]")
 {
     XLDocument doc;
-    doc.create("./PivotDataOnRowsTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_5(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     wks.cell("A1").value() = "Region";
@@ -160,7 +193,7 @@ TEST_CASE("AdvancedPivotTableDataOnRowsandNumFmt", "[XLPivotTable]")
 
     // Verify written values
     XLDocument doc2;
-    REQUIRE_NOTHROW(doc2.open("./PivotDataOnRowsTest.xlsx"));
+    REQUIRE_NOTHROW(doc2.open(__global_unique_file_5()));
 
     std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
 
@@ -178,13 +211,13 @@ TEST_CASE("AdvancedPivotTableDataOnRowsandNumFmt", "[XLPivotTable]")
     REQUIRE(ptDefXmlStr.find("name=\"Total Revenue\"") != std::string::npos); REQUIRE(ptDefXmlStr.find("numFmtId=\"4\"") != std::string::npos);
     REQUIRE(ptDefXmlStr.find("name=\"Total Costs\"") != std::string::npos); REQUIRE(ptDefXmlStr.find("numFmtId=\"3\"") != std::string::npos);
     
-    std::remove("./PivotDataOnRowsTest.xlsx");
+    std::remove(__global_unique_file_5());
 }
 
 TEST_CASE("AdvancedPivotTableStylingandFormattingRegression", "[XLPivotTable]")
 {
     XLDocument doc;
-    doc.create("./PivotStyleRegressionTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_2(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     wks.cell("A1").value() = "Category";
@@ -208,7 +241,7 @@ TEST_CASE("AdvancedPivotTableStylingandFormattingRegression", "[XLPivotTable]")
 
     // Verify XML structure to ensure styling properties weren't lost
     XLDocument doc2;
-    REQUIRE_NOTHROW(doc2.open("./PivotStyleRegressionTest.xlsx"));
+    REQUIRE_NOTHROW(doc2.open(__global_unique_file_2()));
 
     std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
 
@@ -223,7 +256,7 @@ TEST_CASE("AdvancedPivotTableStylingandFormattingRegression", "[XLPivotTable]")
     REQUIRE(ptDefXmlStr.find("showRowHeaders=\"1\"", stylePos) != std::string::npos);
     REQUIRE(ptDefXmlStr.find("showColHeaders=\"1\"", stylePos) != std::string::npos);
     
-    std::remove("./PivotStyleRegressionTest.xlsx");
+    std::remove(__global_unique_file_2());
 }
 
 TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPivotTable][Regression]")
@@ -233,7 +266,7 @@ TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPi
     // flags the workbook as corrupted.
     
     XLDocument doc;
-    doc.create("./PivotBaseFieldTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_3(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     wks.cell("A1").value() = "Category";
@@ -253,7 +286,7 @@ TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPi
     doc.close();
 
     XLDocument doc2;
-    REQUIRE_NOTHROW(doc2.open("./PivotBaseFieldTest.xlsx"));
+    REQUIRE_NOTHROW(doc2.open(__global_unique_file_3()));
 
     std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
 
@@ -278,13 +311,13 @@ TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPi
     
     REQUIRE(dataFieldCount == 2);
     
-    std::remove("./PivotBaseFieldTest.xlsx");
+    std::remove(__global_unique_file_3());
 }
 
 TEST_CASE("AdvancedPivotTableNamedRangeTableSourceBinding", "[XLPivotTable]")
 {
     XLDocument doc;
-    doc.create("./PivotNamedSourceTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_4(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     wks.cell("A1").value() = "Category";
@@ -307,12 +340,12 @@ TEST_CASE("AdvancedPivotTableNamedRangeTableSourceBinding", "[XLPivotTable]")
     doc.close();
 
     XLDocument doc2;
-    REQUIRE_NOTHROW(doc2.open("./PivotNamedSourceTest.xlsx"));
+    REQUIRE_NOTHROW(doc2.open(__global_unique_file_4()));
     std::string ptCacheStr = doc2.extractXmlFromArchive("xl/pivotCache/pivotCacheDefinition1.xml");
     
     // It should have safely defaulted the cache source to MyTable1 and fallen back to a default count
     bool hasName = ptCacheStr.find("name=\"MyTable1\"") != std::string::npos || ptCacheStr.find("ref=\"MyTable1\"") != std::string::npos;
     REQUIRE(hasName);
     
-    std::remove("./PivotNamedSourceTest.xlsx");
+    std::remove(__global_unique_file_4());
 }

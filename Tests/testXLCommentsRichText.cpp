@@ -4,10 +4,18 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("Comments_RichText_Test_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("CommentsRichTextValidation", "[Comments][RichText]")
 {
     XLDocument doc;
-    doc.create("Comments_RichText_Test.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     wks.cell("A1").value() = "Hover me";
@@ -29,7 +37,7 @@ TEST_CASE("CommentsRichTextValidation", "[Comments][RichText]")
     doc.save();
     doc.close();
 
-    doc.open("Comments_RichText_Test.xlsx");
+    doc.open(__global_unique_file_0());
     auto wks2 = doc.workbook().worksheet("Sheet1");
 
     // get comment by index since get(cellRef) returns std::string

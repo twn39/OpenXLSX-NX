@@ -1,5 +1,6 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 #include <fstream>
 
@@ -220,7 +221,7 @@ TEST_CASE("XLDateTimeTests", "[XLDateTime]")
 
     SECTION("Cell Integration and XML Storage")
     {
-        std::string filename = "DateTimeCellTest.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);

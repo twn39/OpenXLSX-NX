@@ -1,8 +1,22 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <fstream>
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("TestDocumentCreationNew_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("testXLDocument_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 /**
  * @brief The purpose of this test case is to test the creation of XLDocument objects. Each section section
@@ -10,8 +24,8 @@ using namespace OpenXLSX;
  */
 TEST_CASE("XLDocumentTests", "[XLDocument]")
 {
-    std::string file    = "./testXLDocument.xlsx";
-    std::string newfile = "./TestDocumentCreationNew.xlsx";
+    std::string file    = OpenXLSX::TestHelpers::getUniqueFilename();
+    std::string newfile = OpenXLSX::TestHelpers::getUniqueFilename();
 
     /**
      * @test
@@ -30,7 +44,7 @@ TEST_CASE("XLDocumentTests", "[XLDocument]")
         doc.create(file, XLForceOverwrite);
         std::ifstream f(file);
         REQUIRE(f.good());
-        REQUIRE(doc.name() == "testXLDocument.xlsx");
+        REQUIRE(doc.name() == __global_unique_file_1());
         doc.close();
     }
 
@@ -42,7 +56,7 @@ TEST_CASE("XLDocumentTests", "[XLDocument]")
             doc1.close();
         }
         XLDocument doc2(file);
-        REQUIRE(doc2.name() == "testXLDocument.xlsx");
+        REQUIRE(doc2.name() == __global_unique_file_1());
         doc2.close();
     }
 
@@ -55,7 +69,7 @@ TEST_CASE("XLDocumentTests", "[XLDocument]")
         }
         XLDocument doc2;
         doc2.open(file);
-        REQUIRE(doc2.name() == "testXLDocument.xlsx");
+        REQUIRE(doc2.name() == __global_unique_file_1());
         doc2.close();
     }
 
@@ -70,7 +84,7 @@ TEST_CASE("XLDocumentTests", "[XLDocument]")
         doc2.saveAs(newfile, XLForceOverwrite);
         std::ifstream n(newfile);
         REQUIRE(n.good());
-        REQUIRE(doc2.name() == "TestDocumentCreationNew.xlsx");
+        REQUIRE(doc2.name() == __global_unique_file_0());
         doc2.close();
     }
 
@@ -88,7 +102,7 @@ TEST_CASE("XLDocumentTests", "[XLDocument]")
 
     SECTION("UTF-8 file paths and names")
     {
-        std::string utf8File = "./测试_test_中文.xlsx";
+        std::string utf8File = OpenXLSX::TestHelpers::getUniqueFilename();
         std::remove(utf8File.c_str());
 
         {
@@ -109,7 +123,7 @@ TEST_CASE("XLDocumentTests", "[XLDocument]")
 
         // Test saveAs with UTF-8
         {
-            std::string utf8File2 = "./测试_saveAs_中文.xlsx";
+            std::string utf8File2 = OpenXLSX::TestHelpers::getUniqueFilename();
             std::remove(utf8File2.c_str());
             XLDocument doc;
             doc.open(utf8File);
@@ -128,8 +142,8 @@ TEST_CASE("XLDocumentTests", "[XLDocument]")
 
     SECTION("Macro Preservation (.xlsm)")
     {
-        std::string xlsmFile1 = "./testMacro1.xlsm";
-        std::string xlsmFile2 = "./testMacro2.xlsm";
+        std::string xlsmFile1 = OpenXLSX::TestHelpers::getUniqueFilename("macro") + ".xlsm";
+        std::string xlsmFile2 = OpenXLSX::TestHelpers::getUniqueFilename("macro") + ".xlsm";
 
         {
             XLDocument doc;

@@ -4,12 +4,55 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testDataValidationClear_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testNewDataValidationFeatures_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testDataValidationIterator_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_3() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testDataValidationList_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_4() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testDataValidationCollapsing_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_5() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testDataValidationGlobal_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_6() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testDataValidation_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_7() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testDataValidationConfig_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
 {
     SECTION("Create and set data validations")
     {
         XLDocument doc;
-        doc.create("./testDataValidation.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_6(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         auto& validations = wks.dataValidations();
@@ -34,7 +77,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
 
         // Re-open and verify
         XLDocument doc2;
-        doc2.open("./testDataValidation.xlsx");
+        doc2.open(__global_unique_file_6());
         auto  wks2         = doc2.workbook().worksheet("Sheet1");
         auto& validations2 = wks2.dataValidations();
 
@@ -46,7 +89,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
     SECTION("Clear data validations")
     {
         XLDocument doc;
-        doc.create("./testDataValidationClear.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         auto& validations = wks.dataValidations();
@@ -65,7 +108,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
     SECTION("New Data Validation Features (P1, P2, P3)")
     {
         XLDocument doc;
-        doc.create("./testNewDataValidationFeatures.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_1(), XLForceOverwrite);
         auto  wks         = doc.workbook().worksheet("Sheet1");
         auto& validations = wks.dataValidations();
 
@@ -116,7 +159,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
 
         // Re-open and verify persistence
         XLDocument doc2;
-        doc2.open("./testNewDataValidationFeatures.xlsx");
+        doc2.open(__global_unique_file_1());
         auto  wks2 = doc2.workbook().worksheet("Sheet1");
         auto& v2   = wks2.dataValidations();
 
@@ -138,7 +181,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
     SECTION("Data Validation Range Collapsing")
     {
         XLDocument doc;
-        doc.create("./testDataValidationCollapsing.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_4(), XLForceOverwrite);
         auto  wks         = doc.workbook().worksheet("Sheet1");
         auto& validations = wks.dataValidations();
 
@@ -191,7 +234,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
     SECTION("Data Validation Iterators and Precise Removal")
     {
         XLDocument doc;
-        doc.create("./testDataValidationIterator.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_2(), XLForceOverwrite);
         auto  wks         = doc.workbook().worksheet("Sheet1");
         auto& validations = wks.dataValidations();
 
@@ -240,7 +283,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
     SECTION("Data Validation List Limits and Escaping")
     {
         XLDocument doc;
-        doc.create("./testDataValidationList.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_3(), XLForceOverwrite);
         auto  wks         = doc.workbook().worksheet("Sheet1");
         auto& validations = wks.dataValidations();
 
@@ -282,7 +325,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
     SECTION("Data Validation Global Properties")
     {
         XLDocument doc;
-        doc.create("./testDataValidationGlobal.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_5(), XLForceOverwrite);
         auto  wks         = doc.workbook().worksheet("Sheet1");
         auto& validations = wks.dataValidations();
 
@@ -302,7 +345,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
 
         // Re-open and verify
         XLDocument doc2;
-        doc2.open("./testDataValidationGlobal.xlsx");
+        doc2.open(__global_unique_file_5());
         auto  wks2 = doc2.workbook().worksheet("Sheet1");
         auto& v2   = wks2.dataValidations();
 
@@ -316,7 +359,7 @@ TEST_CASE("XLDataValidationTests", "[XLDataValidation]")
     SECTION("Data Validation Config and Ergonomics")
     {
         XLDocument doc;
-        doc.create("./testDataValidationConfig.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_7(), XLForceOverwrite);
         auto wks1 = doc.workbook().worksheet("Sheet1");
         doc.workbook().addWorksheet("Sheet2");
         auto wks2 = doc.workbook().worksheet("Sheet2");

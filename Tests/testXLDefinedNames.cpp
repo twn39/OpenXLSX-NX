@@ -3,6 +3,24 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__dn_structure_test_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__DefinedNamesLocalTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__DefinedNamesTest_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 namespace
 {
     // Hack to access protected member without inheritance (since XLDocument is final)
@@ -35,7 +53,7 @@ TEST_CASE("XLDefinedNamesTests", "[XLDefinedNames]")
     SECTION("Manage Global Defined Names")
     {
         XLDocument doc;
-        doc.create("./DefinedNamesTest.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_2(), XLForceOverwrite);
         auto wb = doc.workbook();
 
         auto dns = wb.definedNames();
@@ -61,7 +79,7 @@ TEST_CASE("XLDefinedNamesTests", "[XLDefinedNames]")
     SECTION("Manage Local Defined Names")
     {
         XLDocument doc;
-        doc.create("./DefinedNamesLocalTest.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_1(), XLForceOverwrite);
         auto wb = doc.workbook();
         wb.addWorksheet("Sheet2");
 
@@ -93,7 +111,7 @@ TEST_CASE("XLDefinedNamesTests", "[XLDefinedNames]")
 
         // Re-open and verify
         XLDocument doc2;
-        doc2.open("./DefinedNamesLocalTest.xlsx");
+        doc2.open(__global_unique_file_1());
         auto dns2 = doc2.workbook().definedNames();
         REQUIRE(dns2.count() == 3);
         REQUIRE(dns2.get("LocalName", 0).refersTo() == "Sheet1!$B$1");
@@ -104,7 +122,7 @@ TEST_CASE("XLDefinedNamesTests", "[XLDefinedNames]")
     SECTION("OOXML Structure Verification")
     {
         XLDocument doc;
-        doc.create("./dn_structure_test.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wb = doc.workbook();
         wb.addWorksheet("Sheet2");
 

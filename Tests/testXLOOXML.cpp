@@ -1,5 +1,6 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 #include <fstream>
 
@@ -47,7 +48,7 @@ TEST_CASE("OOXMLVerificationTests", "[OOXML]")
 {
     SECTION("Verify Document Properties in core.xml")
     {
-        std::string filename = "ooxml_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -92,7 +93,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Data Validation in sheet1.xml")
     {
-        std::string filename = "ooxml_dv_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -150,7 +151,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Hyperlinks in worksheet and relationships")
     {
-        std::string filename = "ooxml_hyperlink_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -209,7 +210,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Image insertion OOXML structure")
     {
-        std::string filename  = "ooxml_image_test.xlsx";
+        std::string filename  = OpenXLSX::TestHelpers::getUniqueFilename();
         std::string imagePath = "./Tests/test.png";
 
         // Skip if test image doesn't exist
@@ -278,7 +279,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify XML Declaration persistence in other files")
     {
-        std::string filename = "ooxml_decl_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -305,7 +306,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Default Styles Generation in styles.xml")
     {
-        std::string filename = "ooxml_default_styles_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -356,7 +357,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Table Structure and Global Uniqueness in OOXML")
     {
-        std::string filename = "ooxml_table_enhanced_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -425,7 +426,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Table TotalsRow and AutoFilter Structure in OOXML")
     {
-        std::string filename = "ooxml_table_totals_autofilter_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -478,7 +479,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Properties Structure in OOXML")
     {
-        std::string filename = "ooxml_properties_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -549,7 +550,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Workbook Protection and Node Ordering in workbook.xml")
     {
-        std::string filename = "ooxml_workbook_protect_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -607,7 +608,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify setSheetIndex updates definedNames localSheetId in OOXML")
     {
-        std::string filename = "ooxml_sheet_index_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -648,7 +649,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Merge Cells OOXML structure")
     {
-        std::string filename = "ooxml_merge_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);
@@ -706,7 +707,7 @@ testTestDoc:    // Wait, I'll just use the doc directly.
 
     SECTION("Verify Range Style Inheritance and XML Integrity")
     {
-        std::string filename = "ooxml_range_test.xlsx";
+        std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
         {
             XLDocument doc;
             doc.create(filename, XLForceOverwrite);

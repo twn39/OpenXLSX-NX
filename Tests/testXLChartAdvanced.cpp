@@ -1,5 +1,6 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 #include <fstream>
 
@@ -41,7 +42,7 @@ namespace
 
 TEST_CASE("AdvancedChartAxisFeatures", "[XLChart][Axis]")
 {
-    std::string filename = "test_chart_advanced_axis.xlsx";
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("Logarithmic Scale")
     {

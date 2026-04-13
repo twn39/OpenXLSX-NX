@@ -1,6 +1,7 @@
 #include <IZipArchive.hpp>
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <pugixml.hpp>
 
 using namespace OpenXLSX;
@@ -49,7 +50,7 @@ bool checkAttributeOrder(const pugi::xml_node& node, const std::vector<std::stri
 
 TEST_CASE("XLTablesOOXMLComplianceStability", "[XLTables]")
 {
-    const std::string filename = "ComplianceTest.xlsx";
+    const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("Feature 1, 2, 3, 6, 8 Integration & OOXML Check")
     {
@@ -144,7 +145,7 @@ TEST_CASE("XLTablesOOXMLComplianceStability", "[XLTables]")
 
 TEST_CASE("XLTablesErgonomicAddAPI", "[XLTables][Range]")
 {
-    const std::string filename = "TableErgonomicsTest.xlsx";
+    const std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
 
     SECTION("Adding table via XLCellRange instead of magic string")
     {

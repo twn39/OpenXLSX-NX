@@ -5,12 +5,35 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__SanitizedFile_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__DummyMacro_xlsm") + ".xlsm";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__DummyMacro_Resaved_xlsm") + ".xlsm";
+    return name;
+}
+
+inline const std::string& __global_unique_file_3() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__MacroMutationSource_xlsm") + ".xlsm";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("MacroPreservationxlsm", "[XLMacro]")
 {
     // Generate a dummy xlsm with a fake bin file
     {
         XLDocument doc1;
-        doc1.create("./DummyMacro.xlsm", XLForceOverwrite);
+        doc1.create(__global_unique_file_1(), XLForceOverwrite);
         auto wks               = doc1.workbook().worksheet("Sheet1");
         wks.cell("A1").value() = "Has Macro";
 
@@ -30,19 +53,19 @@ TEST_CASE("MacroPreservationxlsm", "[XLMacro]")
     // Now reload it and save again, verify it survives
     {
         XLDocument doc2;
-        doc2.open("./DummyMacro.xlsm");
+        doc2.open(__global_unique_file_1());
         REQUIRE(doc2.hasMacro() == true);
 
         auto wks               = doc2.workbook().worksheet("Sheet1");
         wks.cell("B1").value() = "Modified Data";
 
-        doc2.saveAs("./DummyMacro_Resaved.xlsm", XLForceOverwrite);
+        doc2.saveAs(__global_unique_file_2(), XLForceOverwrite);
     }
 
     // Load the 3rd time to check if it's there
     {
         XLDocument doc3;
-        doc3.open("./DummyMacro_Resaved.xlsm");
+        doc3.open(__global_unique_file_2());
         REQUIRE(doc3.hasMacro() == true);
 
         // Extract it to memory to verify the payload is identical
@@ -57,8 +80,8 @@ TEST_CASE("MacroPreservationxlsm", "[XLMacro]")
 
     // Cleanup generated files
     std::remove("dummy_vba.bin");
-    std::remove("./DummyMacro.xlsm");
-    std::remove("./DummyMacro_Resaved.xlsm");
+    std::remove(__global_unique_file_1());
+    std::remove(__global_unique_file_2());
 }
 
 TEST_CASE("MacroExtensionMutationandSanitization", "[XLMacro][Security]")
@@ -67,7 +90,7 @@ TEST_CASE("MacroExtensionMutationandSanitization", "[XLMacro][Security]")
     // to prevent Excel from complaining about file extension mismatch and potential security risks.
     {
         XLDocument doc;
-        doc.create("./MacroMutationSource.xlsm", XLForceOverwrite);
+        doc.create(__global_unique_file_3(), XLForceOverwrite);
 
         std::ofstream binFile("dummy_vba2.bin", std::ios::binary);
         binFile << "VIRUS_PAYLOAD";
@@ -80,20 +103,20 @@ TEST_CASE("MacroExtensionMutationandSanitization", "[XLMacro][Security]")
 
     {
         XLDocument doc;
-        doc.open("./MacroMutationSource.xlsm");
+        doc.open(__global_unique_file_3());
         REQUIRE(doc.hasMacro() == true);
 
         // Explicitly sanitize the document before saving as standard xlsx
         doc.deleteMacro();
         REQUIRE(doc.hasMacro() == false);
 
-        doc.saveAs("./SanitizedFile.xlsx", XLForceOverwrite);
+        doc.saveAs(__global_unique_file_0(), XLForceOverwrite);
     }
 
     {
         // Load the sanitized file to prove the payload is completely gone
         XLDocument doc;
-        doc.open("./SanitizedFile.xlsx");
+        doc.open(__global_unique_file_0());
         REQUIRE(doc.hasMacro() == false);
 
         bool hasVbaProject = false;
@@ -113,8 +136,8 @@ TEST_CASE("MacroExtensionMutationandSanitization", "[XLMacro][Security]")
 
     // Cleanup generated files
     std::remove("dummy_vba2.bin");
-    std::remove("./MacroMutationSource.xlsm");
-    std::remove("./SanitizedFile.xlsx");
+    std::remove(__global_unique_file_3());
+    std::remove(__global_unique_file_0());
 }
 
 TEST_CASE("MacroPreservationxlsmusingexternalfile", "[XLMacro]")

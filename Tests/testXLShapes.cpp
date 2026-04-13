@@ -5,10 +5,23 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("TestShapeEnhancements_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("TestShapes_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("ShapesandFormControlsfunctionalityandOOXMLverification")
 {
     XLDocument doc;
-    doc.create("TestShapes.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_1(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // Add a simple vector shape
@@ -39,7 +52,7 @@ TEST_CASE("ShapesandFormControlsfunctionalityandOOXMLverification")
 
     // 1. Functionality Validation (Reload the document)
     XLDocument doc2;
-    doc2.open("TestShapes.xlsx");
+    doc2.open(__global_unique_file_1());
     auto wks2 = doc2.workbook().worksheet("Sheet1");
 
     // Check if the drawing relationship is correctly created
@@ -113,7 +126,7 @@ TEST_CASE("ShapesandFormControlsfunctionalityandOOXMLverification")
 TEST_CASE("VectorShapeEnhancementsValidation")
 {
     XLDocument doc;
-    doc.create("TestShapeEnhancements.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // Shape 1: TwoCellAnchor with Advanced Types (FlowChartInputOutput) and ARGB RichText
@@ -150,7 +163,7 @@ TEST_CASE("VectorShapeEnhancementsValidation")
 
     // 1. Functionality Validation (Reload the document)
     XLDocument doc2;
-    doc2.open("TestShapeEnhancements.xlsx");
+    doc2.open(__global_unique_file_0());
     auto wks2 = doc2.workbook().worksheet("Sheet1");
 
     REQUIRE(wks2.hasDrawing() == true);

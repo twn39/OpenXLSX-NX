@@ -4,6 +4,24 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("CFBuilderTest_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("ConditionalFormatting_Verification_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("CFTest_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("XLConditionalFormattingTests", "[ConditionalFormatting]")
 {
     SECTION("XLCfvo Property Tests")
@@ -92,7 +110,7 @@ TEST_CASE("XLConditionalFormattingTests", "[ConditionalFormatting]")
     SECTION("Worksheet Integration and OOXML Validation")
     {
         XLDocument doc;
-        doc.create("CFTest.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_2(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         auto cfIdx = wks.conditionalFormats().create();
@@ -133,7 +151,7 @@ TEST_CASE("XLConditionalFormattingTests", "[ConditionalFormatting]")
     SECTION("High-level Builder Functions")
     {
         XLDocument doc;
-        doc.create("CFBuilderTest.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // Color Scale Rule
@@ -186,7 +204,7 @@ TEST_CASE("XLConditionalFormattingTests", "[ConditionalFormatting]")
 TEST_CASE("ConditionalFormattingExcelGeneration", "[ConditionalFormattingGen]")
 {
     XLDocument doc;
-    doc.create("ConditionalFormatting_Verification.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_1(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     // ----- 准备一些测试数据 -----

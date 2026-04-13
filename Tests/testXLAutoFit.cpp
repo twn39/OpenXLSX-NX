@@ -1,13 +1,22 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("autofit_test_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("AutoFitColumnWidthTests", "[XLWorksheet][AutoFit]")
 {
     XLDocument doc;
-    doc.create("autofit_test.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     SECTION("Basic ASCII AutoFit")
@@ -22,7 +31,7 @@ TEST_CASE("AutoFitColumnWidthTests", "[XLWorksheet][AutoFit]")
         doc.close();
 
         XLDocument doc2;
-        doc2.open("autofit_test.xlsx");
+        doc2.open(__global_unique_file_0());
         auto wks2 = doc2.workbook().worksheet("Sheet1");
         
         // "Very long string that needs more space" is 38 chars
@@ -44,7 +53,7 @@ TEST_CASE("AutoFitColumnWidthTests", "[XLWorksheet][AutoFit]")
         doc.close();
 
         XLDocument doc2;
-        doc2.open("autofit_test.xlsx");
+        doc2.open(__global_unique_file_0());
         auto wks2 = doc2.workbook().worksheet("Sheet1");
         
         float width = wks2.column(2).width();
@@ -53,5 +62,5 @@ TEST_CASE("AutoFitColumnWidthTests", "[XLWorksheet][AutoFit]")
         doc2.close();
     }
     
-    std::filesystem::remove("autofit_test.xlsx");
+    std::filesystem::remove(__global_unique_file_0());
 }

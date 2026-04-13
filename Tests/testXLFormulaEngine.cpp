@@ -1,8 +1,17 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <cmath>
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLFormulaEngine_integration_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 // Helper: create a no-cell resolver (for pure arithmetic tests)
 static const XLCellResolver noResolver{};
@@ -352,7 +361,7 @@ TEST_CASE("XLFormulaEngineXLOOKUP", "[XLFormulaEngine]")
 TEST_CASE("XLFormulaEngineIntegrationwithXLDocument", "[XLFormulaEngine]")
 {
     XLDocument doc;
-    doc.create("./testXLFormulaEngine_integration.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     wks.cell("A1").value() = 10.0;

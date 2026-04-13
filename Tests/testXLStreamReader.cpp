@@ -4,12 +4,35 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLStreamReader_large_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLStreamReader_sax_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_2() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLStreamReader_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_3() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLStreamReader_skip_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("StreamingReaderFunctionalTests", "[XLStreamReader]")
 {
     // Generate a file using StreamWriter
     {
         XLDocument doc;
-        doc.create("./testXLStreamReader.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_2(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         auto writer = wks.streamWriter();
@@ -23,7 +46,7 @@ TEST_CASE("StreamingReaderFunctionalTests", "[XLStreamReader]")
 
     // Now test StreamReader
     XLDocument doc;
-    doc.open("./testXLStreamReader.xlsx");
+    doc.open(__global_unique_file_2());
     auto wks = doc.workbook().worksheet("Sheet1");
 
     auto reader = wks.streamReader();
@@ -51,7 +74,7 @@ TEST_CASE("StreamingReaderSkippingEmptyRowsandCells", "[XLStreamReader]")
 {
     {
         XLDocument doc;
-        doc.create("./testXLStreamReader_skip.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_3(), XLForceOverwrite);
         auto wks               = doc.workbook().worksheet("Sheet1");
         wks.cell("A1").value() = 1;
         wks.cell("C1").value() = 2;
@@ -61,7 +84,7 @@ TEST_CASE("StreamingReaderSkippingEmptyRowsandCells", "[XLStreamReader]")
     }
 
     XLDocument doc;
-    doc.open("./testXLStreamReader_skip.xlsx");
+    doc.open(__global_unique_file_3());
     auto wks    = doc.workbook().worksheet("Sheet1");
     auto reader = wks.streamReader();
 
@@ -87,7 +110,7 @@ TEST_CASE("StreamingReaderLargeFileTest", "[XLStreamReader]")
 {
     {
         XLDocument doc;
-        doc.create("./testXLStreamReader_large.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks    = doc.workbook().worksheet("Sheet1");
         auto writer = wks.streamWriter();
         for (int i = 0; i < 10000; i++) { writer.appendRow({"Row", i, i * 1.5, true}); }
@@ -97,7 +120,7 @@ TEST_CASE("StreamingReaderLargeFileTest", "[XLStreamReader]")
     }
 
     XLDocument doc;
-    doc.open("./testXLStreamReader_large.xlsx");
+    doc.open(__global_unique_file_0());
     auto wks    = doc.workbook().worksheet("Sheet1");
     auto reader = wks.streamReader();
 
@@ -117,7 +140,7 @@ TEST_CASE("SAXParserEdgeCases", "[XLStreamReader][SAX]")
     // Write a file with boolean, error cell, and column-skipping patterns
     {
         XLDocument doc;
-        doc.create("./testXLStreamReader_sax.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_1(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // Row 1: bool true, bool false
@@ -136,7 +159,7 @@ TEST_CASE("SAXParserEdgeCases", "[XLStreamReader][SAX]")
     }
 
     XLDocument doc;
-    doc.open("./testXLStreamReader_sax.xlsx");
+    doc.open(__global_unique_file_1());
     auto wks    = doc.workbook().worksheet("Sheet1");
     auto reader = wks.streamReader();
 

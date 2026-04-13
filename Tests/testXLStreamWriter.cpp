@@ -1,13 +1,27 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <filesystem>
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("stream_style_test_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("StreamingStyledTest_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("StreamWriterAdvancedFeatures", "[XLStreamWriter][Styles]")
 {
     XLDocument doc;
-    doc.create("stream_style_test.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
 
     XLStyle s1;
     s1.font.bold  = true;
@@ -39,7 +53,7 @@ TEST_CASE("StreamWriterAdvancedFeatures", "[XLStreamWriter][Styles]")
 
     // Verify
     XLDocument doc2;
-    REQUIRE_NOTHROW(doc2.open("stream_style_test.xlsx"));
+    REQUIRE_NOTHROW(doc2.open(__global_unique_file_0()));
     auto wks2 = doc2.workbook().worksheet("Sheet1");
 
     REQUIRE(wks2.cell("A1").value().get<std::string>() == "Header 1");
@@ -54,12 +68,12 @@ TEST_CASE("StreamWriterAdvancedFeatures", "[XLStreamWriter][Styles]")
     REQUIRE(wks2.cell("C2").cellFormat() == XLDefaultCellFormat);
 
     doc2.close();
-    std::filesystem::remove("stream_style_test.xlsx");
+    std::filesystem::remove(__global_unique_file_0());
 }
 TEST_CASE("GenerateUserReviewStyledStreamingFile", "[XLStreamWriter][User]")
 {
     XLDocument doc;
-    doc.create("StreamingStyledTest.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_1(), XLForceOverwrite);
     
     // Create styles
     XLStyle headerStyle;

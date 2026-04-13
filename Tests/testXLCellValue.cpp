@@ -1,8 +1,22 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <fstream>
 
 using namespace OpenXLSX;
+
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("control_chars_xlsx") + ".xlsx";
+    return name;
+}
+
+inline const std::string& __global_unique_file_1() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("__testXLCellValue_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
 
 /**
  * @brief The purpose of this test case is to test the creation of XLDocument objects. Each section section
@@ -180,7 +194,7 @@ TEST_CASE("XLCellValueTests", "[XLCellValue]")
     {
         XLCellValue value;
         XLDocument  doc;
-        doc.create("./testXLCellValue.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_1(), XLForceOverwrite);
         XLWorksheet wks = doc.workbook().sheet(1);
 
         wks.cell("A1").value() = "Hello OpenXLSX!";
@@ -308,7 +322,7 @@ TEST_CASE("XLCellValueTests", "[XLCellValue]")
     SECTION("Control Characters Corruption Resistance")
     {
         XLDocument doc;
-        doc.create("control_chars.xlsx", XLForceOverwrite);
+        doc.create(__global_unique_file_0(), XLForceOverwrite);
         auto wks = doc.workbook().worksheet("Sheet1");
 
         // String with valid and invalid XML 1.0 characters
@@ -323,7 +337,7 @@ TEST_CASE("XLCellValueTests", "[XLCellValue]")
         doc.close();
 
         // Should successfully reopen without pugixml crash
-        doc.open("control_chars.xlsx");
+        doc.open(__global_unique_file_0());
         wks = doc.workbook().worksheet("Sheet1");
 
         // The read-back value should be exactly the sanitized string
@@ -331,7 +345,7 @@ TEST_CASE("XLCellValueTests", "[XLCellValue]")
         REQUIRE(readBack == expectedString);
 
         doc.close();
-        std::remove("control_chars.xlsx");
+        std::remove(__global_unique_file_0());
     }
 
     SECTION("Clear")

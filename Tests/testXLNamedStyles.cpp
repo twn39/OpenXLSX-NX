@@ -4,10 +4,18 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("NamedStyles_Test_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("NamedStylesCreationandApplication", "[Styles][NamedStyle]")
 {
     XLDocument doc;
-    doc.create("NamedStyles_Test.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
 
     auto styles = doc.styles();

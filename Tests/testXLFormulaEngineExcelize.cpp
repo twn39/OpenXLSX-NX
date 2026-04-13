@@ -1,4 +1,5 @@
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <OpenXLSX.hpp>
 #include "XLFormulaEngine.hpp"
 #include <string>
@@ -182,7 +183,7 @@ std::vector<TestCase> getTestCases() {
 
 TEST_CASE("FormulaEnginevsExcelizeStandard", "[XLFormulaEngine][Excelize]") {
     XLDocument doc;
-    std::string testPath = "./excelize_test_doc_new.xlsx";
+    std::string testPath = OpenXLSX::TestHelpers::getUniqueFilename();
     doc.create(std::string_view(testPath));
     auto wbk = doc.workbook();
     wbk.addWorksheet("Data");

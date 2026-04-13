@@ -3,10 +3,18 @@
 
 using namespace OpenXLSX;
 
+namespace { 
+inline const std::string& __global_unique_file_0() {
+    static std::string name = OpenXLSX::TestHelpers::getUniqueFilename("Layout_Test_xlsx") + ".xlsx";
+    return name;
+}
+} // namespace
+
+
 TEST_CASE("AdvancedPrintLayout", "[PrintLayout]")
 {
     XLDocument doc;
-    doc.create("Layout_Test.xlsx", XLForceOverwrite);
+    doc.create(__global_unique_file_0(), XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
     wks.setName("My Sheet");
 

@@ -1,5 +1,6 @@
 #include <OpenXLSX.hpp>
 #include <catch2/catch_all.hpp>
+#include "TestHelpers.hpp"
 #include <thread>
 #include <vector>
 #include <string>
@@ -10,7 +11,7 @@ using namespace OpenXLSX;
 
 TEST_CASE("HighPressureConcurrentWrites", "[.hide][XLConcurrent][TSAN]")
 {
-    std::string filename = "test_high_pressure_concurrent.xlsx";
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename();
     
     // 1. Create a large workbook with 100 sheets
     {
