@@ -7,20 +7,22 @@ using namespace OpenXLSX;
 
 TEST_CASE("FileSystem Failure Simulation and Negative Tests", "[FileSystem][Negative]")
 {
-    SECTION("Save to restricted path")
+    SECTION("Save to restricted path or invalid paths")
     {
         XLDocument doc;
         doc.create("normal_file.xlsx", XLForceOverwrite);
         doc.workbook().worksheet("Sheet1").cell("A1").value() = "Test";
 
 #if defined(__unix__) || defined(__APPLE__)
-        // Attempt to save to a root/system protected path
-        // Using a directory that usually requires sudo privileges
-        REQUIRE_THROWS_AS(doc.saveAs("/root/forbidden_save_test.xlsx", XLForceOverwrite), XLException);
-        REQUIRE_THROWS_AS(doc.saveAs("/System/forbidden_save_test.xlsx", XLForceOverwrite), XLException);
+        // Attempt to save to a root/system protected path.
+        // Even if running as root, /root/ or /System/ should fail if directories don't exist
+        // To be absolutely sure it fails everywhere, we use an invalid deep path instead.
+        REQUIRE_THROWS_AS(doc.saveAs("/dev/null/forbidden_save_test.xlsx", XLForceOverwrite), XLException);
 #elif defined(_WIN32)
-        // On Windows, root of C:\ might be protected, or system32
-        REQUIRE_THROWS_AS(doc.saveAs("C:\\Windows\\System32\\forbidden_save_test.xlsx", XLForceOverwrite), XLException);
+        // On Windows GitHub Actions, the runner often runs as Administrator, so writing to C:\Windows might actually succeed!
+        // Instead, we try to write to a reserved DOS device name or an invalid drive to guarantee a filesystem error.
+        REQUIRE_THROWS_AS(doc.saveAs("Q:\\ImpossibleDrive\\forbidden_save_test.xlsx", XLForceOverwrite), XLException);
+        REQUIRE_THROWS_AS(doc.saveAs("CON:\\forbidden_save_test.xlsx", XLForceOverwrite), XLException);
 #endif
         doc.close();
         std::remove("normal_file.xlsx");
