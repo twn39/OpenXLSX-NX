@@ -13,7 +13,7 @@
 #include <ostream>         // std::basic_ostream
 #include <shared_mutex>    // std::shared_mutex
 #include <string>
-#include <unordered_map>    // O(1) string lookup
+#include <ankerl/unordered_dense.h> // O(1) ankerl::unordered_dense string lookup
 
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
@@ -24,9 +24,16 @@
 
 namespace OpenXLSX
 {
+    struct StringViewHash {
+        using is_transparent = void;
+        auto operator()(std::string_view str) const noexcept -> uint64_t {
+            return ankerl::unordered_dense::hash<std::string_view>{}(str);
+        }
+    };
+
     // Alias for flat hash map to allow easy substitution in the future
     template<typename Key, typename Value>
-    using FlatHashMap = std::unordered_map<Key, Value>;
+    using FlatHashMap = ankerl::unordered_dense::map<Key, Value, StringViewHash, std::equal_to<>>;
 
     constexpr size_t XLMaxSharedStrings = (std::numeric_limits<int32_t>::max)();    // pull request #261: wrapped max in parentheses to
                                                                                     // prevent expansion of windows.h "max" macro

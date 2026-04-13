@@ -100,6 +100,8 @@ add_subdirectory(third_party/libzip)
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/mbedtls)
+add_subdirectory(third_party/unordered_dense)
+
 
 # Sources
 file(GLOB OPENXLSX_SOURCES OpenXLSX/sources/*.cpp)
@@ -124,7 +126,7 @@ target_include_directories(OpenXLSX
         $<BUILD_INTERFACE:${zlib_BINARY_DIR}>
 )
 
-target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip zlib Microsoft.GSL::GSL mbedcrypto)
+target_link_libraries(OpenXLSX PUBLIC pugixml libzip::zip zlib Microsoft.GSL::GSL mbedcrypto unordered_dense::unordered_dense)
 target_compile_definitions(OpenXLSX PUBLIC FMT_HEADER_ONLY)
 
 if ("${OPENXLSX_LIBRARY_TYPE}" STREQUAL "STATIC")
