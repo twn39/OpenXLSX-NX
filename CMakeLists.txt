@@ -328,5 +328,3 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/third_party/libzip/zipconf.h
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libzip/lib/zip.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-add_executable(ValidationTest Validation.cpp)
-target_link_libraries(ValidationTest OpenXLSX)
