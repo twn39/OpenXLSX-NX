@@ -112,6 +112,59 @@ namespace OpenXLSX
                         appendEscaped(m_writeBuffer, valPtr->get<std::string>());
                         m_writeBuffer += "</t></is></c>";
                         break;
+                        
+                    case XLValueType::RichText: {
+                        m_writeBuffer += R"( t="inlineStr"><is>)";
+                        const auto& rt = valPtr->get<XLRichText>();
+                        for (const auto& run : rt.runs()) {
+                            m_writeBuffer += "<r>";
+                            if (run.fontName() || run.fontSize() || run.fontColor() || run.bold() || run.italic() || run.underlineStyle().has_value() || run.strikethrough() || run.vertAlign().has_value()) {
+                                m_writeBuffer += "<rPr>";
+                                if (run.fontName()) {
+                                    m_writeBuffer += R"(<rFont val=")";
+                                    appendEscaped(m_writeBuffer, *run.fontName());
+                                    m_writeBuffer += R"("/>)";
+                                }
+                                if (run.fontSize()) {
+                                    char szBuf[12];
+                                    auto [szPtr, _szEc] = std::to_chars(szBuf, szBuf + sizeof(szBuf), *run.fontSize());
+                                    m_writeBuffer += R"(<sz val=")";
+                                    m_writeBuffer.append(szBuf, szPtr);
+                                    m_writeBuffer += R"("/>)";
+                                }
+                                if (run.fontColor()) {
+                                    m_writeBuffer += R"(<color rgb=")";
+                                    m_writeBuffer += run.fontColor()->hex();
+                                    m_writeBuffer += R"("/>)";
+                                }
+                                if (run.bold() && *run.bold()) m_writeBuffer += "<b/>";
+                                if (run.italic() && *run.italic()) m_writeBuffer += "<i/>";
+                                if (run.underlineStyle().has_value() && run.underlineStyle().value() != XLUnderlineNone && run.underlineStyle().value() != XLUnderlineInvalid) {
+                                    m_writeBuffer += "<u";
+                                    if (run.underlineStyle().value() == XLUnderlineDouble) m_writeBuffer += R"( val="double")";
+                                    else if (run.underlineStyle().value() == XLUnderlineSingleAccounting) m_writeBuffer += R"( val="singleAccounting")";
+                                    else if (run.underlineStyle().value() == XLUnderlineDoubleAccounting) m_writeBuffer += R"( val="doubleAccounting")";
+                                    else if (run.underlineStyle().value() == XLUnderlineSingle) m_writeBuffer += R"( val="single")";
+                                    m_writeBuffer += "/>";
+                                }
+                                if (run.strikethrough() && *run.strikethrough()) m_writeBuffer += "<strike/>";
+                                if (run.vertAlign()) {
+                                    if (*run.vertAlign() == XLSuperscript) m_writeBuffer += R"(<vertAlign val="superscript"/>)";
+                                    else if (*run.vertAlign() == XLSubscript) m_writeBuffer += R"(<vertAlign val="subscript"/>)";
+                                }
+                                m_writeBuffer += "</rPr>";
+                            }
+                            m_writeBuffer += "<t";
+                            if (!run.text().empty() && (run.text().front() == ' ' || run.text().back() == ' ')) {
+                                m_writeBuffer += R"( xml:space="preserve")";
+                            }
+                            m_writeBuffer += ">";
+                            appendEscaped(m_writeBuffer, run.text());
+                            m_writeBuffer += "</t></r>";
+                        }
+                        m_writeBuffer += "</is></c>";
+                        break;
+                    }
 
                     case XLValueType::Boolean:
                         m_writeBuffer += R"( t="b"><v>)";

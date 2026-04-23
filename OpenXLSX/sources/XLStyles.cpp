@@ -340,20 +340,16 @@ XLStyleIndex XLStyles::namedStyle(std::string_view name) const
 
 XLStyleIndex XLStyles::findOrCreateStyle(const XLStyle& style)
 {
+    pugi::xml_document tempDoc;
+
     // ===== Step 1: Resolve font index (deduplicated) ========================
-    // Pattern: create a tentative entry, configure it, then call findOrCreate.
-    // findOrCreate returns the canonical index (possibly for a pre-existing entry).
-    // The tentative entry that was created lives in the pool but is never referenced
-    // if it was a duplicate — the dedup cache ensures all future lookups return the
-    // canonical index.  Pool bloat from tentative entries is bounded by the number of
-    // distinct style.findOrCreateStyle calls, which is typically very small.
     XLStyleIndex fontIdx = 0;    // default font (index 0)
     if (style.font.name || style.font.size || style.font.color || style.font.bold || style.font.italic || style.font.underline ||
         style.font.strikethrough)
     {
-        // Create a writable copy of the default font, then configure it
-        XLStyleIndex tentativeFontIdx = fonts().create(fonts().fontByIndex(0));
-        XLFont       f                = fonts().fontByIndex(tentativeFontIdx);
+        XMLNode tempFontNode = tempDoc.append_child("font");
+        copyXMLNode(tempFontNode, *fonts().fontByIndex(0).m_fontNode);
+        XLFont f(tempFontNode);
         if (style.font.name) f.setFontName(*style.font.name);
         if (style.font.size) f.setFontSize(*style.font.size);
         if (style.font.color) f.setFontColor(*style.font.color);
@@ -361,19 +357,20 @@ XLStyleIndex XLStyles::findOrCreateStyle(const XLStyle& style)
         if (style.font.italic) f.setItalic(*style.font.italic);
         if (style.font.underline) f.setUnderline(*style.font.underline ? XLUnderlineSingle : XLUnderlineNone);
         if (style.font.strikethrough) f.setStrikethrough(*style.font.strikethrough);
-        // findOrCreate: if an identical font is already in the pool it returns that index;
-        // otherwise it creates a new entry (which happens to be the tentative one).
+        
         fontIdx = fonts().findOrCreate(f);
     }
 
     // ===== Step 2: Resolve fill index (deduplicated) ========================
     XLStyleIndex fillIdx = 0;    // default fill
     if (style.fill.pattern || style.fill.fgColor || style.fill.bgColor) {
-        XLStyleIndex tentativeFillIdx = fills().create();
-        XLFill       fill             = fills().fillByIndex(tentativeFillIdx);
+        XMLNode tempFillNode = tempDoc.append_child("fill");
+        // No need to copy from 0, fills can be empty to start
+        XLFill fill(tempFillNode);
         if (style.fill.pattern) fill.setPatternType(*style.fill.pattern);
         if (style.fill.fgColor) fill.setColor(*style.fill.fgColor);
         if (style.fill.bgColor) fill.setBackgroundColor(*style.fill.bgColor);
+        
         fillIdx = fills().findOrCreate(fill);
     }
 
@@ -382,15 +379,15 @@ XLStyleIndex XLStyles::findOrCreateStyle(const XLStyle& style)
     if (style.border.left.style || style.border.left.color || style.border.right.style || style.border.right.color ||
         style.border.top.style || style.border.top.color || style.border.bottom.style || style.border.bottom.color)
     {
-        XLStyleIndex tentativeBorderIdx = borders().create();
-        XLBorder     border             = borders().borderByIndex(tentativeBorderIdx);
+        XMLNode tempBorderNode = tempDoc.append_child("border");
+        XLBorder border(tempBorderNode);
         if (style.border.left.style) border.setLeft(*style.border.left.style, style.border.left.color.value_or(XLColor("FF000000")));
         if (style.border.right.style) border.setRight(*style.border.right.style, style.border.right.color.value_or(XLColor("FF000000")));
         if (style.border.top.style) border.setTop(*style.border.top.style, style.border.top.color.value_or(XLColor("FF000000")));
         if (style.border.bottom.style)
             border.setBottom(*style.border.bottom.style, style.border.bottom.color.value_or(XLColor("FF000000")));
+            
         borderIdx = borders().findOrCreate(border);
-        ignore(tentativeBorderIdx);    // tentative stays; dedup cache handles future lookups
     }
 
     // ===== Step 4: Resolve number format ID =================================
@@ -398,8 +395,10 @@ XLStyleIndex XLStyles::findOrCreateStyle(const XLStyle& style)
     if (style.numberFormat) numFmtId = createNumberFormat(*style.numberFormat);
 
     // ===== Step 5: Assemble the XLCellFormat and deduplicate ================
-    XLStyleIndex tentativeXfIdx = cellFormats().create();
-    XLCellFormat xf             = cellFormats().cellFormatByIndex(tentativeXfIdx);
+    XMLNode tempXfNode = tempDoc.append_child("xf");
+    copyXMLNode(tempXfNode, *cellFormats().cellFormatByIndex(0).m_cellFormatNode);
+    XLCellFormat xf(tempXfNode, false);
+    
     xf.setFontIndex(fontIdx);
     xf.setFillIndex(fillIdx);
     xf.setBorderIndex(borderIdx);
@@ -418,6 +417,5 @@ XLStyleIndex XLStyles::findOrCreateStyle(const XLStyle& style)
         xf.setApplyAlignment(true);
     }
 
-    // Dedup the assembled cellXf against the full pool
     return cellFormats().findOrCreate(xf);
 }

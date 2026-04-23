@@ -378,6 +378,7 @@ namespace OpenXLSX
     class OPENXLSX_EXPORT XLFont
     {
         friend class XLFonts;    // for access to m_fontNode in XLFonts::create
+        friend class XLStyles;
     public:                      // ---------- Public Member Functions ---------- //
         /**
          * @brief
@@ -890,7 +891,8 @@ namespace OpenXLSX
     class OPENXLSX_EXPORT XLFill
     {
         friend class XLFills;    // for access to m_fillNode in XLFills::create
-    public:                      // ---------- Public Member Functions ----------- //
+        friend class XLStyles;
+    public:                      // ---------- Public Member Functions ---------- //
         /**
          * @brief
          */
@@ -1193,6 +1195,7 @@ namespace OpenXLSX
     class OPENXLSX_EXPORT XLBorder
     {
         friend class XLBorders;    // for access to m_borderNode in XLBorders::create
+        friend class XLStyles;
     public:                        // ---------- Public Member Functions ---------- //
         /**
          * @brief
@@ -1561,8 +1564,8 @@ namespace OpenXLSX
     class OPENXLSX_EXPORT XLCellFormat
     {
         friend class XLCellFormats;    // for access to m_cellFormatNode in XLCellFormats::create
-
-    public:    // ---------- Public Member Functions ---------- //
+        friend class XLStyles;
+    public:                            // ---------- Public Member Functions ---------- //
         /**
          * @brief
          */
