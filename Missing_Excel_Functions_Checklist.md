@@ -149,5 +149,3 @@ Legacy functions retained by Excel for backward compatibility.
 - [ ] `WEIBULL`
 - [ ] `ZTEST`
 
-T`
-
