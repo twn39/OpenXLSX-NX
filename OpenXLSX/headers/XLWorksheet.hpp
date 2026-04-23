@@ -121,6 +121,7 @@ namespace OpenXLSX
         friend class XLWorkbook;
         friend class XLTableCollection;
         friend class XLSheetBase<XLWorksheet>;
+        friend class XLRowDataProxy;
 
     public:
         XLWorksheet();
@@ -619,6 +620,10 @@ namespace OpenXLSX
         mutable XMLNode                                    m_hintRowNode{};
         mutable uint16_t                                   m_hintColNumber{0};
         mutable XMLNode                                    m_hintCellNode{};
+
+        // O(1) Dimension Cache
+        mutable uint16_t                                   m_maxColumn{0};
+        mutable bool                                       m_dimensionDirty{true};
     };
 }    // namespace OpenXLSX
 

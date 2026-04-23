@@ -2,6 +2,7 @@
 #include "XLCell.hpp"
 #include "XLRow.hpp"
 #include "XLUtilities.hpp"
+#include "XLWorksheet.hpp"
 #include <algorithm>
 #include <cassert>
 namespace OpenXLSX
@@ -143,6 +144,10 @@ namespace OpenXLSX
             setDefaultCellAttributes(curNode, addrBuffer, *m_rowNode, colNo, colStyles);
             XLCell(curNode, m_row->m_sharedStrings.get()).value() = *value;
             --colNo;
+        }
+        
+        if (m_row->m_wks && static_cast<uint16_t>(values.size()) > m_row->m_wks->m_maxColumn) {
+            m_row->m_wks->m_maxColumn = static_cast<uint16_t>(values.size());
         }
         return *this;
     }

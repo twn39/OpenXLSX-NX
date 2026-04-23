@@ -1,5 +1,6 @@
 // ===== External Includes ===== //
 #include <cstring>
+#include <deque>
 #include <filesystem>
 #include <stdexcept>
 #include <vector>
@@ -31,6 +32,9 @@ struct XLZipArchive::LibZipApp
     ZipArchivePtr archive{nullptr};
     std::string   currentPath;
     bool          isModified = false;    // Track if we explicitly want to save
+    
+    // Stable deque string cache for Zero-Copy zip_source_buffer_create
+    std::deque<std::string> stringCache; 
 
     LibZipApp() = default;
     LibZipApp(const LibZipApp&)            = delete;
@@ -121,6 +125,9 @@ void XLZipArchive::close()
         }
         // If m_archive->isModified is false, ptr leaves scope and ZipArchiveDeleter
         // safely calls zip_discard.
+        
+        // Clear string cache AFTER libzip finishes reading pointers
+        m_archive->stringCache.clear();
     }
 }
 
@@ -151,9 +158,47 @@ void XLZipArchive::save(std::string_view path)
     }
 }
 
-void XLZipArchive::addEntry(std::string_view name, std::string_view data)
+void XLZipArchive::addEntry(std::string_view name, std::string data)
 {
     if (!isOpen()) throw XLInternalError("Archive not open");
+
+    m_archive->isModified = true;    // Mark as modified
+
+    // 1. Move temporary string to stable deque arena
+    m_archive->stringCache.push_back(std::move(data));
+    const std::string& cachedStr = m_archive->stringCache.back();
+
+    // 2. Use zip_source_buffer_create for 0-copy. Libzip reads this during zip_close().
+    zip_error_t zerr;
+    zip_error_init(&zerr);
+    ZipSourcePtr s(zip_source_buffer_create(cachedStr.data() ? cachedStr.data() : "",
+                                            static_cast<zip_uint64_t>(cachedStr.size()),
+                                            0, &zerr));
+    if (!s) {
+        throw XLInternalError(std::string("Failed to create zip source: ") + zip_error_strerror(&zerr));
+    }
+
+    zip_int64_t idx = zip_name_locate(m_archive->archive.get(), std::string(name).c_str(), 0);
+    if (idx >= 0) {
+        if (zip_file_replace(m_archive->archive.get(), idx, s.get(), ZIP_FL_ENC_UTF_8) < 0) {
+            throw XLInternalError(std::string("Failed to replace entry: ") + zip_strerror(m_archive->archive.get()));
+        }
+    }
+    else {
+        if (zip_file_add(m_archive->archive.get(), std::string(name).c_str(), s.get(), ZIP_FL_ENC_UTF_8) < 0) {
+            throw XLInternalError(std::string("Failed to add entry: ") + zip_strerror(m_archive->archive.get()));
+        }
+    }
+    // API successfully took ownership
+    s.release();
+}
+
+void XLZipArchive::addEntryAllocated(std::string_view name, void* data, size_t size)
+{
+    if (!isOpen()) {
+        if (data) std::free(data); // ensure cleanup
+        throw XLInternalError("Archive not open");
+    }
 
     m_archive->isModified = true;    // Mark as modified
 
@@ -161,16 +206,9 @@ void XLZipArchive::addEntry(std::string_view name, std::string_view data)
     // We use new char[] instead of malloc to follow C++ guidelines slightly better,
     // though malloc is also fine here since libzip's zip_source_buffer(..., 1) will internally call free().
     // Actually, libzip *requires* the buffer to be allocated with malloc() when using free_data=1
-    void* rawBuffer = nullptr;
-    if (data.size() > 0) {
-        rawBuffer = std::malloc(data.size());
-        if (!rawBuffer) throw std::bad_alloc();
-        std::memcpy(rawBuffer, data.data(), data.size());
-    }
-
-    ZipSourcePtr s(zip_source_buffer(m_archive->archive.get(), rawBuffer ? rawBuffer : "", static_cast<zip_uint64_t>(data.size()), rawBuffer ? 1 : 0));
+    ZipSourcePtr s(zip_source_buffer(m_archive->archive.get(), data ? data : "", static_cast<zip_uint64_t>(size), data ? 1 : 0));
     if (!s) {
-        if (rawBuffer) std::free(rawBuffer);    // Free immediately if source creation fails
+        if (data) std::free(data);    // Free immediately if source creation fails
         throw XLInternalError("Failed to create zip source");
     }
 

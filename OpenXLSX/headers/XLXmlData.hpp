@@ -8,6 +8,7 @@
 #endif    // _MSC_VER
 
 // ===== External Includes ===== //
+#include <cstdlib>
 #include <memory>
 #include <string>
 
@@ -19,6 +20,44 @@
 
 namespace OpenXLSX
 {
+    /**
+     * @brief Auto-managed malloc memory for Zero-Copy serialization
+     */
+    struct XLAllocatedMemory {
+        void* data = nullptr;
+        size_t size = 0;
+
+        ~XLAllocatedMemory() { if (data) std::free(data); }
+        XLAllocatedMemory() = default;
+        
+        // Disable copy
+        XLAllocatedMemory(const XLAllocatedMemory&) = delete;
+        XLAllocatedMemory& operator=(const XLAllocatedMemory&) = delete;
+        
+        // Enable move
+        XLAllocatedMemory(XLAllocatedMemory&& other) noexcept : data(other.data), size(other.size) {
+            other.data = nullptr;
+            other.size = 0;
+        }
+        XLAllocatedMemory& operator=(XLAllocatedMemory&& other) noexcept {
+            if (this != &other) {
+                if (data) std::free(data);
+                data = other.data;
+                size = other.size;
+                other.data = nullptr;
+                other.size = 0;
+            }
+            return *this;
+        }
+
+        // Release ownership
+        void* release() {
+            void* ret = data;
+            data = nullptr;
+            return ret;
+        }
+    };
+
     /**
      * @brief The XLXmlData class encapsulates the properties and behaviour of the .xml files in an .xlsx file zip
      * package. Objects of the XLXmlData type are intended to be stored centrally in an XLDocument object, from where
@@ -108,6 +147,14 @@ namespace OpenXLSX
          * @return A std::string with the raw XML text data.
          */
         std::string getRawData(XLXmlSavingDeclaration savingDeclaration = XLXmlSavingDeclaration{}) const;
+
+        /**
+         * @brief Get the raw data allocated directly using malloc. Intended for zero-copy serialization
+         * straight into libzip buffers, avoiding unnecessary std::string and string stream allocations.
+         * @param savingDeclaration @optional specify an XML saving declaration to use
+         * @return An XLAllocatedMemory object holding ownership of the buffer and its size.
+         */
+        XLAllocatedMemory getRawAllocatedData(XLXmlSavingDeclaration savingDeclaration = XLXmlSavingDeclaration{}) const;
 
         /**
          * @brief Access the parent XLDocument object.

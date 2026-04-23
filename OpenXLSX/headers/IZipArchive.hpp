@@ -106,7 +106,10 @@ namespace OpenXLSX
 
         inline void save(const std::string& path) { m_zipArchive->save(path); }
 
-        inline void addEntry(const std::string& name, const std::string& data) { m_zipArchive->addEntry(name, data); }
+        inline void addEntry(const std::string& name, std::string data) { m_zipArchive->addEntry(name, std::move(data)); }
+
+        inline void addEntryAllocated(std::string_view name, void* data, size_t size)
+        { m_zipArchive->addEntryAllocated(name, data, size); }
 
         inline void addEntryFromFile(std::string_view name, std::string_view filePath)
         { m_zipArchive->addEntryFromFile(std::string(name), std::string(filePath)); }
@@ -182,7 +185,9 @@ namespace OpenXLSX
 
             inline virtual void save(const std::string& path) const = 0;
 
-            inline virtual void addEntry(const std::string& name, const std::string& data) = 0;
+            inline virtual void addEntry(const std::string& name, std::string data) = 0;
+
+            inline virtual void addEntryAllocated(std::string_view name, void* data, size_t size) = 0;
 
             inline virtual void addEntryFromFile(std::string_view name, std::string_view filePath) = 0;
 
@@ -263,7 +268,10 @@ namespace OpenXLSX
 
             inline void save(const std::string& path) const override { ZipType.save(path); }
 
-            inline void addEntry(const std::string& name, const std::string& data) override { ZipType.addEntry(name, data); }
+            inline void addEntry(const std::string& name, std::string data) override { ZipType.addEntry(name, std::move(data)); }
+
+            inline void addEntryAllocated(std::string_view name, void* data, size_t size) override
+            { ZipType.addEntryAllocated(name, data, size); }
 
             inline void addEntryFromFile(std::string_view name, std::string_view filePath) override
             { ZipType.addEntryFromFile(name, filePath); }

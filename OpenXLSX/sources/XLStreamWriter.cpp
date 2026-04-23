@@ -1,58 +1,13 @@
 // ===== External Includes ===== //
+#include <charconv>
 #include <chrono>
+#include <fmt/format.h>
 #include <random>
 
 // ===== OpenXLSX Includes ===== //
 #include "XLException.hpp"
 #include "XLStreamWriter.hpp"
 #include "XLWorksheet.hpp"
-
-namespace
-{
-
-    // Fast XML escape: appends escaped characters to `out` to avoid intermediate allocations.
-    void appendEscaped(std::string& out, std::string_view sv)
-    {
-        for (char c : sv) {
-            switch (c) {
-                case '<':
-                    out += "&lt;";
-                    break;
-                case '>':
-                    out += "&gt;";
-                    break;
-                case '&':
-                    out += "&amp;";
-                    break;
-                case '"':
-                    out += "&quot;";
-                    break;
-                case '\'':
-                    out += "&apos;";
-                    break;
-                default:
-                    out += c;
-                    break;
-            }
-        }
-    }
-
-    // Convert a 1-based column index to an Excel column-letter string.
-    // Returns the result as a small std::string (at most 3 chars for valid Excel columns).
-    std::string columnToString(uint16_t col)
-    {
-        std::string result;
-        result.reserve(3);
-        while (col > 0) {
-            result += static_cast<char>('A' + static_cast<char>((col - 1U) % 26U));
-            col = static_cast<uint16_t>((col - 1U) / 26U);
-        }
-        // Letters were built in reverse order
-        std::reverse(result.begin(), result.end());
-        return result;
-    }
-
-}    // anonymous namespace
 
 namespace OpenXLSX
 {
@@ -116,11 +71,16 @@ namespace OpenXLSX
     {
         if (!isStreamActive()) throw XLInternalError("Stream writer is not active");
 
+        char rowBuf[16];
+        auto [rowPtr, _] = std::to_chars(rowBuf, rowBuf + sizeof(rowBuf), m_currentRow);
+
         m_writeBuffer += "<row r=\"";
-        m_writeBuffer += std::to_string(m_currentRow);
+        m_writeBuffer.append(rowBuf, rowPtr);
         m_writeBuffer += "\">";
 
         uint16_t colIdx = 1;
+        char cellRefBuf[16];
+
         for (const auto& item : items) {
             const XLCellValue*          valPtr   = nullptr;
             std::optional<XLStyleIndex> styleIdx = std::nullopt;
@@ -132,16 +92,17 @@ namespace OpenXLSX
             }
 
             if (valPtr->type() != XLValueType::Empty) {
-                const std::string colStr = columnToString(colIdx);
+                makeCellAddress(m_currentRow, colIdx, cellRefBuf);
 
                 m_writeBuffer += "<c r=\"";
-                m_writeBuffer += colStr;
-                m_writeBuffer += std::to_string(m_currentRow);
+                m_writeBuffer += cellRefBuf;
                 m_writeBuffer += '"';
 
                 if (styleIdx.has_value() && styleIdx.value() != XLDefaultCellFormat && styleIdx.value() != XLInvalidStyleIndex) {
+                    char styleBuf[12];
+                    auto [stylePtr, __] = std::to_chars(styleBuf, styleBuf + sizeof(styleBuf), styleIdx.value());
                     m_writeBuffer += " s=\"";
-                    m_writeBuffer += std::to_string(styleIdx.value());
+                    m_writeBuffer.append(styleBuf, stylePtr);
                     m_writeBuffer += '"';
                 }
 
@@ -158,15 +119,18 @@ namespace OpenXLSX
                         m_writeBuffer += "</v></c>";
                         break;
 
-                    case XLValueType::Integer:
+                    case XLValueType::Integer: {
+                        char numBuf[24];
+                        auto [numPtr, ___] = std::to_chars(numBuf, numBuf + sizeof(numBuf), valPtr->get<int64_t>());
                         m_writeBuffer += R"( t="n"><v>)";
-                        m_writeBuffer += std::to_string(valPtr->get<int64_t>());
+                        m_writeBuffer.append(numBuf, numPtr);
                         m_writeBuffer += "</v></c>";
                         break;
+                    }
 
                     case XLValueType::Float:
                         m_writeBuffer += R"( t="n"><v>)";
-                        m_writeBuffer += XLCellValue(*valPtr).getString();
+                        fmt::format_to(std::back_inserter(m_writeBuffer), "{}", valPtr->get<double>());
                         m_writeBuffer += "</v></c>";
                         break;
 

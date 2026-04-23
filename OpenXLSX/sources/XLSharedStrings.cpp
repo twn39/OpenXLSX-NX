@@ -8,6 +8,7 @@
 // ===== OpenXLSX Includes ===== //
 #include "XLDocument.hpp"
 #include "XLSharedStrings.hpp"
+#include "XLUtilities.hpp"
 
 #include "XLException.hpp"
 
@@ -273,6 +274,42 @@ int32_t XLSharedStrings::rewriteXmlFromCache()
         ++writtenStrings;
     }
     return writtenStrings;
+}
+
+/**
+ * @details
+ */
+XLAllocatedMemory XLSharedStrings::generateRawAllocatedSstXml() const
+{
+    Expects(m_state != nullptr);
+
+    std::string xml;
+    // Pre-allocate memory based on the number of strings to avoid incremental reallocations.
+    // 150 bytes for header + roughly 32 bytes per string on average.
+    xml.reserve(150 + m_state->cache.size() * 32); 
+
+    xml += "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
+    xml += "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" uniqueCount=\"";
+    xml += std::to_string(m_state->cache.size());
+    xml += "\">";
+
+    for (std::string_view s : m_state->cache) {
+        xml += "<si><t";
+        if (!s.empty() && (s.front() == ' ' || s.back() == ' ')) {
+            xml += " xml:space=\"preserve\"";
+        }
+        xml += ">";
+        appendEscaped(xml, s);
+        xml += "</t></si>";
+    }
+    xml += "</sst>";
+
+    XLAllocatedMemory mem;
+    mem.size = xml.size();
+    mem.data = std::malloc(mem.size);
+    if (!mem.data) throw std::bad_alloc();
+    std::memcpy(mem.data, xml.data(), mem.size);
+    return mem;
 }
 
 void XLSharedStrings::rebuild(const std::vector<int32_t>& indexMap, int32_t newStringCount)

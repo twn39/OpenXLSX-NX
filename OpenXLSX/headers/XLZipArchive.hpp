@@ -93,7 +93,15 @@ namespace OpenXLSX
          * @param name
          * @param data
          */
-        void addEntry(std::string_view name, std::string_view data);
+        void addEntry(std::string_view name, std::string data);
+
+        /**
+         * @brief Directly adds an allocated buffer to the ZIP archive, transferring ownership to libzip.
+         * @param name The name of the entry within the ZIP archive.
+         * @param data Pointer to the malloc-allocated data buffer.
+         * @param size Size of the data buffer.
+         */
+        void addEntryAllocated(std::string_view name, void* data, size_t size);
 
         /**
          * @brief Add a file to the ZIP archive directly from the file system (useful for streaming large files).

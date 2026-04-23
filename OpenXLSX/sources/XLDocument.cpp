@@ -11,6 +11,7 @@
 #include <pugixml.hpp>
 #include <shared_mutex>
 #include <sys/stat.h>    // for stat, to test if a file exists and if a file is a directory
+#include <unordered_set> // std::unordered_set
 #include <vector>        // std::vector
 
 // ===== OpenXLSX Includes ===== //
@@ -217,20 +218,18 @@ void XLDocument::open(std::string_view fileName)
     }
 
     // ===== Cache unhandled archive entries (e.g., vbaProject.bin, ctrlProps)
-    for (const auto& entryName : m_archive.entryNames()) {
-        bool handled = false;
-        // Ignore known directories or trailing slashes (e.g. xl/media/)
-        if (!entryName.empty() && entryName.back() == '/') { handled = true; }
-        else {
-            for (const auto& item : m_data) {
-                if (item.getXmlPath() == entryName) {
-                    handled = true;
-                    break;
-                }
-            }
-        }
+    std::unordered_set<std::string> handledPaths;
+    handledPaths.reserve(m_data.size());
+    for (const auto& item : m_data) {
+        handledPaths.insert(item.getXmlPath());
+    }
 
-        if (!handled && entryName != "docProps/core.xml" && entryName != "docProps/app.xml" && entryName != "docProps/custom.xml" &&
+    for (const auto& entryName : m_archive.entryNames()) {
+        // Ignore known directories or trailing slashes (e.g. xl/media/)
+        if (!entryName.empty() && entryName.back() == '/') { continue; }
+
+        if (handledPaths.find(entryName) == handledPaths.end() && 
+            entryName != "docProps/core.xml" && entryName != "docProps/app.xml" && entryName != "docProps/custom.xml" &&
             entryName != "[Content_Types].xml" && entryName != "_rels/.rels" && entryName != "xl/_rels/workbook.xml.rels")
         {
             // Wait, we need to extract from m_archive since the zip saveAs copies the original zip file,
@@ -539,12 +538,20 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
     // Ensure the shared strings pugi DOM is in sync with the in-memory cache.
     // appendString() uses a lazy-DOM path (skipping DOM mutation for performance),
     // so we always rebuild the DOM here before serializing it to the ZIP archive.
-    if (m_sharedStrings.stringCount() > 0) { m_sharedStrings.rewriteXmlFromCache(); }
+    // 2026: Skipping pugixml completely for SST to avoid double O(N) bottleneck and OOM.
 
     for (auto& item : m_data) {
         if (item.getXmlPath() == "[Content_Types].xml" or item.getXmlPath() == "_rels/.rels" ||
             item.getXmlPath() == "xl/_rels/workbook.xml.rels")
             continue;
+
+        if (item.getXmlPath() == "xl/sharedStrings.xml") {
+            if (m_sharedStrings.stringCount() > 0) {
+                auto allocData = m_sharedStrings.generateRawAllocatedSstXml();
+                m_archive.addEntryAllocated(item.getXmlPath(), allocData.release(), allocData.size);
+                continue;
+            }
+        }
 
         bool xmlIsStandalone = m_xmlSavingDeclaration.standalone_as_bool();
         if ((item.getXmlPath() == "docProps/core.xml") or (item.getXmlPath() == "docProps/app.xml") or
@@ -553,10 +560,9 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
 
         if (item.m_isStreamed) { m_archive.addEntryFromFile(item.getXmlPath(), item.m_streamFilePath); }
         else {
-            m_archive.addEntry(
-                item.getXmlPath(),
-                item.getRawData(
-                    XLXmlSavingDeclaration(m_xmlSavingDeclaration.version(), m_xmlSavingDeclaration.encoding(), xmlIsStandalone)));
+            auto allocData = item.getRawAllocatedData(
+                XLXmlSavingDeclaration(m_xmlSavingDeclaration.version(), m_xmlSavingDeclaration.encoding(), xmlIsStandalone));
+            m_archive.addEntryAllocated(item.getXmlPath(), allocData.release(), allocData.size);
         }
     }
 

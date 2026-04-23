@@ -18,6 +18,7 @@
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
 #include "XLStringArena.hpp"
+#include "XLXmlData.hpp"
 #include "XLXmlFile.hpp"
 #include <string_view>
 #include <vector>
@@ -208,6 +209,13 @@ namespace OpenXLSX
          * @return the amount of strings written to XML (should be equal to m_stringCache->size())
          */
         int32_t rewriteXmlFromCache();
+
+        /**
+         * @brief Generate the raw XML string for the shared strings table directly from the internal cache,
+         * skipping the pugixml DOM for maximum performance. Returns an XLAllocatedMemory for zero-copy saving.
+         * @return XLAllocatedMemory object holding ownership of the buffer and its size.
+         */
+        XLAllocatedMemory generateRawAllocatedSstXml() const;
 
         /**
          * @brief Rebuilds the shared string arena and cache using the provided index mapping,

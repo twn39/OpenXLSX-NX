@@ -48,10 +48,41 @@ namespace OpenXLSX
         for (char c : sv) {
             unsigned char uc = static_cast<unsigned char>(c);
             if (uc >= 0x20 || uc == 0x09 || uc == 0x0A || uc == 0x0D) {
-                result.push_back(c);
+                result += c;
             }
         }
         return result;
+    }
+
+    /**
+     * @brief Fast XML escape: appends escaped characters to `out` to avoid intermediate allocations.
+     * @param out The destination string to append to
+     * @param sv The string view to escape and append
+     */
+    inline void appendEscaped(std::string& out, std::string_view sv)
+    {
+        for (char c : sv) {
+            switch (c) {
+                case '<':
+                    out += "&lt;";
+                    break;
+                case '>':
+                    out += "&gt;";
+                    break;
+                case '&':
+                    out += "&amp;";
+                    break;
+                case '"':
+                    out += "&quot;";
+                    break;
+                case '\'':
+                    out += "&apos;";
+                    break;
+                default:
+                    out += c;
+                    break;
+            }
+        }
     }
 
     /**

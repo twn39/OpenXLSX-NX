@@ -167,6 +167,7 @@ XLCellAssignable XLWorksheet::cell(const XLCellReference& ref) const { return ce
 
 XLCellAssignable XLWorksheet::cell(uint32_t rowNumber, uint16_t columnNumber) const
 {
+    if (columnNumber > m_maxColumn) m_maxColumn = columnNumber;
     const XMLNode rowNode  = getRowNode(xmlDocument().document_element().child("sheetData"), rowNumber, &m_hintRowNumber, &m_hintRowNode);
     const XMLNode cellNode = getCellNode(rowNode, columnNumber, rowNumber, {}, &m_hintColNumber, &m_hintCellNode);
     return XLCellAssignable(XLCell(cellNode, parentDoc().sharedStrings(), const_cast<XLWorksheet*>(this)));
@@ -183,7 +184,10 @@ XLCellAssignable XLWorksheet::findCell(uint32_t rowNumber, uint16_t columnNumber
 
 XLCellRange XLWorksheet::range() const { return range(XLCellReference("A1"), lastCell()); }
 XLCellRange XLWorksheet::range(const XLCellReference& topLeft, const XLCellReference& bottomRight) const
-{ return XLCellRange(xmlDocument().document_element().child("sheetData"), topLeft, bottomRight, parentDoc().sharedStrings()); }
+{
+    if (bottomRight.column() > m_maxColumn) m_maxColumn = bottomRight.column();
+    return XLCellRange(xmlDocument().document_element().child("sheetData"), topLeft, bottomRight, parentDoc().sharedStrings()); 
+}
 
 XLCellRange XLWorksheet::range(std::string const& topLeft, std::string const& bottomRight) const
 { return range(XLCellReference(topLeft), XLCellReference(bottomRight)); }
@@ -452,6 +456,10 @@ XLCellReference XLWorksheet::lastCell() const noexcept { return {rowCount(), col
 
 uint16_t XLWorksheet::columnCount() const noexcept
 {
+    if (!m_dimensionDirty) {
+        return m_maxColumn;
+    }
+
     uint16_t   maxCount  = 0;
     XLRowRange rowsRange = rows();
     for (XLRowIterator rowIt = rowsRange.begin(); rowIt != rowsRange.end(); ++rowIt) {
@@ -460,6 +468,9 @@ uint16_t XLWorksheet::columnCount() const noexcept
             maxCount           = std::max(cellCount, maxCount);
         }
     }
+
+    m_maxColumn      = maxCount;
+    m_dimensionDirty = false;
     return maxCount;
 }
 
@@ -472,6 +483,7 @@ uint32_t XLWorksheet::rowCount() const noexcept
 
 bool XLWorksheet::deleteRow(uint32_t rowNumber)
 {
+    m_dimensionDirty = true;
     // Invalidate hint cache
     m_hintRowNumber = 0; m_hintRowNode = XMLNode{};
     m_hintColNumber = 0; m_hintCellNode = XMLNode{};
@@ -1238,6 +1250,7 @@ void XLWorksheet::shiftAutoFilter(int32_t rowDelta, int32_t colDelta, uint32_t f
 
 bool XLWorksheet::insertRow(uint32_t rowNumber, uint32_t count)
 {
+    m_dimensionDirty = true;
     // Invalidate hint cache
     m_hintRowNumber = 0; m_hintRowNode = XMLNode{};
     m_hintColNumber = 0; m_hintCellNode = XMLNode{};
@@ -1289,6 +1302,7 @@ bool XLWorksheet::deleteRow(uint32_t rowNumber, uint32_t count)
 
 bool XLWorksheet::insertColumn(uint16_t colNumber, uint16_t count)
 {
+    m_dimensionDirty = true;
     // Invalidate hint cache
     m_hintRowNumber = 0; m_hintRowNode = XMLNode{};
     m_hintColNumber = 0; m_hintCellNode = XMLNode{};
@@ -1312,6 +1326,7 @@ bool XLWorksheet::insertColumn(uint16_t colNumber, uint16_t count)
 
 bool XLWorksheet::deleteColumn(uint16_t colNumber, uint16_t count)
 {
+    m_dimensionDirty = true;
     // Invalidate hint cache
     m_hintRowNumber = 0; m_hintRowNode = XMLNode{};
     m_hintColNumber = 0; m_hintCellNode = XMLNode{};
