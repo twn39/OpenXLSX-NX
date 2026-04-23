@@ -6,9 +6,17 @@
 #include <array>
 #include <cmath>
 #include <numeric>
+#include <random>
 #include <regex>
 #include <unordered_set>
 using namespace OpenXLSX;
+
+namespace {
+    inline std::mt19937_64& getThreadLocalRNG() {
+        thread_local std::mt19937_64 engine(std::random_device{}());
+        return engine;
+    }
+}
 
 XLCellValue XLFormulaEngine::fnSum(const std::vector<XLFormulaArg>& args)
 {
@@ -136,7 +144,8 @@ XLCellValue XLFormulaEngine::fnRadians(const std::vector<XLFormulaArg>& args)
 XLCellValue XLFormulaEngine::fnRand(const std::vector<XLFormulaArg>& args)
 {
     (void)args;
-    return XLCellValue(static_cast<double>(std::rand()) / RAND_MAX);
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+    return XLCellValue(dist(getThreadLocalRNG()));
 }
 
 XLCellValue XLFormulaEngine::fnRandbetween(const std::vector<XLFormulaArg>& args)
@@ -145,7 +154,9 @@ XLCellValue XLFormulaEngine::fnRandbetween(const std::vector<XLFormulaArg>& args
     int64_t low  = static_cast<int64_t>(std::ceil(toDouble(args[0][0])));
     int64_t high = static_cast<int64_t>(std::floor(toDouble(args[1][0])));
     if (low > high) return errNum();
-    return XLCellValue(low + (std::rand() % (high - low + 1)));
+    
+    std::uniform_int_distribution<int64_t> dist(low, high);
+    return XLCellValue(static_cast<double>(dist(getThreadLocalRNG())));
 }
 
 XLCellValue XLFormulaEngine::fnInt(const std::vector<XLFormulaArg>& args)
