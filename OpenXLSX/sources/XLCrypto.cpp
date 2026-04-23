@@ -383,8 +383,42 @@ std::vector<uint8_t> encryptStandardPackage(gsl::span<const uint8_t> zipData, co
     return buildCFB(info, encPackage);
 }
 
-std::vector<uint8_t> aes256CbcDecrypt(gsl::span<const uint8_t> /*data*/, gsl::span<const uint8_t> /*key*/, gsl::span<const uint8_t> /*iv*/) { return {}; }
-std::vector<uint8_t> sha512Hash(gsl::span<const uint8_t> /*data*/) { return {}; }
+std::vector<uint8_t> aes256CbcDecrypt(gsl::span<const uint8_t> data, gsl::span<const uint8_t> key, gsl::span<const uint8_t> iv) {
+    if (data.size() % 16 != 0) return {};
+    std::vector<uint8_t> dec(data.size());
+    mbedtls_aes_context ctx;
+    mbedtls_aes_init(&ctx);
+    mbedtls_aes_setkey_dec(&ctx, key.data(), key.size() * 8);
+    std::vector<uint8_t> currentIv(iv.begin(), iv.end());
+    currentIv.resize(16, 0); // ensure 16 bytes
+    mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_DECRYPT, data.size(), currentIv.data(), data.data(), dec.data());
+    mbedtls_aes_free(&ctx);
+    
+    // PKCS#7 stripping
+    if (!dec.empty()) {
+        uint8_t pad = dec.back();
+        if (pad > 0 && pad <= 16 && pad <= dec.size()) {
+            bool valid = true;
+            for(size_t i=0; i<pad; ++i) {
+                if (dec[dec.size() - 1 - i] != pad) { valid = false; break; }
+            }
+            if (valid) dec.resize(dec.size() - pad);
+        }
+    }
+    return dec;
+}
+
+std::vector<uint8_t> sha512Hash(gsl::span<const uint8_t> data) {
+    std::vector<uint8_t> h(64);
+    mbedtls_md_context_t ctx;
+    mbedtls_md_init(&ctx);
+    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA512), 0);
+    mbedtls_md_starts(&ctx);
+    mbedtls_md_update(&ctx, data.data(), data.size());
+    mbedtls_md_finish(&ctx, h.data());
+    mbedtls_md_free(&ctx);
+    return h;
+}
 
 std::vector<uint8_t> generateAgileHash(const std::string& password, gsl::span<const uint8_t> salt, int spinCount) {
     std::vector<uint8_t> utf16pw;
