@@ -11,12 +11,14 @@
 #include <unordered_set>
 using namespace OpenXLSX;
 
-namespace {
-    inline std::mt19937_64& getThreadLocalRNG() {
+namespace
+{
+    inline std::mt19937_64& getThreadLocalRNG()
+    {
         thread_local std::mt19937_64 engine(std::random_device{}());
         return engine;
     }
-}
+}    // namespace
 
 XLCellValue XLFormulaEngine::fnSum(const std::vector<XLFormulaArg>& args)
 {
@@ -154,7 +156,7 @@ XLCellValue XLFormulaEngine::fnRandbetween(const std::vector<XLFormulaArg>& args
     int64_t low  = static_cast<int64_t>(std::ceil(toDouble(args[0][0])));
     int64_t high = static_cast<int64_t>(std::floor(toDouble(args[1][0])));
     if (low > high) return errNum();
-    
+
     std::uniform_int_distribution<int64_t> dist(low, high);
     return XLCellValue(static_cast<double>(dist(getThreadLocalRNG())));
 }
@@ -531,15 +533,25 @@ XLCellValue XLFormulaEngine::fnIndex(const std::vector<XLFormulaArg>& args)
     // INDEX(array, row_num, [col_num])
     if (args.size() < 2 || args[0].empty() || args[1].empty()) return errValue();
     const auto& arr = args[0];
-    int         r   = static_cast<int>(toDouble(args[1][0]));
-    int         c   = (args.size() > 2 && !args[2].empty()) ? static_cast<int>(toDouble(args[2][0])) : 1;
-    if (r < 1 || c < 1) return errValue();
-    // We don't know nCols; assume 1D array or use c=1
-    std::size_t idx = static_cast<std::size_t>(r - 1);
-    if (c > 1) {
-        // Can't determine nCols without metadata; best effort
-        idx = static_cast<std::size_t>((r - 1) * c + (c - 1));
+
+    int r = static_cast<int>(toDouble(args[1][0]));
+    int c = 1;
+
+    if (args.size() > 2 && !args[2].empty()) { c = static_cast<int>(toDouble(args[2][0])); }
+    else if (arr.rows() == 1 && arr.cols() > 1) {
+        // Excel spec: if the array is 1D horizontal and only 1 index is provided,
+        // it acts as the column index, not the row index.
+        c = r;
+        r = 1;
     }
+
+    if (r < 1 || c < 1) return errValue();
+
+    std::size_t nCols = arr.cols();
+    if (nCols == 0) nCols = 1;    // Fallback protection
+
+    std::size_t idx = static_cast<std::size_t>((r - 1) * nCols + (c - 1));
+
     if (idx >= arr.size()) return errRef();
     return arr[idx];
 }
@@ -661,18 +673,19 @@ XLCellValue XLFormulaEngine::fnText(const std::vector<XLFormulaArg>& args)
         auto value = args[0][0];
 
         // 2. Get the format string - don't strip literal quotes if they are inside the string
-        // Actually toString(args[1][0]) will return `#,##0.00;(#,##0.00);"-";*@*` because 
+        // Actually toString(args[1][0]) will return `#,##0.00;(#,##0.00);"-";*@*` because
         // string arguments in formulas don't have the outer quotes.
         // Wait, excel format strings can contain literal double quotes inside them, e.g. \"-\".
         // Let's ensure formatStr is correctly retrieved.
         std::string formatStr = toString(args[1][0]);
-        
+
         // 3. Instantiate the format engine (parses format on construction)
         XLNumberFormatter formatter(formatStr);
 
         // 4. Execute formatting and return text cell value
         std::string formattedStr = formatter.format(value);
-        return XLCellValue(formattedStr);    }
+        return XLCellValue(formattedStr);
+    }
     catch (...) {
         // Return #VALUE! if format string is highly invalid or other exceptions
         return errValue();

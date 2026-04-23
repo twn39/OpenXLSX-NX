@@ -579,11 +579,10 @@ TEST_CASE("XLFormulaEngineTEXTFunction", "[XLFormulaEngine][TEXT]")
         REQUIRE(eng.evaluate("=TEXT(1234.567, \"#,##0.00\")").get<std::string>() == "1,234.57");
     }
 
-    SECTION("Percentage formats") {
-        REQUIRE(eng.evaluate("=TEXT(0.853, \"0.0%\")").get<std::string>() == "85.3%");
-    }
+    SECTION("Percentage formats") { REQUIRE(eng.evaluate("=TEXT(0.853, \"0.0%\")").get<std::string>() == "85.3%"); }
 
-    SECTION("Multiple Sections: Positive;Negative;Zero;Text") {
+    SECTION("Multiple Sections: Positive;Negative;Zero;Text")
+    {
         // In an excel formula string, internal double quotes are escaped as ""
         std::string fmt = "#,##0.00;(#,##0.00);\"\"-\"\";\"\"*\"\"@\"\"*\"\"";
         REQUIRE(eng.evaluate("=TEXT(1234.5, \"" + fmt + "\")").get<std::string>() == "1,234.50");
@@ -592,9 +591,39 @@ TEST_CASE("XLFormulaEngineTEXTFunction", "[XLFormulaEngine][TEXT]")
         REQUIRE(eng.evaluate("=TEXT(\"Hello\", \"" + fmt + "\")").get<std::string>() == "*Hello*");
     }
 
-    SECTION("Negative fallback (1 section)") {
+    SECTION("Negative fallback (1 section)")
+    {
         // Only 1 section provided, negative numbers get automatic '-'
         REQUIRE(eng.evaluate("=TEXT(-1234.5, \"0.00\")").get<std::string>() == "-1234.50");
+    }
+}
+
+TEST_CASE("XLFormulaEngineINDEXFunction", "[XLFormulaEngine][INDEX]")
+{
+    XLFormulaEngine eng;
+    auto            resolver = makeMapResolver({{"A1", XLCellValue(10.0)},
+                                                {"B1", XLCellValue(20.0)},
+                                                {"C1", XLCellValue(30.0)},
+                                                {"A2", XLCellValue(40.0)},
+                                                {"B2", XLCellValue(50.0)},
+                                                {"C2", XLCellValue(60.0)},
+                                                {"A3", XLCellValue(70.0)},
+                                                {"B3", XLCellValue(80.0)},
+                                                {"C3", XLCellValue(90.0)}});
+
+    SECTION("2D addressing (Row and Column)")
+    {
+        REQUIRE(eng.evaluate("=INDEX(A1:C3, 2, 2)", resolver).get<double>() == Catch::Approx(50.0));
+        REQUIRE(eng.evaluate("=INDEX(A1:C3, 3, 1)", resolver).get<double>() == Catch::Approx(70.0));
+        REQUIRE(eng.evaluate("=INDEX(A1:C3, 1, 3)", resolver).get<double>() == Catch::Approx(30.0));
+    }
+
+    SECTION("1D Vertical addressing") { REQUIRE(eng.evaluate("=INDEX(A1:A3, 2)", resolver).get<double>() == Catch::Approx(40.0)); }
+
+    SECTION("1D Horizontal addressing (omitted row index inference)")
+    {
+        // Here, the row argument '2' is actually parsed as the column argument '2' because the array is 1x3.
+        REQUIRE(eng.evaluate("=INDEX(A1:C1, 2)", resolver).get<double>() == Catch::Approx(20.0));
     }
 }
 
