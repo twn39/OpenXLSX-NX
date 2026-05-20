@@ -409,8 +409,12 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
             } else {
                 // Categorical / string / axis field — list actual distinct values
                 // so pivotField item x-indices resolve correctly.
-                // Excel: string fields have only count, no containsString attribute.
                 bool     hasBlank  = false;
+                bool     hasNumber = false;
+                bool     hasString = false;
+                bool     allInt    = true;
+                double   minVal    = std::numeric_limits<double>::max();
+                double   maxVal    = std::numeric_limits<double>::lowest();
                 uint32_t valCount  = 0;
 
                 for (const auto& val : uniques) {
@@ -420,23 +424,50 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                     } else if (val.type() == XLValueType::Boolean) {
                         auto bNode = sharedItemsNode.append_child("b");
                         bNode.append_attribute("v").set_value(val.get<bool>() ? "1" : "0");
+                        allInt = false;
                         valCount++;
                     } else if (val.type() == XLValueType::Integer) {
-                        // Numeric values in an axis/filter field (e.g. Year field)
                         auto nNode = sharedItemsNode.append_child("n");
                         nNode.append_attribute("v").set_value(std::to_string(val.get<int64_t>()).c_str());
+                        double d = static_cast<double>(val.get<int64_t>());
+                        if (d < minVal) minVal = d;
+                        if (d > maxVal) maxVal = d;
+                        hasNumber = true;
                         valCount++;
                     } else if (val.type() == XLValueType::Float) {
                         auto nNode = sharedItemsNode.append_child("n");
                         nNode.append_attribute("v").set_value(fmt::format("{}", val.get<double>()).c_str());
+                        double d = val.get<double>();
+                        if (d < minVal) minVal = d;
+                        if (d > maxVal) maxVal = d;
+                        hasNumber = true;
+                        allInt    = false;
                         valCount++;
                     } else {
                         auto sNode = sharedItemsNode.append_child("s");
                         sNode.append_attribute("v").set_value(val.get<std::string>().c_str());
+                        hasString = true;
+                        allInt    = false;
                         valCount++;
                     }
                 }
-                if (hasBlank) sharedItemsNode.append_attribute("containsBlank").set_value("1");
+                // For all-numeric axis fields (e.g. Year as a filter), add Excel-style
+                // numeric metadata attributes — must match what Excel writes after repair.
+                if (hasNumber && !hasString && !hasBlank) {
+                    auto fmtNum = [](double v) -> std::string {
+                        if (v == std::floor(v) && std::abs(v) < 1e15)
+                            return std::to_string(static_cast<int64_t>(v));
+                        return fmt::format("{}", v);
+                    };
+                    sharedItemsNode.append_attribute("containsSemiMixedTypes").set_value("0");
+                    sharedItemsNode.append_attribute("containsString").set_value("0");
+                    sharedItemsNode.append_attribute("containsNumber").set_value("1");
+                    if (allInt) sharedItemsNode.append_attribute("containsInteger").set_value("1");
+                    sharedItemsNode.append_attribute("minValue").set_value(fmtNum(minVal).c_str());
+                    sharedItemsNode.append_attribute("maxValue").set_value(fmtNum(maxVal).c_str());
+                } else if (hasBlank) {
+                    sharedItemsNode.append_attribute("containsBlank").set_value("1");
+                }
                 sharedItemsNode.append_attribute("count").set_value(valCount);
             }
             colIdx++;
