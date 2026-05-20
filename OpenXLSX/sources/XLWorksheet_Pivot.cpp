@@ -370,15 +370,56 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
             XMLNode fieldNode = cacheFieldsNode.append_child("cacheField");
             fieldNode.append_attribute("name").set_value(h.c_str());
             fieldNode.append_attribute("numFmtId").set_value("0");
-            
-            // Since we use refreshOnLoad=1 and do NOT write cache records,
-            // use a minimal blank placeholder for all sharedItems.
-            // Excel will rebuild the actual items when the file is opened.
-            // This matches the approach used by excelize.
+
             XMLNode sharedItemsNode = fieldNode.append_child("sharedItems");
-            sharedItemsNode.append_attribute("containsBlank").set_value("1");
-            sharedItemsNode.append_attribute("count").set_value("0");
-            sharedItemsNode.append_child("m");
+            const auto& uniques = uniqueValuesPerColumn[colIdx];
+
+            if (uniques.empty()) {
+                // No data: blank placeholder
+                sharedItemsNode.append_attribute("containsBlank").set_value("1");
+                sharedItemsNode.append_attribute("count").set_value("0");
+                sharedItemsNode.append_child("m");
+            } else {
+                // Build proper sharedItems so pivotField item x-indices are valid.
+                // saveData="0" + refreshOnLoad="1" means Excel won't use these for
+                // aggregation (it will re-read source), but needs the member list
+                // to correctly resolve x-index references in pivotField/items.
+                bool hasBlank  = false;
+                bool hasNumber = false;
+                bool hasString = false;
+                uint32_t valCount = 0;
+
+                for (const auto& val : uniques) {
+                    if (val.type() == XLValueType::Empty) {
+                        hasBlank = true;
+                        sharedItemsNode.append_child("m");
+                    } else if (val.type() == XLValueType::Boolean) {
+                        auto bNode = sharedItemsNode.append_child("b");
+                        bNode.append_attribute("v").set_value(val.get<bool>() ? "1" : "0");
+                        valCount++;
+                    } else if (val.type() == XLValueType::Integer) {
+                        auto nNode = sharedItemsNode.append_child("n");
+                        nNode.append_attribute("v").set_value(std::to_string(val.get<int64_t>()).c_str());
+                        hasNumber = true;
+                        valCount++;
+                    } else if (val.type() == XLValueType::Float) {
+                        auto nNode = sharedItemsNode.append_child("n");
+                        nNode.append_attribute("v").set_value(fmt::format("{}", val.get<double>()).c_str());
+                        hasNumber = true;
+                        valCount++;
+                    } else {
+                        auto sNode = sharedItemsNode.append_child("s");
+                        sNode.append_attribute("v").set_value(val.get<std::string>().c_str());
+                        hasString = true;
+                        valCount++;
+                    }
+                }
+                if (hasBlank)  sharedItemsNode.append_attribute("containsBlank").set_value("1");
+                if (hasNumber) sharedItemsNode.append_attribute("containsNumber").set_value("1");
+                if (hasString) sharedItemsNode.append_attribute("containsString").set_value("1");
+                else           sharedItemsNode.append_attribute("containsString").set_value("0");
+                sharedItemsNode.append_attribute("count").set_value(valCount);
+            }
             colIdx++;
         }
 

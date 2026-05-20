@@ -396,8 +396,10 @@ TEST_CASE("AdvancedPivotTableClassicLayoutPrintTitlesAndFiltering", "[XLPivotTab
     // Verify subtotal="var" is written
     REQUIRE(ptDefXmlStr.find("subtotal=\"var\"") != std::string::npos);
 
-    // Verify sharedItems uses blank placeholders (refreshOnLoad strategy)
-    REQUIRE(ptCacheStr.find("containsBlank") != std::string::npos);
+    // Verify sharedItems has actual distinct values (containsString/Number present)
+    bool hasCacheData = ptCacheStr.find("containsString") != std::string::npos ||
+                        ptCacheStr.find("containsNumber") != std::string::npos;
+    REQUIRE(hasCacheData);
 
     // Verify SelectedItems filtering:
     // Year: selected "2021", so "2022" should be hidden.

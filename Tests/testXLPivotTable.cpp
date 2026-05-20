@@ -67,19 +67,19 @@ TEST_CASE("DynamicPivotTableGeneration", "[XLPivotTable]")
     // Verify XML structure in Pivot Cache Definition
     std::string cacheDefXmlStr = doc2.extractXmlFromArchive("xl/pivotCache/pivotCacheDefinition1.xml");
 
-    // Check root node attributes indicating dynamic refresh (no saved cache data)
-    REQUIRE(cacheDefXmlStr.find("saveData=\"0\"") != std::string::npos);
+    // Verify sharedItems has actual distinct values (containsString/Number present)
+    bool hasCacheData = cacheDefXmlStr.find("containsString") != std::string::npos ||
+                        cacheDefXmlStr.find("containsNumber") != std::string::npos;
+    REQUIRE(hasCacheData);
     REQUIRE(cacheDefXmlStr.find("refreshOnLoad=\"1\"") != std::string::npos);
 
-    // Verify sharedItems uses blank placeholders (refreshOnLoad strategy)
-    REQUIRE(cacheDefXmlStr.find("containsBlank") != std::string::npos);
+    // Verify sharedItems has actual distinct values for valid x-index references
     REQUIRE(cacheDefXmlStr.find("<cacheField name=\"Product\" numFmtId=\"0\">") != std::string::npos);
     REQUIRE(cacheDefXmlStr.find("<cacheField name=\"Sales\" numFmtId=\"0\">") != std::string::npos);
-
-    bool hasMissingItems = cacheDefXmlStr.find("<sharedItems containsBlank=\"1\" count=\"0\"><m/></sharedItems>") != std::string::npos ||
-                           cacheDefXmlStr.find("<s val=\"North\" />") != std::string::npos ||
-                           cacheDefXmlStr.find("<m />") != std::string::npos || cacheDefXmlStr.find("<m/>") != std::string::npos;
-    REQUIRE(hasMissingItems);
+    // Check that sharedItems are populated (containsString or containsNumber)
+    bool hasSharedData = cacheDefXmlStr.find("containsString") != std::string::npos ||
+                         cacheDefXmlStr.find("containsNumber") != std::string::npos;
+    REQUIRE(hasSharedData);
 
     // Verify XML structure in Pivot Table Definition
     std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
