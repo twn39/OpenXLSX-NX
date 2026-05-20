@@ -765,23 +765,33 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     uint32_t totalDataRows = rowItemsCount * rowMultiplier;
     if (options.rowGrandTotals()) totalDataRows += rowMultiplier;
 
-    uint32_t firstHeaderRow = (numFilters > 0) ? (numFilters + 2) : 1;
+    // Header height (H) and Row labels width (R_cols)
     uint32_t H = colIndices.size() + ((hasVirtualDataField && !virtualDataOnRows) ? 1 : 0);
     if (H == 0) H = 1;
-    uint32_t firstDataRow = firstHeaderRow + H;
 
     uint32_t R_cols = rowIndices.size() + ((hasVirtualDataField && virtualDataOnRows) ? 1 : 0);
     if (R_cols == 0) R_cols = 1;
+
+    uint32_t firstHeaderRow = 1;
+    uint32_t firstDataRow = H + 1;
     uint32_t firstDataCol = R_cols + 1;
 
-    uint32_t tableWidth = (firstDataCol - 1) + totalDataCols;
-    uint32_t tableHeight = (firstDataRow - 1) + totalDataRows;
+    uint32_t gridWidth = R_cols + totalDataCols;
+    uint32_t gridHeight = H + totalDataRows;
 
     XLCellReference targetRef(options.targetCell());
     uint32_t startRow = targetRef.row();
     uint16_t startCol = targetRef.column();
-    XLCellReference endRef(startRow + tableHeight - 1, startCol + tableWidth - 1);
-    std::string ptRange = targetRef.address() + ":" + endRef.address();
+
+    // The grid area starts after filter fields plus a blank spacer row
+    uint32_t gridStartRow = startRow;
+    if (numFilters > 0) {
+        gridStartRow += numFilters + 1;
+    }
+
+    XLCellReference gridStartRef(gridStartRow, startCol);
+    XLCellReference gridEndRef(gridStartRow + gridHeight - 1, startCol + gridWidth - 1);
+    std::string ptRange = gridStartRef.address() + ":" + gridEndRef.address();
 
     locNode.attribute("ref").set_value(ptRange.c_str());
     

@@ -413,7 +413,7 @@ TEST_CASE("AdvancedPivotTableClassicLayoutPrintTitlesAndFiltering", "[XLPivotTab
 
 TEST_CASE("GeneratePivotTableDemo", "[.demo]")
 {
-    std::string filename = "../pivot_table_demo.xlsx";
+    std::string filename = "pivot_table_demo.xlsx";
     XLDocument doc;
     doc.create(filename, XLForceOverwrite);
     auto wks = doc.workbook().worksheet("Sheet1");
