@@ -379,15 +379,39 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                 sharedItemsNode.append_attribute("containsBlank").set_value("1");
                 sharedItemsNode.append_attribute("count").set_value("0");
                 sharedItemsNode.append_child("m");
+            } else if (columnIsNumeric[colIdx]) {
+                // Pure numeric field (data aggregation field, not an axis/filter field).
+                // Excel uses self-closing sharedItems with metadata only, no child elements.
+                // This matches what Excel generates after repair.
+                double minVal = std::numeric_limits<double>::max();
+                double maxVal = std::numeric_limits<double>::lowest();
+                bool   allInt = true;
+                for (const auto& val : uniques) {
+                    double d = (val.type() == XLValueType::Integer)
+                                   ? static_cast<double>(val.get<int64_t>())
+                                   : val.get<double>();
+                    if (val.type() != XLValueType::Integer) allInt = false;
+                    if (d < minVal) minVal = d;
+                    if (d > maxVal) maxVal = d;
+                }
+                sharedItemsNode.append_attribute("containsSemiMixedTypes").set_value("0");
+                sharedItemsNode.append_attribute("containsString").set_value("0");
+                sharedItemsNode.append_attribute("containsNumber").set_value("1");
+                if (allInt) sharedItemsNode.append_attribute("containsInteger").set_value("1");
+                auto fmtNum = [](double v) -> std::string {
+                    if (v == std::floor(v) && std::abs(v) < 1e15)
+                        return std::to_string(static_cast<int64_t>(v));
+                    return fmt::format("{}", v);
+                };
+                sharedItemsNode.append_attribute("minValue").set_value(fmtNum(minVal).c_str());
+                sharedItemsNode.append_attribute("maxValue").set_value(fmtNum(maxVal).c_str());
+                // No count attribute and no children for pure numeric fields
             } else {
-                // Build proper sharedItems so pivotField item x-indices are valid.
-                // saveData="0" + refreshOnLoad="1" means Excel won't use these for
-                // aggregation (it will re-read source), but needs the member list
-                // to correctly resolve x-index references in pivotField/items.
-                bool hasBlank  = false;
-                bool hasNumber = false;
-                bool hasString = false;
-                uint32_t valCount = 0;
+                // Categorical / string / axis field — list actual distinct values
+                // so pivotField item x-indices resolve correctly.
+                // Excel: string fields have only count, no containsString attribute.
+                bool     hasBlank  = false;
+                uint32_t valCount  = 0;
 
                 for (const auto& val : uniques) {
                     if (val.type() == XLValueType::Empty) {
@@ -398,26 +422,21 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                         bNode.append_attribute("v").set_value(val.get<bool>() ? "1" : "0");
                         valCount++;
                     } else if (val.type() == XLValueType::Integer) {
+                        // Numeric values in an axis/filter field (e.g. Year field)
                         auto nNode = sharedItemsNode.append_child("n");
                         nNode.append_attribute("v").set_value(std::to_string(val.get<int64_t>()).c_str());
-                        hasNumber = true;
                         valCount++;
                     } else if (val.type() == XLValueType::Float) {
                         auto nNode = sharedItemsNode.append_child("n");
                         nNode.append_attribute("v").set_value(fmt::format("{}", val.get<double>()).c_str());
-                        hasNumber = true;
                         valCount++;
                     } else {
                         auto sNode = sharedItemsNode.append_child("s");
                         sNode.append_attribute("v").set_value(val.get<std::string>().c_str());
-                        hasString = true;
                         valCount++;
                     }
                 }
-                if (hasBlank)  sharedItemsNode.append_attribute("containsBlank").set_value("1");
-                if (hasNumber) sharedItemsNode.append_attribute("containsNumber").set_value("1");
-                if (hasString) sharedItemsNode.append_attribute("containsString").set_value("1");
-                else           sharedItemsNode.append_attribute("containsString").set_value("0");
+                if (hasBlank) sharedItemsNode.append_attribute("containsBlank").set_value("1");
                 sharedItemsNode.append_attribute("count").set_value(valCount);
             }
             colIdx++;
@@ -650,6 +669,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         for (int idx : filterIndices) { 
             XMLNode pageField = pageFieldsNode.append_child("pageField");
             pageField.append_attribute("fld").set_value(idx);
+            pageField.append_attribute("hier").set_value("0");  // required by Excel
         }
     }
     if (!dataIndices.empty()) {
@@ -714,13 +734,18 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
             std::string dName = dataFld.customName.empty() ? (prefix + dataFld.name) : dataFld.customName;
             dfield.append_attribute("name").set_value(dName.c_str());
             dfield.append_attribute("fld").set_value(idx);
-            dfield.append_attribute("baseField").set_value("-1");
-            dfield.append_attribute("baseItem").set_value("1048832");
+
+            // baseField/baseItem: 0/0 matches what Excel writes for normal sum/aggregate.
+            // The magic value -1/1048832 used previously is rejected by Excel's validator.
+            if (dataFld.subtotal != XLPivotSubtotal::Sum) {
+                dfield.append_attribute("subtotal").set_value(subType.c_str());
+            }
+            dfield.append_attribute("baseField").set_value("0");
+            dfield.append_attribute("baseItem").set_value("0");
 
             if (dataFld.numFmtId != 0) {
                 dfield.append_attribute("numFmtId").set_value(dataFld.numFmtId);
             }
-            dfield.append_attribute("subtotal").set_value(subType.c_str());
         }
     }
 

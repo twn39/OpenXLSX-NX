@@ -304,9 +304,9 @@ TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPi
         
         std::string tagContent = ptDefXmlStr.substr(dataFieldPos, endTag - dataFieldPos);
         
-        // Assert the mandated anti-corruption attributes are injected
-        REQUIRE(tagContent.find("baseField=\"-1\"") != std::string::npos);
-        REQUIRE(tagContent.find("baseItem=\"1048832\"") != std::string::npos);
+        // Assert the correct baseField/baseItem attributes (0/0 matches Excel's repaired format)
+        REQUIRE(tagContent.find("baseField=\"0\"") != std::string::npos);
+        REQUIRE(tagContent.find("baseItem=\"0\"") != std::string::npos);
         
         dataFieldCount++;
         dataFieldPos = endTag;
