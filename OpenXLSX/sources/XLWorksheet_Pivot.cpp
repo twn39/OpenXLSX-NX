@@ -371,142 +371,22 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
             fieldNode.append_attribute("name").set_value(h.c_str());
             fieldNode.append_attribute("numFmtId").set_value("0");
             
+            // Since we use refreshOnLoad=1 and do NOT write cache records,
+            // use a minimal blank placeholder for all sharedItems.
+            // Excel will rebuild the actual items when the file is opened.
+            // This matches the approach used by excelize.
             XMLNode sharedItemsNode = fieldNode.append_child("sharedItems");
-            
-            const auto& uniques = uniqueValuesPerColumn[colIdx];
-            if (uniques.empty()) {
-                sharedItemsNode.append_attribute("containsBlank").set_value("1");
-                sharedItemsNode.append_attribute("count").set_value("0");
-                sharedItemsNode.append_child("m");
-            } else if (columnIsNumeric[colIdx]) {
-                // Purely numeric field: no sharedItems children, just metadata attributes
-                // Records will store values inline using <n v="..."/>
-                sharedItemsNode.append_attribute("containsNumber").set_value("1");
-                sharedItemsNode.append_attribute("containsInteger").set_value("1");
-                XLCellValue frontVal = uniques.front();
-                XLCellValue backVal  = uniques.back();
-                sharedItemsNode.append_attribute("minValue").set_value(frontVal.getString().c_str());
-                sharedItemsNode.append_attribute("maxValue").set_value(backVal.getString().c_str());
-                sharedItemsNode.append_attribute("count").set_value("0");
-            } else {
-                bool hasBlank = false;
-                bool hasNumber = false;
-                bool hasString = false;
-                uint32_t valCount = 0;
-                for (const auto& val : uniques) {
-                    if (val.type() == XLValueType::Empty) {
-                        hasBlank = true;
-                        sharedItemsNode.append_child("m");
-                    }
-                    else if (val.type() == XLValueType::Boolean) {
-                        auto bNode = sharedItemsNode.append_child("b");
-                        bNode.append_attribute("val").set_value(val.get<bool>() ? "1" : "0");
-                        valCount++;
-                    }
-                    else if (val.type() == XLValueType::Integer) {
-                        auto nNode = sharedItemsNode.append_child("n");
-                        nNode.append_attribute("val").set_value(std::to_string(val.get<int64_t>()).c_str());
-                        hasNumber = true;
-                        valCount++;
-                    }
-                    else if (val.type() == XLValueType::Float) {
-                        auto nNode = sharedItemsNode.append_child("n");
-                        nNode.append_attribute("val").set_value(fmt::format("{}", val.get<double>()).c_str());
-                        hasNumber = true;
-                        valCount++;
-                    }
-                    else {
-                        auto sNode = sharedItemsNode.append_child("s");
-                        sNode.append_attribute("val").set_value(val.get<std::string>().c_str());
-                        hasString = true;
-                        valCount++;
-                    }
-                }
-                if (hasBlank) sharedItemsNode.append_attribute("containsBlank").set_value("1");
-                if (hasNumber) sharedItemsNode.append_attribute("containsNumber").set_value("1");
-                if (hasString)  sharedItemsNode.append_attribute("containsString").set_value("1");
-                else            sharedItemsNode.append_attribute("containsString").set_value("0");
-                sharedItemsNode.append_attribute("count").set_value(valCount);
-            }
+            sharedItemsNode.append_attribute("containsBlank").set_value("1");
+            sharedItemsNode.append_attribute("count").set_value("0");
+            sharedItemsNode.append_child("m");
             colIdx++;
         }
 
-        // Create pivot cache records
-        try {
-            XLPivotCacheRecords cacheRecs = doc.createPivotCacheRecords(cacheDef.getXmlPath());
-            
-            // Add relationship from cacheDef to cacheRecs
-            std::string cacheRecsRelPath = getPathARelativeToPathB(cacheRecs.getXmlPath(), cacheDef.getXmlPath());
-            auto recsRel = cacheDef.relationships().addRelationship(XLRelationshipType::PivotCacheRecords, cacheRecsRelPath);
-            
-            // Add r:id attribute to cacheDef root element referencing the relationship
-            if (!cacheDefRoot.attribute("r:id")) {
-                cacheDefRoot.append_attribute("r:id").set_value(recsRel.id().c_str());
-            } else {
-                cacheDefRoot.attribute("r:id").set_value(recsRel.id().c_str());
-            }
-            
-            // Set saveData="1" on cacheDefRoot
-            if (!cacheDefRoot.attribute("saveData")) {
-                cacheDefRoot.append_attribute("saveData").set_value("1");
-            } else {
-                cacheDefRoot.attribute("saveData").set_value("1");
-            }
-
-            // Populate records in pivotCacheRecords
-            XMLNode recsRoot = cacheRecs.xmlDocument().document_element();
-            XLWorksheet srcWks = sourceSheet.empty() ? wb.worksheet(name()) : wb.worksheet(sourceSheet);
-            XLCellReference startRef(sourceRef.substr(0, sourceRef.find(':')));
-            XLCellReference endRef(sourceRef.substr(sourceRef.find(':') + 1));
-            
-            uint32_t recordCount = endRef.row() - startRef.row();
-            if (!recsRoot.attribute("count")) {
-                recsRoot.append_attribute("count").set_value(recordCount);
-            } else {
-                recsRoot.attribute("count").set_value(recordCount);
-            }
-            
-            size_t colCount = endRef.column() - startRef.column() + 1;
-            for (uint32_t row = startRef.row() + 1; row <= endRef.row(); ++row) {
-                XMLNode rNode = recsRoot.append_child("r");
-                size_t colIndex = 0;
-                for (uint16_t col = startRef.column(); col <= endRef.column(); ++col) {
-                    if (colIndex >= colCount) break;
-                    XLCellValue val = srcWks.cell(row, col).value();
-
-                    if (colIndex < columnIsNumeric.size() && columnIsNumeric[colIndex]) {
-                        // Numeric data field: store value inline, not as sharedItems index
-                        XMLNode nNode = rNode.append_child("n");
-                        if (val.type() == XLValueType::Integer) {
-                            nNode.append_attribute("v").set_value(std::to_string(val.get<int64_t>()).c_str());
-                        } else if (val.type() == XLValueType::Float) {
-                            nNode.append_attribute("v").set_value(fmt::format("{}", val.get<double>()).c_str());
-                        } else {
-                            nNode.append_attribute("v").set_value("0");
-                        }
-                    } else {
-                        // Categorical field: store as sharedItems index
-                        std::string strVal;
-                        if (val.type() == XLValueType::Empty) {
-                            strVal = "";
-                        } else if (val.type() == XLValueType::Boolean) {
-                            strVal = val.get<bool>() ? "1" : "0";
-                        } else {
-                            strVal = val.getString();
-                        }
-                        auto it = std::find(sharedItemStrings[colIndex].begin(), sharedItemStrings[colIndex].end(), strVal);
-                        if (it != sharedItemStrings[colIndex].end()) {
-                            size_t index = std::distance(sharedItemStrings[colIndex].begin(), it);
-                            rNode.append_child("x").append_attribute("v").set_value(index);
-                        } else {
-                            rNode.append_child("x").append_attribute("v").set_value(0);
-                        }
-                    }
-                    colIndex++;
-                }
-            }
-        } catch (...) {
-            // Safe fallback
+        // Do NOT create pivotCacheRecords — set refreshOnLoad=1 so Excel rebuilds
+        // the cache when the file is opened. This matches what excelize and openpyxl do.
+        // Ensure saveData="0" (template default) is preserved.
+        if (cacheDefRoot.attribute("saveData")) {
+            cacheDefRoot.attribute("saveData").set_value("0");
         }
     } else {
         XMLNode cacheFieldsNode = cacheDefRoot.child("cacheFields");
@@ -539,12 +419,28 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     if (!rowFieldsNode.empty()) ptRoot.remove_child(rowFieldsNode);
     XMLNode rowItemsNode = ptRoot.child("rowItems");
     if (!rowItemsNode.empty()) ptRoot.remove_child(rowItemsNode);
+    XMLNode colFieldsNodeOld = ptRoot.child("colFields");
+    if (!colFieldsNodeOld.empty()) ptRoot.remove_child(colFieldsNodeOld);
     XMLNode colItemsNode = ptRoot.child("colItems");
     if (!colItemsNode.empty()) ptRoot.remove_child(colItemsNode);
     XMLNode pageFieldsNodeOld = ptRoot.child("pageFields");
     if (!pageFieldsNodeOld.empty()) ptRoot.remove_child(pageFieldsNodeOld);
     XMLNode dataFieldsNode = ptRoot.child("dataFields");
     if (!dataFieldsNode.empty()) ptRoot.remove_child(dataFieldsNode);
+
+    // Remove any stray whitespace text nodes left by template cleanup
+    {
+        std::vector<XMLNode> toRemove;
+        for (auto node = ptRoot.first_child(); node; node = node.next_sibling()) {
+            if (node.type() == pugi::node_pcdata || node.type() == pugi::node_cdata) {
+                std::string txt = node.value();
+                bool allSpace = true;
+                for (char c : txt) { if (!std::isspace(static_cast<unsigned char>(c))) { allSpace = false; break; } }
+                if (allSpace) toRemove.push_back(node);
+            }
+        }
+        for (auto& n : toRemove) ptRoot.remove_child(n);
+    }
 
     // Rebuild proper
 
@@ -683,7 +579,10 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
 
         rowItemsNode = ptRoot.insert_child_after("rowItems", rowFieldsNode);
-        rowItemsNode.append_attribute("count").set_value("0");
+        rowItemsNode.append_attribute("count").set_value("1");
+        // Minimal placeholder row item — Excel rebuilds on refresh (refreshOnLoad=1)
+        XMLNode rowItem = rowItemsNode.append_child("i");
+        rowItem.append_child("x");
     }
 
     if (!colIndices.empty() || (hasVirtualDataField && !virtualDataOnRows)) {
@@ -697,7 +596,9 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
 
         colItemsNode = ptRoot.insert_child_after("colItems", colFieldsNode);
-        colItemsNode.append_attribute("count").set_value("0");
+        colItemsNode.append_attribute("count").set_value("1");
+        // Minimal placeholder col item — Excel rebuilds on refresh (refreshOnLoad=1)
+        colItemsNode.append_child("i");
     }
 
     XMLNode pageFieldsNode;

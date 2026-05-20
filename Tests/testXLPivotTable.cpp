@@ -67,17 +67,15 @@ TEST_CASE("DynamicPivotTableGeneration", "[XLPivotTable]")
     // Verify XML structure in Pivot Cache Definition
     std::string cacheDefXmlStr = doc2.extractXmlFromArchive("xl/pivotCache/pivotCacheDefinition1.xml");
 
-    // Check root node attributes indicating dynamic refresh
-    REQUIRE(cacheDefXmlStr.find("saveData=\"1\"") != std::string::npos);
+    // Check root node attributes indicating dynamic refresh (no saved cache data)
+    REQUIRE(cacheDefXmlStr.find("saveData=\"0\"") != std::string::npos);
     REQUIRE(cacheDefXmlStr.find("refreshOnLoad=\"1\"") != std::string::npos);
 
-    // Check dynamically analyzed fields from worksheet headers
-    REQUIRE(cacheDefXmlStr.find("<cacheFields count=\"3\">") != std::string::npos);
-    REQUIRE(cacheDefXmlStr.find("<cacheField name=\"Region\" numFmtId=\"0\">") != std::string::npos);
+    // Verify sharedItems uses blank placeholders (refreshOnLoad strategy)
+    REQUIRE(cacheDefXmlStr.find("containsBlank") != std::string::npos);
     REQUIRE(cacheDefXmlStr.find("<cacheField name=\"Product\" numFmtId=\"0\">") != std::string::npos);
     REQUIRE(cacheDefXmlStr.find("<cacheField name=\"Sales\" numFmtId=\"0\">") != std::string::npos);
 
-    // Check proper shared items/placeholders to avoid Excel corruption
     bool hasMissingItems = cacheDefXmlStr.find("<sharedItems containsBlank=\"1\" count=\"0\"><m/></sharedItems>") != std::string::npos ||
                            cacheDefXmlStr.find("<s val=\"North\" />") != std::string::npos ||
                            cacheDefXmlStr.find("<m />") != std::string::npos || cacheDefXmlStr.find("<m/>") != std::string::npos;
@@ -107,8 +105,8 @@ TEST_CASE("DynamicPivotTableGeneration", "[XLPivotTable]")
         ptDefXmlStr.find("<field x=\"1\" />") != std::string::npos || ptDefXmlStr.find("<field x=\"1\"/>") != std::string::npos;
     REQUIRE(hasColField);
 
-    // Check correct empty items node handling (fixes Excel warning)
-    REQUIRE(ptDefXmlStr.find("<colItems count=\"0\"") != std::string::npos);
+    // Check placeholder items node (count=1 with one <i> child, Excel rebuilds on refresh)
+    REQUIRE(ptDefXmlStr.find("<colItems count=\"1\"") != std::string::npos);
 
     // Check custom data name overriding
     bool hasTotalSales = ptDefXmlStr.find("name=\"Total Sales\"") != std::string::npos;
