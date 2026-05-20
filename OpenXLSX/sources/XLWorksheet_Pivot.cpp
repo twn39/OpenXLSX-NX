@@ -279,6 +279,14 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
     std::vector<std::string> headers;
     std::vector<std::vector<std::string>> sharedItemStrings;
+    // Track which columns are purely numeric (data fields stored inline in records)
+    std::vector<bool> columnIsNumeric;
+
+    // Fields used as row/col/filter axes must always use sharedItems (for filtering/grouping)
+    std::unordered_set<std::string> axisFieldNames;
+    for (const auto& f : options.rows())    axisFieldNames.insert(f.name);
+    for (const auto& f : options.columns()) axisFieldNames.insert(f.name);
+    for (const auto& f : options.filters()) axisFieldNames.insert(f.name);
     
     if (isNewCache) {
         try {
@@ -299,6 +307,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
         std::vector<std::vector<XLCellValue>> uniqueValuesPerColumn(headers.size());
         sharedItemStrings.resize(headers.size());
+        columnIsNumeric.resize(headers.size(), false);
 
         try {
             XLWorksheet     srcWks = sourceSheet.empty() ? wb.worksheet(name()) : wb.worksheet(sourceSheet);
@@ -311,15 +320,25 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                 std::vector<XLCellValue> uniques;
                 std::vector<std::string> uniqueStrs;
                 std::unordered_set<std::string> seen;
+                bool allNumeric = true;
+                bool anyValue = false;
                 for (uint32_t row = startRef.row() + 1; row <= endRef.row(); ++row) {
                     XLCellValue val = srcWks.cell(row, col).value();
                     std::string strVal;
                     if (val.type() == XLValueType::Empty) {
                         strVal = "";
+                        allNumeric = false;
                     } else if (val.type() == XLValueType::Boolean) {
                         strVal = val.get<bool>() ? "1" : "0";
+                        allNumeric = false;
+                        anyValue = true;
+                    } else if (val.type() == XLValueType::Integer || val.type() == XLValueType::Float) {
+                        strVal = val.getString();
+                        anyValue = true;
                     } else {
                         strVal = val.getString();
+                        allNumeric = false;
+                        anyValue = true;
                     }
                     if (seen.find(strVal) == seen.end()) {
                         seen.insert(strVal);
@@ -327,6 +346,10 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                         uniqueStrs.push_back(strVal);
                     }
                 }
+                // A column is "numeric" (inline in records) only if ALL values are numbers
+                // AND the field is NOT used as a row/col/filter axis (those need sharedItems for grouping)
+                bool isAxisField = (axisFieldNames.count(headers[colIdx]) > 0);
+                columnIsNumeric[colIdx] = allNumeric && anyValue && !isAxisField;
                 uniqueValuesPerColumn[colIdx] = std::move(uniques);
                 sharedItemStrings[colIdx] = std::move(uniqueStrs);
                 colIdx++;
@@ -355,8 +378,20 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                 sharedItemsNode.append_attribute("containsBlank").set_value("1");
                 sharedItemsNode.append_attribute("count").set_value("0");
                 sharedItemsNode.append_child("m");
+            } else if (columnIsNumeric[colIdx]) {
+                // Purely numeric field: no sharedItems children, just metadata attributes
+                // Records will store values inline using <n v="..."/>
+                sharedItemsNode.append_attribute("containsNumber").set_value("1");
+                sharedItemsNode.append_attribute("containsInteger").set_value("1");
+                XLCellValue frontVal = uniques.front();
+                XLCellValue backVal  = uniques.back();
+                sharedItemsNode.append_attribute("minValue").set_value(frontVal.getString().c_str());
+                sharedItemsNode.append_attribute("maxValue").set_value(backVal.getString().c_str());
+                sharedItemsNode.append_attribute("count").set_value("0");
             } else {
                 bool hasBlank = false;
+                bool hasNumber = false;
+                bool hasString = false;
                 uint32_t valCount = 0;
                 for (const auto& val : uniques) {
                     if (val.type() == XLValueType::Empty) {
@@ -371,22 +406,26 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                     else if (val.type() == XLValueType::Integer) {
                         auto nNode = sharedItemsNode.append_child("n");
                         nNode.append_attribute("val").set_value(std::to_string(val.get<int64_t>()).c_str());
+                        hasNumber = true;
                         valCount++;
                     }
                     else if (val.type() == XLValueType::Float) {
                         auto nNode = sharedItemsNode.append_child("n");
                         nNode.append_attribute("val").set_value(fmt::format("{}", val.get<double>()).c_str());
+                        hasNumber = true;
                         valCount++;
                     }
                     else {
                         auto sNode = sharedItemsNode.append_child("s");
                         sNode.append_attribute("val").set_value(val.get<std::string>().c_str());
+                        hasString = true;
                         valCount++;
                     }
                 }
-                if (hasBlank) {
-                    sharedItemsNode.append_attribute("containsBlank").set_value("1");
-                }
+                if (hasBlank) sharedItemsNode.append_attribute("containsBlank").set_value("1");
+                if (hasNumber) sharedItemsNode.append_attribute("containsNumber").set_value("1");
+                if (hasString)  sharedItemsNode.append_attribute("containsString").set_value("1");
+                else            sharedItemsNode.append_attribute("containsString").set_value("0");
                 sharedItemsNode.append_attribute("count").set_value(valCount);
             }
             colIdx++;
@@ -434,21 +473,34 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                 for (uint16_t col = startRef.column(); col <= endRef.column(); ++col) {
                     if (colIndex >= colCount) break;
                     XLCellValue val = srcWks.cell(row, col).value();
-                    std::string strVal;
-                    if (val.type() == XLValueType::Empty) {
-                        strVal = "";
-                    } else if (val.type() == XLValueType::Boolean) {
-                        strVal = val.get<bool>() ? "1" : "0";
+
+                    if (colIndex < columnIsNumeric.size() && columnIsNumeric[colIndex]) {
+                        // Numeric data field: store value inline, not as sharedItems index
+                        XMLNode nNode = rNode.append_child("n");
+                        if (val.type() == XLValueType::Integer) {
+                            nNode.append_attribute("v").set_value(std::to_string(val.get<int64_t>()).c_str());
+                        } else if (val.type() == XLValueType::Float) {
+                            nNode.append_attribute("v").set_value(fmt::format("{}", val.get<double>()).c_str());
+                        } else {
+                            nNode.append_attribute("v").set_value("0");
+                        }
                     } else {
-                        strVal = val.getString();
-                    }
-                    
-                    auto it = std::find(sharedItemStrings[colIndex].begin(), sharedItemStrings[colIndex].end(), strVal);
-                    if (it != sharedItemStrings[colIndex].end()) {
-                        size_t index = std::distance(sharedItemStrings[colIndex].begin(), it);
-                        rNode.append_child("x").append_attribute("v").set_value(index);
-                    } else {
-                        rNode.append_child("x").append_attribute("v").set_value(0);
+                        // Categorical field: store as sharedItems index
+                        std::string strVal;
+                        if (val.type() == XLValueType::Empty) {
+                            strVal = "";
+                        } else if (val.type() == XLValueType::Boolean) {
+                            strVal = val.get<bool>() ? "1" : "0";
+                        } else {
+                            strVal = val.getString();
+                        }
+                        auto it = std::find(sharedItemStrings[colIndex].begin(), sharedItemStrings[colIndex].end(), strVal);
+                        if (it != sharedItemStrings[colIndex].end()) {
+                            size_t index = std::distance(sharedItemStrings[colIndex].begin(), it);
+                            rNode.append_child("x").append_attribute("v").set_value(index);
+                        } else {
+                            rNode.append_child("x").append_attribute("v").set_value(0);
+                        }
                     }
                     colIndex++;
                 }
