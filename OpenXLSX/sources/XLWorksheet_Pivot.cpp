@@ -591,7 +591,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
             ptFieldNode.append_attribute("compact").set_value("0");
             ptFieldNode.append_attribute("outline").set_value("0");
             ptFieldNode.append_attribute("showAll").set_value("0");
-            ptFieldNode.append_attribute("defaultSubtotal").set_value("1");
+            // Note: defaultSubtotal is omitted — Excel's repaired format doesn't include it
             
             const XLPivotField* rf = findRowField(h);
             buildItemsNode(ptFieldNode, i, rf ? rf->selectedItems : std::vector<std::string>{});
@@ -601,7 +601,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
             ptFieldNode.append_attribute("compact").set_value("0");
             ptFieldNode.append_attribute("outline").set_value("0");
             ptFieldNode.append_attribute("showAll").set_value("0");
-            ptFieldNode.append_attribute("defaultSubtotal").set_value("1");
+            // Note: defaultSubtotal is omitted — Excel's repaired format doesn't include it
             
             const XLPivotField* cf = findColField(h);
             buildItemsNode(ptFieldNode, i, cf ? cf->selectedItems : std::vector<std::string>{});
@@ -611,10 +611,20 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
             ptFieldNode.append_attribute("compact").set_value("0");
             ptFieldNode.append_attribute("outline").set_value("0");
             ptFieldNode.append_attribute("showAll").set_value("0");
-            ptFieldNode.append_attribute("defaultSubtotal").set_value("1");
+            // Note: defaultSubtotal is omitted — Excel's repaired format doesn't include it
             
-            const XLPivotField* ff = findFilterField(h);
-            buildItemsNode(ptFieldNode, i, ff ? ff->selectedItems : std::vector<std::string>{});
+            // For axisPage (filter/slicer field): list ALL member indices so Excel can
+            // display the filter dropdown properly. This matches Excel's repaired format.
+            size_t memberCount = (static_cast<size_t>(i) < sharedItemStrings.size())
+                                     ? sharedItemStrings[i].size() : 0;
+            XMLNode itemsNode = ptFieldNode.append_child("items");
+            uint32_t itemCount = static_cast<uint32_t>(memberCount) + 1;  // +1 for default/total
+            itemsNode.append_attribute("count").set_value(itemCount);
+            for (size_t xi = 0; xi < memberCount; ++xi) {
+                XMLNode item = itemsNode.append_child("item");
+                item.append_attribute("x").set_value(static_cast<uint32_t>(xi));
+            }
+            itemsNode.append_child("item").append_attribute("t").set_value("default");
         }
         else if (isData) {
             ptFieldNode.append_attribute("dataField").set_value("1");
@@ -639,10 +649,37 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
 
         rowItemsNode = ptRoot.insert_child_after("rowItems", rowFieldsNode);
-        rowItemsNode.append_attribute("count").set_value("1");
-        // Minimal placeholder row item — Excel rebuilds on refresh (refreshOnLoad=1)
-        XMLNode rowItem = rowItemsNode.append_child("i");
-        rowItem.append_child("x");
+
+        // Build proper rowItems: one entry per visible row + grand total
+        // Excel's repaired format: <i><x/></i> per data row, <i t="grand"><x/></i> for total
+        uint32_t rItemCount = 0;
+        for (int idx : rowIndices) {
+            size_t memberCount = (static_cast<size_t>(idx) < sharedItemStrings.size())
+                                     ? sharedItemStrings[idx].size() : 1;
+            // Check if there are selected (filtered) items
+            const XLPivotField* rf = findRowField(headers[idx]);
+            size_t visibleCount = memberCount;
+            if (rf && !rf->selectedItems.empty()) {
+                visibleCount = rf->selectedItems.size();
+            }
+            rItemCount += static_cast<uint32_t>(visibleCount);
+        }
+        if (options.rowGrandTotals()) rItemCount += (hasVirtualDataField && virtualDataOnRows ? dataIndices.size() : 1);
+        if (rItemCount == 0) rItemCount = 1;
+        rowItemsNode.append_attribute("count").set_value(rItemCount);
+
+        // Add placeholder data rows
+        uint32_t rowDataItems = rItemCount - (options.rowGrandTotals() ? 1 : 0);
+        for (uint32_t ri = 0; ri < rowDataItems; ++ri) {
+            XMLNode rowItem = rowItemsNode.append_child("i");
+            rowItem.append_child("x");
+        }
+        // Add grand total row
+        if (options.rowGrandTotals()) {
+            XMLNode grandRow = rowItemsNode.append_child("i");
+            grandRow.append_attribute("t").set_value("grand");
+            grandRow.append_child("x");
+        }
     }
 
     if (!colIndices.empty() || (hasVirtualDataField && !virtualDataOnRows)) {
@@ -656,9 +693,57 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
 
         colItemsNode = ptRoot.insert_child_after("colItems", colFieldsNode);
-        colItemsNode.append_attribute("count").set_value("1");
-        // Minimal placeholder col item — Excel rebuilds on refresh (refreshOnLoad=1)
-        colItemsNode.append_child("i");
+
+        // Build proper colItems matching Excel's repaired format.
+        // colMultiplier = number of data fields when Values is on columns axis (multiple data fields)
+        uint32_t localColMultiplier = (hasVirtualDataField && !virtualDataOnRows)
+                                          ? static_cast<uint32_t>(dataIndices.size()) : 1;
+
+        // Compute visible column items count (same logic as in grid-size calculation below)
+        uint32_t localColItemsCount = 0;
+        for (int idx : colIndices) {
+            const XLPivotField* cf = findColField(headers[idx]);
+            if (cf && !cf->selectedItems.empty()) {
+                localColItemsCount += static_cast<uint32_t>(cf->selectedItems.size());
+            } else if (static_cast<size_t>(idx) < sharedItemStrings.size()) {
+                localColItemsCount += static_cast<uint32_t>(sharedItemStrings[idx].size());
+            }
+        }
+        if (localColItemsCount == 0) localColItemsCount = 1;
+
+        uint32_t colDataItems = localColItemsCount * localColMultiplier;
+        uint32_t totalColItems = colDataItems + (options.colGrandTotals() ? localColMultiplier : 0);
+        if (totalColItems == 0) totalColItems = 1;
+        colItemsNode.append_attribute("count").set_value(totalColItems);
+
+        // First item: all-zero indices
+        {
+            XMLNode colItem = colItemsNode.append_child("i");
+            for (size_t ci = 0; ci < colIndices.size(); ++ci) colItem.append_child("x");
+            if (hasVirtualDataField && !virtualDataOnRows) colItem.append_child("x");
+        }
+        // Remaining data items
+        for (uint32_t ci = 1; ci < colDataItems; ++ci) {
+            XMLNode colItem = colItemsNode.append_child("i");
+            uint32_t dataIdx = ci % localColMultiplier;
+            if (dataIdx > 0) {
+                colItem.append_attribute("r").set_value("1");
+                colItem.append_attribute("i").set_value(dataIdx);
+                XMLNode xNode = colItem.append_child("x");
+                xNode.append_attribute("v").set_value(dataIdx);
+            } else {
+                XMLNode xNode = colItem.append_child("x");
+                xNode.append_attribute("v").set_value(ci / localColMultiplier);
+                colItem.append_child("x");
+            }
+        }
+        // Grand total items
+        for (uint32_t gi = 0; options.colGrandTotals() && gi < localColMultiplier; ++gi) {
+            XMLNode colItem = colItemsNode.append_child("i");
+            colItem.append_attribute("t").set_value("grand");
+            if (gi > 0) colItem.append_attribute("i").set_value(gi);
+            colItem.append_child("x");
+        }
     }
 
     XMLNode pageFieldsNode;
@@ -781,7 +866,17 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     uint32_t totalDataCols = colItemsCount * colMultiplier;
     if (options.colGrandTotals()) totalDataCols += colMultiplier;
 
-    uint32_t totalDataRows = rowItemsCount * rowMultiplier;
+    // For the ref bounding box, use total member count (including hidden rows/cols),
+    // as Excel includes hidden members in the ref range.
+    uint32_t totalMemberRows = 0;
+    for (int idx : rowIndices) {
+        if (static_cast<size_t>(idx) < sharedItemStrings.size())
+            totalMemberRows += static_cast<uint32_t>(sharedItemStrings[idx].size());
+        else
+            totalMemberRows += rowItemsCount;
+    }
+    if (totalMemberRows == 0) totalMemberRows = rowItemsCount;
+    uint32_t totalDataRows = totalMemberRows * rowMultiplier;
     if (options.rowGrandTotals()) totalDataRows += rowMultiplier;
 
     // Header height (H) and Row labels width (R_cols)
@@ -793,7 +888,10 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
     uint32_t firstHeaderRow = 1;
     uint32_t firstDataRow = H + 1;
-    uint32_t firstDataCol = R_cols + 1;
+    // firstDataCol: Excel uses 1 (data starts at first column of the ref area).
+    // Our row-label columns are part of the grid but Excel's firstDataCol=1 means
+    // the first data value column index (1-based within the ref).
+    uint32_t firstDataCol = 1;
 
     uint32_t gridWidth = R_cols + totalDataCols;
     uint32_t gridHeight = H + totalDataRows;
