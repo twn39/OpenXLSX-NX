@@ -68,7 +68,7 @@ TEST_CASE("DynamicPivotTableGeneration", "[XLPivotTable]")
     std::string cacheDefXmlStr = doc2.extractXmlFromArchive("xl/pivotCache/pivotCacheDefinition1.xml");
 
     // Check root node attributes indicating dynamic refresh
-    REQUIRE(cacheDefXmlStr.find("saveData=\"0\"") != std::string::npos);
+    REQUIRE(cacheDefXmlStr.find("saveData=\"1\"") != std::string::npos);
     REQUIRE(cacheDefXmlStr.find("refreshOnLoad=\"1\"") != std::string::npos);
 
     // Check dynamically analyzed fields from worksheet headers
@@ -77,8 +77,9 @@ TEST_CASE("DynamicPivotTableGeneration", "[XLPivotTable]")
     REQUIRE(cacheDefXmlStr.find("<cacheField name=\"Product\" numFmtId=\"0\">") != std::string::npos);
     REQUIRE(cacheDefXmlStr.find("<cacheField name=\"Sales\" numFmtId=\"0\">") != std::string::npos);
 
-    // Check proper missing item placeholders to avoid Excel corruption
+    // Check proper shared items/placeholders to avoid Excel corruption
     bool hasMissingItems = cacheDefXmlStr.find("<sharedItems containsBlank=\"1\" count=\"0\"><m/></sharedItems>") != std::string::npos ||
+                           cacheDefXmlStr.find("<s val=\"North\" />") != std::string::npos ||
                            cacheDefXmlStr.find("<m />") != std::string::npos || cacheDefXmlStr.find("<m/>") != std::string::npos;
     REQUIRE(hasMissingItems);
 
@@ -86,7 +87,7 @@ TEST_CASE("DynamicPivotTableGeneration", "[XLPivotTable]")
     std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
 
     // Location and layout
-    REQUIRE(ptDefXmlStr.find("<location ref=\"E1\"") != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("<location ref=\"E1:") != std::string::npos);
 
     // Check axis mapping and specific element omission formatting
     REQUIRE(ptDefXmlStr.find("<pivotField axis=\"axisRow\"") != std::string::npos);    // Region
@@ -107,9 +108,7 @@ TEST_CASE("DynamicPivotTableGeneration", "[XLPivotTable]")
     REQUIRE(hasColField);
 
     // Check correct empty items node handling (fixes Excel warning)
-    REQUIRE(ptDefXmlStr.find("<colItems count=\"1\">") != std::string::npos);
-    bool hasEmptyItem = ptDefXmlStr.find("<i />") != std::string::npos || ptDefXmlStr.find("<i/>") != std::string::npos;
-    REQUIRE(hasEmptyItem);
+    REQUIRE(ptDefXmlStr.find("<colItems count=\"0\"") != std::string::npos);
 
     // Check custom data name overriding
     bool hasTotalSales = ptDefXmlStr.find("name=\"Total Sales\"") != std::string::npos;

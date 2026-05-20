@@ -9,14 +9,15 @@
 
 namespace OpenXLSX
 {
-    enum class XLPivotSubtotal { Sum, Average, Count, Max, Min, Product };
+    enum class XLPivotSubtotal { Sum, Average, Count, Max, Min, Product, CountNums, StdDev, StdDevP, Var, VarP };
 
     struct XLPivotField
     {
-        std::string     name;
-        XLPivotSubtotal subtotal = XLPivotSubtotal::Sum;
-        std::string     customName;
-        uint32_t        numFmtId = 0; // Number format ID (e.g., 3 for '#,##0', 4 for '#,##0.00', 9 for '0%')
+        std::string              name;
+        XLPivotSubtotal          subtotal = XLPivotSubtotal::Sum;
+        std::string              customName;
+        uint32_t                 numFmtId = 0; // Number format ID (e.g., 3 for '#,##0', 4 for '#,##0.00', 9 for '0%')
+        std::vector<std::string> selectedItems;
     };
 
     class OPENXLSX_EXPORT XLPivotTableOptions
@@ -33,23 +34,23 @@ namespace OpenXLSX
 
         // --- Fluent Configuration Builders --- //
 
-        XLPivotTableOptions& addRowField(std::string fieldName) {
-            m_rows.push_back({std::move(fieldName), XLPivotSubtotal::Sum, "", 0});
+        XLPivotTableOptions& addRowField(std::string fieldName, std::vector<std::string> selectedItems = {}) {
+            m_rows.push_back({std::move(fieldName), XLPivotSubtotal::Sum, "", 0, std::move(selectedItems)});
             return *this;
         }
 
-        XLPivotTableOptions& addColumnField(std::string fieldName) {
-            m_columns.push_back({std::move(fieldName), XLPivotSubtotal::Sum, "", 0});
+        XLPivotTableOptions& addColumnField(std::string fieldName, std::vector<std::string> selectedItems = {}) {
+            m_columns.push_back({std::move(fieldName), XLPivotSubtotal::Sum, "", 0, std::move(selectedItems)});
             return *this;
         }
 
         XLPivotTableOptions& addDataField(std::string fieldName, std::string customName = "", XLPivotSubtotal subtotal = XLPivotSubtotal::Sum, uint32_t numFmtId = 0) {
-            m_data.push_back({std::move(fieldName), subtotal, std::move(customName), numFmtId});
+            m_data.push_back({std::move(fieldName), subtotal, std::move(customName), numFmtId, {}});
             return *this;
         }
 
-        XLPivotTableOptions& addFilterField(std::string fieldName) {
-            m_filters.push_back({std::move(fieldName), XLPivotSubtotal::Sum, "", 0});
+        XLPivotTableOptions& addFilterField(std::string fieldName, std::vector<std::string> selectedItems = {}) {
+            m_filters.push_back({std::move(fieldName), XLPivotSubtotal::Sum, "", 0, std::move(selectedItems)});
             return *this;
         }
 
@@ -68,6 +69,10 @@ namespace OpenXLSX
         XLPivotTableOptions& setShowRowStripes(bool value)    { m_showRowStripes = value; return *this; }
         XLPivotTableOptions& setShowColStripes(bool value)    { m_showColStripes = value; return *this; }
         XLPivotTableOptions& setShowLastColumn(bool value)    { m_showLastColumn = value; return *this; }
+
+        XLPivotTableOptions& setClassicLayout(bool value)    { m_classicLayout = value; return *this; }
+        XLPivotTableOptions& setFieldPrintTitles(bool value) { m_fieldPrintTitles = value; return *this; }
+        XLPivotTableOptions& setItemPrintTitles(bool value)  { m_itemPrintTitles = value; return *this; }
 
         // --- Getters --- //
         [[nodiscard]] const std::string& name() const        { return m_name; }
@@ -94,6 +99,10 @@ namespace OpenXLSX
         [[nodiscard]] bool showColStripes() const    { return m_showColStripes; }
         [[nodiscard]] bool showLastColumn() const    { return m_showLastColumn; }
 
+        [[nodiscard]] bool classicLayout() const    { return m_classicLayout; }
+        [[nodiscard]] bool fieldPrintTitles() const { return m_fieldPrintTitles; }
+        [[nodiscard]] bool itemPrintTitles() const  { return m_itemPrintTitles; }
+
     private:
         std::string m_name;
         std::string m_sourceRange;
@@ -118,6 +127,10 @@ namespace OpenXLSX
         bool m_showRowStripes    {false};
         bool m_showColStripes    {false};
         bool m_showLastColumn    {false};
+
+        bool m_classicLayout     {false};
+        bool m_fieldPrintTitles  {false};
+        bool m_itemPrintTitles   {false};
         
         std::string m_pivotTableStyleName{"PivotStyleLight16"};
     };

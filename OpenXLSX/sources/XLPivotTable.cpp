@@ -23,7 +23,14 @@ namespace OpenXLSX
     std::string XLPivotTable::targetCell() const
     {
         XMLNode locNode = xmlDocument().document_element().child("location");
-        if (locNode) return locNode.attribute("ref").value();
+        if (locNode) {
+            std::string refVal = locNode.attribute("ref").value();
+            auto colonPos = refVal.find(':');
+            if (colonPos != std::string::npos) {
+                return refVal.substr(0, colonPos);
+            }
+            return refVal;
+        }
         return "";
     }
 

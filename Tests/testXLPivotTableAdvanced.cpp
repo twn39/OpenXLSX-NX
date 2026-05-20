@@ -305,8 +305,8 @@ TEST_CASE("AdvancedPivotTableMultipleDataFieldsBaseAttributesRegression", "[XLPi
         std::string tagContent = ptDefXmlStr.substr(dataFieldPos, endTag - dataFieldPos);
         
         // Assert the mandated anti-corruption attributes are injected
-        REQUIRE(tagContent.find("baseField=\"0\"") != std::string::npos);
-        REQUIRE(tagContent.find("baseItem=\"0\"") != std::string::npos);
+        REQUIRE(tagContent.find("baseField=\"-1\"") != std::string::npos);
+        REQUIRE(tagContent.find("baseItem=\"1048832\"") != std::string::npos);
         
         dataFieldCount++;
         dataFieldPos = endTag;
@@ -351,4 +351,102 @@ TEST_CASE("AdvancedPivotTableNamedRangeTableSourceBinding", "[XLPivotTable]")
     REQUIRE(hasName);
     
     std::remove(__global_unique_testXLPivotTableAdvanced_4().c_str());
+}
+
+TEST_CASE("AdvancedPivotTableClassicLayoutPrintTitlesAndFiltering", "[XLPivotTable]")
+{
+    static std::string filename = OpenXLSX::TestHelpers::getUniqueFilename("__PivotFilterTest_xlsx") + ".xlsx";
+    XLDocument doc;
+    doc.create(filename, XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    wks.cell("A1").value() = "Year";
+    wks.cell("B1").value() = "Quarter";
+    wks.cell("C1").value() = "Sales";
+
+    wks.cell("A2").value() = 2021; wks.cell("B2").value() = "Q1"; wks.cell("C2").value() = 100;
+    wks.cell("A3").value() = 2021; wks.cell("B3").value() = "Q2"; wks.cell("C3").value() = 200;
+    wks.cell("A4").value() = 2022; wks.cell("B4").value() = "Q1"; wks.cell("C4").value() = 300;
+    wks.cell("A5").value() = 2022; wks.cell("B5").value() = "Q2"; wks.cell("C5").value() = 400;
+
+    auto options = XLPivotTableOptions("FilterPivot", "Sheet1!A1:C5", "E1")
+        .setClassicLayout(true)
+        .setFieldPrintTitles(true)
+        .setItemPrintTitles(true)
+        .addRowField("Year", {"2021"})  // Hide 2022
+        .addColumnField("Quarter", {"Q2"})  // Hide Q1
+        .addDataField("Sales", "Var Sales", XLPivotSubtotal::Var);
+
+    REQUIRE_NOTHROW(wks.addPivotTable(options));
+    REQUIRE_NOTHROW(doc.save());
+    doc.close();
+
+    XLDocument doc2;
+    REQUIRE_NOTHROW(doc2.open(filename));
+
+    std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
+    std::string ptCacheStr = doc2.extractXmlFromArchive("xl/pivotCache/pivotCacheDefinition1.xml");
+
+    // Verify classic layout attributes on ptRoot
+    REQUIRE(ptDefXmlStr.find("gridDropZones=\"1\"") != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("fieldPrintTitles=\"1\"") != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("itemPrintTitles=\"1\"") != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("compactData=\"0\"") != std::string::npos);
+
+    // Verify subtotal="var" is written
+    REQUIRE(ptDefXmlStr.find("subtotal=\"var\"") != std::string::npos);
+
+    // Verify sharedItems in Cache Definition contains "2021", "2022" and "Q1", "Q2"
+    REQUIRE(ptCacheStr.find("<n val=\"2021\" />") != std::string::npos);
+    REQUIRE(ptCacheStr.find("<n val=\"2022\" />") != std::string::npos);
+    REQUIRE(ptCacheStr.find("<s val=\"Q1\" />") != std::string::npos);
+    REQUIRE(ptCacheStr.find("<s val=\"Q2\" />") != std::string::npos);
+
+    // Verify SelectedItems filtering:
+    // Year: selected "2021", so "2022" should be hidden.
+    // Quarter: selected "Q2", so "Q1" should be hidden.
+    REQUIRE(ptDefXmlStr.find("<item x=\"1\" h=\"1\" />") != std::string::npos); // 2022 hidden
+    REQUIRE(ptDefXmlStr.find("<item x=\"0\" h=\"1\" />") != std::string::npos); // Q1 hidden
+
+    std::remove(filename.c_str());
+}
+
+TEST_CASE("GeneratePivotTableDemo", "[.demo]")
+{
+    std::string filename = "../pivot_table_demo.xlsx";
+    XLDocument doc;
+    doc.create(filename, XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    wks.cell("A1").value() = "Region";
+    wks.cell("B1").value() = "Product";
+    wks.cell("C1").value() = "Sales";
+    wks.cell("D1").value() = "Profit";
+    wks.cell("E1").value() = "Year";
+
+    wks.cell("A2").value() = "North"; wks.cell("B2").value() = "Apple";  wks.cell("C2").value() = 1200; wks.cell("D2").value() = 400; wks.cell("E2").value() = 2023;
+    wks.cell("A3").value() = "South"; wks.cell("B3").value() = "Apple";  wks.cell("C3").value() = 1500; wks.cell("D3").value() = 500; wks.cell("E3").value() = 2023;
+    wks.cell("A4").value() = "North"; wks.cell("B4").value() = "Orange"; wks.cell("C4").value() = 900;  wks.cell("D4").value() = 300; wks.cell("E4").value() = 2023;
+    wks.cell("A5").value() = "South"; wks.cell("B5").value() = "Orange"; wks.cell("C5").value() = 1100; wks.cell("D5").value() = 350; wks.cell("E5").value() = 2023;
+    wks.cell("A6").value() = "North"; wks.cell("B6").value() = "Banana"; wks.cell("C6").value() = 600;  wks.cell("D6").value() = 200; wks.cell("E6").value() = 2024;
+    wks.cell("A7").value() = "South"; wks.cell("B7").value() = "Banana"; wks.cell("C7").value() = 700;  wks.cell("D7").value() = 250; wks.cell("E7").value() = 2024;
+    wks.cell("A8").value() = "North"; wks.cell("B8").value() = "Apple";  wks.cell("C8").value() = 1300; wks.cell("D8").value() = 450; wks.cell("E8").value() = 2024;
+    wks.cell("A9").value() = "South"; wks.cell("B9").value() = "Apple";  wks.cell("C9").value() = 1600; wks.cell("D9").value() = 550; wks.cell("E9").value() = 2024;
+
+    doc.workbook().addWorksheet("Sheet2");
+    auto wks2 = doc.workbook().worksheet("Sheet2");
+
+    auto options = XLPivotTableOptions("PremiumPivot", "Sheet1!A1:E9", "A3")
+        .setClassicLayout(true)
+        .setFieldPrintTitles(true)
+        .setItemPrintTitles(true)
+        .addRowField("Region", {"North"}) // Only show North region
+        .addColumnField("Product", {"Apple", "Orange"}) // Only show Apple and Orange, hiding Banana
+        .addFilterField("Year")
+        .addDataField("Sales", "Total Sales", XLPivotSubtotal::Sum)
+        .addDataField("Profit", "Variance Profit", XLPivotSubtotal::Var);
+
+    wks2.addPivotTable(options);
+    doc.save();
+    doc.close();
 }
