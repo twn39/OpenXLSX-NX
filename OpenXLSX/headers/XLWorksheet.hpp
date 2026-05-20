@@ -31,6 +31,7 @@ namespace OpenXLSX
     class XLMergeCells;
     class XLPivotTable;
     class XLPivotTableOptions;
+    class XLSlicer;
     struct XLSlicerOptions;
     class XLRelationships;
     class XLStreamReader;
@@ -446,6 +447,17 @@ namespace OpenXLSX
                             const XLPivotTable&    pivotTable,
                             std::string_view       columnName,
                             const XLSlicerOptions& options = XLSlicerOptions());
+
+        /**
+         * @brief Get list of all slicers in this worksheet.
+         */
+        std::vector<XLSlicer> slicers() const;
+
+        /**
+         * @brief Delete a slicer by name, cleaning up drawings, relationships, and orphan caches.
+         * @param name The name of the slicer to delete.
+         */
+        void deleteSlicer(const std::string& name);
 
         void insertImage(const std::string& cellReference, const std::string& imagePath);
 

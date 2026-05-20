@@ -72,6 +72,7 @@ namespace
     const std::string relationshipDomainOpenXml2006          = "http://schemas.openxmlformats.org/officeDocument/2006";
     const std::string relationshipDomainOpenXml2006CoreProps = "http://schemas.openxmlformats.org/package/2006";
     const std::string relationshipDomainMicrosoft2006        = "http://schemas.microsoft.com/office/2006";
+    const std::string relationshipDomainMicrosoft2007        = "http://schemas.microsoft.com/office/2007";
     const std::string relationshipDomainMicrosoft2011        = "http://schemas.microsoft.com/office/2011";
     const std::string relationshipDomainMicrosoft2017        = "http://schemas.microsoft.com/office/2017/10";
 
@@ -115,6 +116,8 @@ namespace
             return XLRelationshipType::CoreProperties;
         if (matches(relationshipDomainMicrosoft2006, "/relationships/vbaProject")) return XLRelationshipType::VBAProject;
         if (matches(relationshipDomainOpenXml2006, "/relationships/pivotTable")) return XLRelationshipType::PivotTable;
+        if (matches(relationshipDomainMicrosoft2007, "/relationships/slicer")) return XLRelationshipType::Slicer;
+        if (matches(relationshipDomainMicrosoft2007, "/relationships/slicerCache")) return XLRelationshipType::SlicerCache;
         if (matches(relationshipDomainOpenXml2006, "/relationships/pivotCacheDefinition")) return XLRelationshipType::PivotCacheDefinition;
         if (matches(relationshipDomainOpenXml2006, "/relationships/pivotCacheRecords")) return XLRelationshipType::PivotCacheRecords;
         if (matches(relationshipDomainMicrosoft2011, "/relationships/chartStyle")) return XLRelationshipType::ChartStyle;

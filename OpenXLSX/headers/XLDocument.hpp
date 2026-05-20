@@ -321,14 +321,22 @@ namespace OpenXLSX
         class XLPivotCacheRecords    createPivotCacheRecords(std::string_view cacheDefPath);
 
         std::string createTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName);
+        std::string findOrCreateTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName);
 
         std::string createPivotSlicerCache(uint32_t         pivotCacheId,
                                            uint32_t         sheetId,
                                            std::string_view pivotTableName,
                                            std::string_view name,
                                            std::string_view sourceName);
+        std::string findOrCreatePivotSlicerCache(uint32_t         pivotCacheId,
+                                                 uint32_t         sheetId,
+                                                 std::string_view pivotTableName,
+                                                 std::string_view name,
+                                                 std::string_view sourceName);
 
         std::string createSlicer(std::string_view name, std::string_view cacheName, std::string_view caption);
+
+        void deleteSlicerFileAndOrphanCache(const std::string& name);
 
         /**
          * @brief Insert image into the archive's media folder. Uses string_view for zero-copy data transfer.

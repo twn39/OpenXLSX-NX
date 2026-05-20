@@ -20,6 +20,10 @@
 #include "XLStreamWriter.hpp"
 #include "XLTables.hpp"
 #include "XLThreadedComments.hpp"
+#include "XLSlicer.hpp"
+#include "XLSlicerCache.hpp"
+#include "XLAutoFilter.hpp"
+#include "XLWorksheetImpl.hpp"
 
 using namespace OpenXLSX;
 
@@ -449,9 +453,28 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     std::string caption   = options.caption.empty() ? std::string(columnName) : options.caption;
     std::string cacheName = "Slicer_" + name;
 
-    // 1. Create Slicer Cache and Slicer files
-    parentDoc().createTableSlicerCache(tableId, colId, cacheName, columnName);
-    std::string slicerFilename = parentDoc().createSlicer(name, cacheName, caption);
+    // 1. Create/Find Slicer Cache and Slicer files
+    std::string actualCacheName = parentDoc().findOrCreateTableSlicerCache(tableId, colId, cacheName, columnName);
+    std::string slicerFilename = parentDoc().createSlicer(name, actualCacheName, caption);
+
+    XLXmlData* slicerData = parentDoc().getXmlData(XLInternalAccess{}, slicerFilename);
+    if (slicerData) {
+        XLSlicer slicer(slicerData);
+        if (!options.slicerStyle.empty()) {
+            slicer.setSlicerStyle(options.slicerStyle);
+        }
+    }
+
+    if (!options.selectedItems.empty()) {
+        auto tableFilter = table.autoFilter();
+        if (tableFilter) {
+            auto filterCol = tableFilter.filterColumn(colId - 1);
+            filterCol.clearFilters();
+            for (const auto& item : options.selectedItems) {
+                filterCol.addFilter(item);
+            }
+        }
+    }
 
     // 2. Add Slicer relationship to worksheet
     relationships().addRelationship(XLRelationshipType::Slicer, "../slicers/" + slicerFilename.substr(11));
@@ -641,8 +664,29 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     }
 
     // 1. Create Slicer Cache and Slicer files
-    parentDoc().createPivotSlicerCache(cacheId, sheetId, ptName, cacheName, columnName);
-    std::string slicerFilename = parentDoc().createSlicer(sName, cacheName, caption);
+    std::string actualCacheName = parentDoc().findOrCreatePivotSlicerCache(cacheId, sheetId, ptName, cacheName, columnName);
+    std::string slicerFilename = parentDoc().createSlicer(sName, actualCacheName, caption);
+
+    XLXmlData* slicerData = parentDoc().getXmlData(XLInternalAccess{}, slicerFilename);
+    if (slicerData) {
+        XLSlicer slicer(slicerData);
+        if (!options.slicerStyle.empty()) {
+            slicer.setSlicerStyle(options.slicerStyle);
+        }
+    }
+
+    for (const auto& item : parentDoc().archive().entryNames()) {
+        if (item.find("xl/slicerCaches/slicerCache") != std::string::npos) {
+            XLXmlData* cacheData = parentDoc().getXmlData(XLInternalAccess{}, item);
+            if (cacheData) {
+                XLSlicerCache slicerCache(cacheData);
+                if (slicerCache.name() == actualCacheName) {
+                    slicerCache.syncWithPivotCache(pivotTable.cacheDefinition(), options.selectedItems);
+                    break;
+                }
+            }
+        }
+    }
 
     // 2. Add Slicer relationship to worksheet
     relationships().addRelationship(XLRelationshipType::Slicer, "../slicers/" + slicerFilename.substr(11));
@@ -773,4 +817,100 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     XMLNode cd = anchor.append_child("xdr:clientData");
     cd.append_attribute("fLocksWithSheet").set_value("true");
     cd.append_attribute("fPrintsWithSheet").set_value("true");
+}
+
+std::vector<XLSlicer> XLWorksheet::slicers() const
+{
+    std::vector<XLSlicer> result;
+    auto& rels = const_cast<XLWorksheet*>(this)->relationships();
+    for (const auto& rel : rels.relationships()) {
+        if (rel.type() == XLRelationshipType::Slicer) {
+            std::string target = rel.target();
+            std::string absPath = eliminateDotAndDotDotFromPath("xl/worksheets/" + target);
+            XLXmlData* xmlData = const_cast<XLDocument&>(parentDoc()).getXmlData(XLInternalAccess{}, absPath, true);
+            if (!xmlData) {
+                xmlData = const_cast<XLDocument&>(parentDoc()).addXmlData(XLInternalAccess{}, absPath, "", XLContentType::Slicer);
+            }
+            if (xmlData) {
+                result.emplace_back(xmlData);
+            }
+        }
+    }
+    return result;
+}
+
+void XLWorksheet::deleteSlicer(const std::string& name)
+{
+    // 1. Remove drawing shape representation
+    if (hasDrawing()) {
+        XLDrawing& drw = drawing();
+        auto drwRoot = drw.xmlDocument().document_element();
+        pugi::xml_node targetAnchor;
+        for (auto anchor : drwRoot.children()) {
+            auto graphicFrame = anchor.child("xdr:graphicFrame");
+            if (graphicFrame) {
+                auto nameAttr = graphicFrame.child("xdr:nvGraphicFramePr").child("xdr:cNvPr").attribute("name");
+                if (nameAttr && std::string(nameAttr.value()) == name) {
+                    targetAnchor = anchor;
+                    break;
+                }
+            }
+            auto sp = anchor.child("xdr:sp");
+            if (sp) {
+                auto nameAttr = sp.child("xdr:nvSpPr").child("xdr:cNvPr").attribute("name");
+                if (nameAttr && std::string(nameAttr.value()) == name) {
+                    targetAnchor = anchor;
+                    break;
+                }
+            }
+        }
+        if (targetAnchor) {
+            drwRoot.remove_child(targetAnchor);
+        }
+    }
+
+    // 2. Remove relationship and sheet extLst reference
+    std::string rId;
+    auto& rels = relationships();
+    auto relList = rels.relationships();
+    for (const auto& rel : relList) {
+        if (rel.type() == XLRelationshipType::Slicer) {
+            std::string target = rel.target();
+            std::string absPath = eliminateDotAndDotDotFromPath("xl/worksheets/" + target);
+            XLXmlData* xmlData = parentDoc().getXmlData(XLInternalAccess{}, absPath, true);
+            if (!xmlData) {
+                xmlData = const_cast<XLDocument&>(parentDoc()).addXmlData(XLInternalAccess{}, absPath, "", XLContentType::Slicer);
+            }
+            if (xmlData) {
+                XLSlicer slicer(xmlData);
+                if (slicer.name() == name) {
+                    rId = rel.id();
+                    rels.deleteRelationship(rel);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!rId.empty()) {
+        auto sheetNode = xmlDocument().document_element();
+        auto extLst = sheetNode.child("extLst");
+        if (extLst) {
+            for (auto ext : extLst.children("ext")) {
+                auto slicerList = ext.child("x14:slicerList");
+                if (slicerList) {
+                    auto slicerNode = slicerList.find_child_by_attribute("r:id", rId.c_str());
+                    if (slicerNode) {
+                        slicerList.remove_child(slicerNode);
+                    }
+                    if (slicerList.first_child().empty()) {
+                        ext.remove_child(slicerList);
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Delete slicer file and orphan cache
+    parentDoc().deleteSlicerFileAndOrphanCache(name);
 }

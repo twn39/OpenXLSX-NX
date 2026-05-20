@@ -8,6 +8,7 @@
 #include "XLException.hpp"
 #include "XLStreamWriter.hpp"
 #include "XLWorksheet.hpp"
+#include "XLUtilities.hpp"
 
 namespace OpenXLSX
 {

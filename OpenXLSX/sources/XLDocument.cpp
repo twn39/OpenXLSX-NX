@@ -1376,6 +1376,200 @@ std::string XLDocument::createPivotSlicerCache(uint32_t         pivotCacheId,
     return filename;
 }
 
+std::string XLDocument::findOrCreateTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName)
+{
+    for (auto& item : m_data) {
+        if (item.getXmlType() == XLContentType::SlicerCache) {
+            auto root = item.getXmlDocument()->document_element();
+            auto extLst = root.child("extLst");
+            if (extLst) {
+                auto ext = extLst.child("ext");
+                if (ext) {
+                    auto cacheDef = ext.child("x15:tableSlicerCache");
+                    if (cacheDef && cacheDef.attribute("tableId").as_uint() == tableId 
+                                 && cacheDef.attribute("column").as_uint() == tableColumnId) {
+                        return root.attribute("name").value();
+                    }
+                }
+            }
+        }
+    }
+    createTableSlicerCache(tableId, tableColumnId, name, sourceName);
+    return std::string(name);
+}
+
+std::string XLDocument::findOrCreatePivotSlicerCache(uint32_t pivotCacheId, uint32_t sheetId, std::string_view pivotTableName, std::string_view name, std::string_view sourceName)
+{
+    for (auto& item : m_data) {
+        if (item.getXmlType() == XLContentType::SlicerCache) {
+            auto root = item.getXmlDocument()->document_element();
+            auto dataNode = root.child("data");
+            if (dataNode) {
+                auto tabular = dataNode.child("tabular");
+                if (tabular && tabular.attribute("pivotCacheId").as_uint() == pivotCacheId 
+                            && std::string(root.attribute("sourceName").value()) == sourceName) {
+                    auto pivotTables = root.child("pivotTables");
+                    if (pivotTables) {
+                        bool foundPt = false;
+                        for (auto pt : pivotTables.children("pivotTable")) {
+                            if (std::string(pt.attribute("name").value()) == pivotTableName) {
+                                foundPt = true;
+                                break;
+                            }
+                        }
+                        if (!foundPt) {
+                            auto newPt = pivotTables.append_child("pivotTable");
+                            newPt.append_attribute("tabId").set_value(sheetId);
+                            newPt.append_attribute("name").set_value(std::string(pivotTableName).c_str());
+                        }
+                    }
+                    return root.attribute("name").value();
+                }
+            }
+        }
+    }
+    createPivotSlicerCache(pivotCacheId, sheetId, pivotTableName, name, sourceName);
+    return std::string(name);
+}
+
+void XLDocument::deleteSlicerFileAndOrphanCache(const std::string& name)
+{
+    std::string slicerPath;
+    std::string cacheName;
+    for (const auto& item : m_contentTypes.getContentItems()) {
+        if (item.type() == XLContentType::Slicer) {
+            std::string relPath = item.path();
+            if (relPath[0] == '/') relPath = relPath.substr(1);
+            XLXmlData* xmlData = getXmlData(relPath, true);
+            if (!xmlData) {
+                xmlData = &m_data.emplace_back(this, relPath, "", XLContentType::Slicer);
+            }
+            if (xmlData) {
+                auto root = xmlData->getXmlDocument()->document_element();
+                auto slicerNode = root.child("slicer");
+                if (slicerNode && std::string(slicerNode.attribute("name").value()) == name) {
+                    slicerPath = xmlData->getXmlPath();
+                    cacheName = slicerNode.attribute("cache").value();
+                    break;
+                }
+            }
+        }
+    }
+
+    if (slicerPath.empty()) {
+        return;
+    }
+
+    // 1. Delete slicer XML entry
+    m_archive.deleteEntry(slicerPath);
+    if (m_contentTypes.hasOverride("/" + slicerPath)) {
+        m_contentTypes.deleteOverride("/" + slicerPath);
+    }
+    m_unhandledEntries.erase(slicerPath);
+    m_data.remove_if([&slicerPath](const XLXmlData& d) {
+        return d.getXmlPath() == slicerPath;
+    });
+
+    // 2. Check if the cache is still used by other slicers
+    bool cacheStillUsed = false;
+    for (const auto& item : m_contentTypes.getContentItems()) {
+        if (item.type() == XLContentType::Slicer) {
+            std::string relPath = item.path();
+            if (relPath[0] == '/') relPath = relPath.substr(1);
+            if (relPath == slicerPath) continue;
+            XLXmlData* xmlData = getXmlData(relPath, true);
+            if (!xmlData) {
+                xmlData = &m_data.emplace_back(this, relPath, "", XLContentType::Slicer);
+            }
+            if (xmlData) {
+                auto root = xmlData->getXmlDocument()->document_element();
+                auto slicerNode = root.child("slicer");
+                if (slicerNode && std::string(slicerNode.attribute("cache").value()) == cacheName) {
+                    cacheStillUsed = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!cacheStillUsed && !cacheName.empty()) {
+        std::string cachePath;
+        for (const auto& item : m_contentTypes.getContentItems()) {
+            if (item.type() == XLContentType::SlicerCache) {
+                std::string relPath = item.path();
+                if (relPath[0] == '/') relPath = relPath.substr(1);
+                XLXmlData* xmlData = getXmlData(relPath, true);
+                if (!xmlData) {
+                    xmlData = &m_data.emplace_back(this, relPath, "", XLContentType::SlicerCache);
+                }
+                if (xmlData) {
+                    auto root = xmlData->getXmlDocument()->document_element();
+                    if (std::string(root.attribute("name").value()) == cacheName) {
+                        cachePath = xmlData->getXmlPath();
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!cachePath.empty()) {
+            m_archive.deleteEntry(cachePath);
+            if (m_contentTypes.hasOverride("/" + cachePath)) {
+                m_contentTypes.deleteOverride("/" + cachePath);
+            }
+            m_unhandledEntries.erase(cachePath);
+            
+            std::string relId;
+            auto rels = workbookRelationships().relationships();
+            for (const auto& rel : rels) {
+                if (rel.target() == "/" + cachePath) {
+                    relId = rel.id();
+                    workbookRelationships().deleteRelationship(rel);
+                    break;
+                }
+            }
+
+            m_data.remove_if([&cachePath](const XLXmlData& d) {
+                return d.getXmlPath() == cachePath;
+            });
+
+            if (!relId.empty()) {
+                auto wbkNode = m_workbook.xmlDocument().document_element();
+                auto extLst = wbkNode.child("extLst");
+                if (extLst) {
+                    for (auto ext : extLst.children("ext")) {
+                        auto slicerCaches = ext.child("x15:slicerCaches");
+                        if (slicerCaches.empty()) {
+                            slicerCaches = ext.child("x14:slicerCaches");
+                        }
+                        if (slicerCaches) {
+                            auto cacheNode = slicerCaches.find_child_by_attribute("r:id", relId.c_str());
+                            if (cacheNode) {
+                                slicerCaches.remove_child(cacheNode);
+                            }
+                            if (slicerCaches.first_child().empty()) {
+                                ext.remove_child(slicerCaches);
+                            }
+                        }
+                    }
+                }
+            }
+
+            auto wbkNode = m_workbook.xmlDocument().document_element();
+            auto definedNames = wbkNode.child("definedNames");
+            if (definedNames) {
+                auto defNameNode = definedNames.find_child_by_attribute("name", cacheName.c_str());
+                if (defNameNode) {
+                    definedNames.remove_child(defNameNode);
+                }
+                if (definedNames.first_child().empty()) {
+                    wbkNode.remove_child(definedNames);
+                }
+            }
+        }
+    }
+}
+
 std::string XLDocument::createSlicer(std::string_view name, std::string_view cacheName, std::string_view caption)
 {
     using namespace std::literals::string_literals;

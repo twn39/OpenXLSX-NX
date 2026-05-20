@@ -152,3 +152,93 @@ TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
     REQUIRE(tb.valid() == true);
     REQUIRE(tb.name() == "SalesTable");
 }
+
+TEST_CASE("SlicerPropertiesAndCascadingDeletion", "[XLSlicer]")
+{
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename("advanced_slicer_test") + ".xlsx";
+
+    // 1. Create a document with a table and a slicer
+    {
+        XLDocument doc;
+        doc.create(filename, XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        wks.cell("A1").value() = "Region";
+        wks.cell("B1").value() = "Sales";
+        wks.cell("A2").value() = "North";
+        wks.cell("B2").value() = 100;
+        wks.cell("A3").value() = "South";
+        wks.cell("B3").value() = 200;
+        wks.cell("A4").value() = "West";
+        wks.cell("B4").value() = 300;
+
+        auto tables = wks.tables();
+        auto table  = tables.add("SalesTable", "A1:B4");
+
+        XLSlicerOptions opts;
+        opts.name = "MyRegionSlicer";
+        opts.caption = "My Region Slicer";
+        opts.slicerStyle = "SlicerStyleDark3";
+        opts.selectedItems = {"North", "West"};
+
+        wks.addTableSlicer("D2", table, "Region", opts);
+        doc.save();
+    }
+
+    // 2. Open and test attributes & slicers() listing
+    {
+        XLDocument doc;
+        doc.open(filename);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        auto list = wks.slicers();
+        REQUIRE(list.size() == 1);
+        
+        auto slicer = list[0];
+        REQUIRE(slicer.name() == "MyRegionSlicer");
+        REQUIRE(slicer.caption() == "My Region Slicer");
+        REQUIRE(slicer.slicerStyle() == "SlicerStyleDark3");
+        REQUIRE(slicer.showCaption() == true);
+        REQUIRE(slicer.cache() == "Slicer_MyRegionSlicer");
+
+        // Modify properties
+        slicer.setCaption("New Caption");
+        slicer.setSlicerStyle("SlicerStyleLight2");
+        slicer.setShowCaption(false);
+        REQUIRE(slicer.caption() == "New Caption");
+        REQUIRE(slicer.slicerStyle() == "SlicerStyleLight2");
+        REQUIRE(slicer.showCaption() == false);
+
+        doc.save();
+    }
+
+    // 3. Test deleteSlicer and cascading deletion
+    {
+        XLDocument doc;
+        doc.open(filename);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        REQUIRE(wks.slicers().size() == 1);
+        wks.deleteSlicer("MyRegionSlicer");
+        REQUIRE(wks.slicers().empty() == true);
+
+        // Save
+        doc.save();
+    }
+
+    // 4. Verify archive cleanup
+    {
+        XLDocument doc;
+        doc.open(filename);
+        
+        // Verify no slicer or slicerCache files remain in archive
+        bool hasSlicersOrCaches = false;
+        for (const auto& entry : doc.archive().entryNames()) {
+            if (entry.find("xl/slicers/") != std::string::npos || entry.find("xl/slicerCaches/") != std::string::npos) {
+                hasSlicersOrCaches = true;
+                break;
+            }
+        }
+        REQUIRE(hasSlicersOrCaches == false);
+    }
+}

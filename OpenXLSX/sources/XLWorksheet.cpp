@@ -23,18 +23,7 @@
 
 using namespace OpenXLSX;
 
-namespace OpenXLSX {
-    struct XLWorksheetImpl {
-        XLRelationships                                    m_relationships{};
-        XLMergeCells                                       m_merges{};
-        XLDataValidations                                  m_dataValidations{};
-        XLDrawing                                          m_drawing{};
-        XLVmlDrawing                                       m_vmlDrawing{};
-        XLComments                                         m_comments{};
-        XLThreadedComments                                 m_threadedComments{};
-        XLTableCollection                                  m_tables{};
-    };
-}
+#include "XLWorksheetImpl.hpp"
 
 /**
  * @details The constructor does some slight reconfiguration of the XML file, in order to make parsing easier.
