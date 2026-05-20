@@ -52,12 +52,35 @@ namespace OpenXLSX
         Doughnut,
         Radar,
         RadarFilled,
-        RadarMarkers
+        RadarMarkers,
+        PieOfPie,
+        BarOfPie
     };
 
     enum class XLLegendPosition { Bottom, Left, Right, Top, TopRight, Hidden };
 
     enum class XLMarkerStyle { None, Circle, Dash, Diamond, Dot, Picture, Plus, Square, Star, Triangle, X, Default };
+
+    enum class XLLineDashType {
+        Unset,
+        Solid,
+        Dot,
+        Dash,
+        LgDash,
+        DashDot,
+        LgDashDot,
+        LgDashDotDot,
+        SysDash,
+        SysDot,
+        SysDashDot
+    };
+
+    enum class XLAxisTickLabelPosition {
+        NextToAxis,
+        High,
+        Low,
+        None
+    };
 
     /**
      * @brief The XLChart class represents an Excel chart XML file.
@@ -131,6 +154,9 @@ namespace OpenXLSX
          * @brief Add error bars to this series.
          */
         XLChartSeries& addErrorBars(XLErrorBarDirection direction, XLErrorBarType type, XLErrorBarValueType valType, double value = 0.0);
+
+        XLChartSeries& setLineWidth(double points);
+        XLChartSeries& setLineDash(XLLineDashType dashType);
 
     private:
         XMLNode m_node;
@@ -214,6 +240,8 @@ namespace OpenXLSX
          * @param sourceLinked  If true, the format follows the source data format.
          */
         void setNumberFormat(std::string_view formatCode, bool sourceLinked = false);
+
+        void setTickLabelPosition(XLAxisTickLabelPosition position);
 
     private:
         XMLNode m_node;
@@ -377,6 +405,8 @@ namespace OpenXLSX
          * @param hexRGB Six-character hex color.
          */
         void setChartAreaColor(std::string_view hexRGB);
+
+        void setShowDataTable(bool showTable, bool showKeys = false);
 
     private:
         friend class XLDocument;

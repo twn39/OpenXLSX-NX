@@ -128,6 +128,13 @@ namespace OpenXLSX
                     chartNode.append_child("c:holeSize").append_attribute("val").set_value("75");
                     hasAxes = false;
                     break;
+                case XLChartType::PieOfPie:
+                case XLChartType::BarOfPie:
+                    chartNode = plotArea.append_child("c:ofPieChart");
+                    chartNode.append_child("c:ofPieType").append_attribute("val").set_value(type == XLChartType::PieOfPie ? "pie" : "bar");
+                    chartNode.append_child("c:varyColors").append_attribute("val").set_value("1");
+                    hasAxes = false;
+                    break;
                 case XLChartType::Bubble:
                     // Bubble chart uses valAx for both axes (like scatter)
                     chartNode = plotArea.append_child("c:bubbleChart");
@@ -399,6 +406,9 @@ namespace OpenXLSX
                 return "c:pieChart";
             case XLChartType::Pie3D:
                 return "c:pie3DChart";
+            case XLChartType::PieOfPie:
+            case XLChartType::BarOfPie:
+                return "c:ofPieChart";
             case XLChartType::Scatter:
             case XLChartType::ScatterLine:
             case XLChartType::ScatterLineMarker:
@@ -544,9 +554,14 @@ namespace OpenXLSX
             const bool isWireframe = (targetChartType && (*targetChartType == XLChartType::SurfaceWireframe || *targetChartType == XLChartType::Surface3DWireframe));
             matchedNode.append_child("c:wireframe").append_attribute("val").set_value(isWireframe ? "1" : "0");
         }
+        else if (targetNodeName == "c:ofPieChart") {
+            const char* ofPieType = (targetChartType && *targetChartType == XLChartType::BarOfPie) ? "bar" : "pie";
+            matchedNode.append_child("c:ofPieType").append_attribute("val").set_value(ofPieType);
+            matchedNode.append_child("c:varyColors").append_attribute("val").set_value("1");
+        }
 
-        // Add axes IDs to the new chart node (unless it's a Pie chart)
-        if (targetNodeName != "c:pieChart" && targetNodeName != "c:pie3DChart" && targetNodeName != "c:doughnutChart") {
+        // Add axes IDs to the new chart node (unless it's a Pie/Doughnut/OfPie chart)
+        if (targetNodeName != "c:pieChart" && targetNodeName != "c:pie3DChart" && targetNodeName != "c:doughnutChart" && targetNodeName != "c:ofPieChart") {
             matchedNode.append_child("c:axId").append_attribute("val").set_value(expectedCatAxId.c_str());
             matchedNode.append_child("c:axId").append_attribute("val").set_value(expectedValAxId.c_str());
             if (targetNodeName == "c:surfaceChart" || targetNodeName == "c:surface3DChart") {
@@ -1667,3 +1682,160 @@ XLChartSeries XLChart::addBubbleSeries(const XLWorksheet& wks,
                            buildAbsoluteChartReference(wks, sizes),
                            title);
 }
+
+XLChartSeries& XLChartSeries::setLineWidth(double points)
+{
+    if (m_node.empty()) return *this;
+
+    XMLNode spPr = m_node.child("c:spPr");
+    if (spPr.empty()) {
+        XMLNode insertBefore;
+        for (XMLNode child : m_node.children()) {
+            std::string_view n = child.name();
+            if (n != "c:idx" && n != "c:order" && n != "c:tx") {
+                insertBefore = child;
+                break;
+            }
+        }
+        if (!insertBefore.empty())
+            spPr = m_node.insert_child_before("c:spPr", insertBefore);
+        else
+            spPr = m_node.append_child("c:spPr");
+    }
+
+    XMLNode ln = spPr.child("a:ln");
+    if (ln.empty()) ln = spPr.append_child("a:ln");
+
+    uint64_t emus = static_cast<uint64_t>(points * 12700.0);
+    XMLAttribute wAttr = ln.attribute("w");
+    if (wAttr.empty()) {
+        ln.append_attribute("w").set_value(emus);
+    } else {
+        wAttr.set_value(emus);
+    }
+
+    return *this;
+}
+
+XLChartSeries& XLChartSeries::setLineDash(XLLineDashType dashType)
+{
+    if (m_node.empty()) return *this;
+
+    XMLNode spPr = m_node.child("c:spPr");
+    if (spPr.empty()) {
+        XMLNode insertBefore;
+        for (XMLNode child : m_node.children()) {
+            std::string_view n = child.name();
+            if (n != "c:idx" && n != "c:order" && n != "c:tx") {
+                insertBefore = child;
+                break;
+            }
+        }
+        if (!insertBefore.empty())
+            spPr = m_node.insert_child_before("c:spPr", insertBefore);
+        else
+            spPr = m_node.append_child("c:spPr");
+    }
+
+    XMLNode ln = spPr.child("a:ln");
+    if (ln.empty()) ln = spPr.append_child("a:ln");
+
+    if (dashType == XLLineDashType::Unset) {
+        ln.remove_child("a:prstDash");
+        return *this;
+    }
+
+    const char* val = "solid";
+    switch (dashType) {
+        case XLLineDashType::Solid:        val = "solid"; break;
+        case XLLineDashType::Dot:          val = "dot"; break;
+        case XLLineDashType::Dash:         val = "dash"; break;
+        case XLLineDashType::LgDash:       val = "lgDash"; break;
+        case XLLineDashType::DashDot:      val = "dashDot"; break;
+        case XLLineDashType::LgDashDot:    val = "lgDashDot"; break;
+        case XLLineDashType::LgDashDotDot: val = "lgDashDotDot"; break;
+        case XLLineDashType::SysDash:      val = "sysDash"; break;
+        case XLLineDashType::SysDot:       val = "sysDot"; break;
+        case XLLineDashType::SysDashDot:   val = "sysDashDot"; break;
+        default:                           val = "solid"; break;
+    }
+
+    XMLNode prstDash = ln.child("a:prstDash");
+    if (prstDash.empty()) prstDash = ln.append_child("a:prstDash");
+    XMLAttribute valAttr = prstDash.attribute("val");
+    if (valAttr.empty()) {
+        prstDash.append_attribute("val").set_value(val);
+    } else {
+        valAttr.set_value(val);
+    }
+
+    return *this;
+}
+
+void XLAxis::setTickLabelPosition(XLAxisTickLabelPosition position)
+{
+    if (m_node.empty()) return;
+
+    XMLNode tickLblPosNode = m_node.child("c:tickLblPos");
+    if (tickLblPosNode.empty()) {
+        tickLblPosNode = appendAndGetNode(m_node, "c:tickLblPos", XLAxisNodeOrder);
+    }
+
+    const char* val = "nextTo";
+    switch (position) {
+        case XLAxisTickLabelPosition::NextToAxis:
+            val = "nextTo";
+            break;
+        case XLAxisTickLabelPosition::High:
+            val = "high";
+            break;
+        case XLAxisTickLabelPosition::Low:
+            val = "low";
+            break;
+        case XLAxisTickLabelPosition::None:
+            val = "none";
+            break;
+    }
+
+    XMLAttribute valAttr = tickLblPosNode.attribute("val");
+    if (valAttr.empty()) {
+        tickLblPosNode.append_attribute("val").set_value(val);
+    } else {
+        valAttr.set_value(val);
+    }
+}
+
+void XLChart::setShowDataTable(bool showTable, bool showKeys)
+{
+    XMLNode plotArea = xmlDocument().document_element().child("c:chart").child("c:plotArea");
+    if (plotArea.empty()) return;
+
+    if (!showTable) {
+        plotArea.remove_child("c:dTable");
+        return;
+    }
+
+    XMLNode dTableNode = plotArea.child("c:dTable");
+    if (dTableNode.empty()) {
+        XMLNode insertAfter;
+        for (auto child : plotArea.children()) {
+            std::string_view name = child.name();
+            if (name == "c:catAx" || name == "c:valAx" || name == "c:dateAx" || name == "c:serAx") {
+                insertAfter = child;
+            }
+        }
+
+        if (!insertAfter.empty()) {
+            dTableNode = plotArea.insert_child_after("c:dTable", insertAfter);
+        } else {
+            dTableNode = plotArea.append_child("c:dTable");
+        }
+    }
+
+    dTableNode.remove_children();
+    dTableNode.append_child("c:showHorzBorder").append_attribute("val").set_value("1");
+    dTableNode.append_child("c:showVertBorder").append_attribute("val").set_value("1");
+    dTableNode.append_child("c:showOutline").append_attribute("val").set_value("1");
+    dTableNode.append_child("c:showKeys").append_attribute("val").set_value(showKeys ? "1" : "0");
+}
+
