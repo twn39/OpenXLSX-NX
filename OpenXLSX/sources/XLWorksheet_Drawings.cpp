@@ -22,6 +22,7 @@
 #include "XLThreadedComments.hpp"
 #include "XLSlicer.hpp"
 #include "XLSlicerCache.hpp"
+#include "XLSlicerCollection.hpp"
 #include "XLAutoFilter.hpp"
 #include "XLWorksheetImpl.hpp"
 
@@ -461,7 +462,7 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     if (slicerData) {
         XLSlicer slicer(slicerData);
         if (!options.slicerStyle.empty()) {
-            slicer.setSlicerStyle(options.slicerStyle);
+            slicer.setStyleRaw(options.slicerStyle);
         }
     }
 
@@ -511,15 +512,22 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
 
     slicerList.append_child("x14:slicer").append_attribute("r:id").set_value(rId.c_str());
 
-    // 4. Add drawing for the slicer
+    // Build drawing anchor using oneCellAnchor + ext for pixel-accurate sizing
+    // Bug fix: old code used twoCellAnchor with hardcoded +2 col / +10 row offsets
+    // which made options.width / options.height completely ineffective.
     XLCellReference ref{std::string(cellReference)};
-    uint32_t        row    = ref.row() - 1;
+    uint32_t        row    = ref.row() - 1;    // 0-indexed
     uint16_t        colIdx = ref.column() - 1;
 
     XLDrawing& drw     = drawing();
     XMLNode    drwRoot = drw.xmlDocument().document_element();
 
-    XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
+    // Use oneCellAnchor so size is specified in EMU, not relative to cells.
+    // 1 pixel = 9525 EMU (96 DPI)
+    const int64_t cx = static_cast<int64_t>(options.width)  * 9525;
+    const int64_t cy = static_cast<int64_t>(options.height) * 9525;
+
+    XMLNode anchor = drwRoot.append_child("xdr:oneCellAnchor");
 
     XMLNode from = anchor.append_child("xdr:from");
     from.append_child("xdr:col").text().set(colIdx);
@@ -527,11 +535,9 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     from.append_child("xdr:row").text().set(row);
     from.append_child("xdr:rowOff").text().set(options.offsetY * 9525);
 
-    XMLNode to = anchor.append_child("xdr:to");
-    to.append_child("xdr:col").text().set(colIdx + 2);    // Approximate to
-    to.append_child("xdr:colOff").text().set(options.offsetX * 9525);
-    to.append_child("xdr:row").text().set(row + 10);
-    to.append_child("xdr:rowOff").text().set(options.offsetY * 9525);
+    XMLNode anchorExt = anchor.append_child("xdr:ext");
+    anchorExt.append_attribute("cx").set_value(std::to_string(cx).c_str());
+    anchorExt.append_attribute("cy").set_value(std::to_string(cy).c_str());
 
     XMLNode altContent = anchor.append_child("mc:AlternateContent");
     altContent.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
@@ -582,8 +588,8 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     XMLNode spXfrm = spPr.append_child("a:xfrm");
     spXfrm.append_child("a:off").append_attribute("x").set_value("0");
     spXfrm.child("a:off").append_attribute("y").set_value("0");
-    spXfrm.append_child("a:ext").append_attribute("cx").set_value(fmt::format("{}", static_cast<uint64_t>(options.width) * 9525).c_str());
-    spXfrm.child("a:ext").append_attribute("cy").set_value(fmt::format("{}", static_cast<uint64_t>(options.height) * 9525).c_str());
+    spXfrm.append_child("a:ext").append_attribute("cx").set_value(std::to_string(cx).c_str());
+    spXfrm.child("a:ext").append_attribute("cy").set_value(std::to_string(cy).c_str());
     spPr.append_child("a:prstGeom").append_attribute("prst").set_value("rect");
     spPr.append_child("a:solidFill").append_child("a:srgbClr").append_attribute("val").set_value("FFFFFF");
     XMLNode ln = spPr.append_child("a:ln");
@@ -605,9 +611,7 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     rPr.append_attribute("i").set_value("false");
     r.append_child("a:t").text().set("This shape represents a table slicer. Table slicers are not supported in this version of Excel.");
 
-    XMLNode cd = anchor.append_child("xdr:clientData");
-    cd.append_attribute("fLocksWithSheet").set_value("true");
-    cd.append_attribute("fPrintsWithSheet").set_value("true");
+    anchor.append_child("xdr:clientData");
 }
 
 void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
@@ -671,7 +675,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     if (slicerData) {
         XLSlicer slicer(slicerData);
         if (!options.slicerStyle.empty()) {
-            slicer.setSlicerStyle(options.slicerStyle);
+            slicer.setStyleRaw(options.slicerStyle);
         }
     }
 
@@ -720,7 +724,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
         if (ign.find("x14") == std::string::npos) { sheetNode.attribute("mc:Ignorable").set_value((ign + " x14").c_str()); }
     }
 
-    // 4. Add drawing for the slicer
+    // 4. Add drawing for the slicer (oneCellAnchor + ext for pixel-accurate sizing)
     XLCellReference ref{std::string(cellReference)};
     uint32_t        row    = ref.row() - 1;
     uint16_t        colIdx = ref.column() - 1;
@@ -728,7 +732,10 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     XLDrawing& drw     = drawing();
     XMLNode    drwRoot = drw.xmlDocument().document_element();
 
-    XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
+    const int64_t cx = static_cast<int64_t>(options.width)  * 9525;
+    const int64_t cy = static_cast<int64_t>(options.height) * 9525;
+
+    XMLNode anchor = drwRoot.append_child("xdr:oneCellAnchor");
 
     XMLNode from = anchor.append_child("xdr:from");
     from.append_child("xdr:col").text().set(colIdx);
@@ -736,11 +743,9 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     from.append_child("xdr:row").text().set(row);
     from.append_child("xdr:rowOff").text().set(options.offsetY * 9525);
 
-    XMLNode to = anchor.append_child("xdr:to");
-    to.append_child("xdr:col").text().set(colIdx + 2);
-    to.append_child("xdr:colOff").text().set(options.offsetX * 9525);
-    to.append_child("xdr:row").text().set(row + 10);
-    to.append_child("xdr:rowOff").text().set(options.offsetY * 9525);
+    XMLNode anchorExt = anchor.append_child("xdr:ext");
+    anchorExt.append_attribute("cx").set_value(std::to_string(cx).c_str());
+    anchorExt.append_attribute("cy").set_value(std::to_string(cy).c_str());
 
     XMLNode altContent = anchor.append_child("mc:AlternateContent");
     altContent.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
@@ -791,8 +796,8 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     XMLNode spXfrm = spPr.append_child("a:xfrm");
     spXfrm.append_child("a:off").append_attribute("x").set_value("0");
     spXfrm.child("a:off").append_attribute("y").set_value("0");
-    spXfrm.append_child("a:ext").append_attribute("cx").set_value(fmt::format("{}", static_cast<uint64_t>(options.width) * 9525).c_str());
-    spXfrm.child("a:ext").append_attribute("cy").set_value(fmt::format("{}", static_cast<uint64_t>(options.height) * 9525).c_str());
+    spXfrm.append_child("a:ext").append_attribute("cx").set_value(std::to_string(cx).c_str());
+    spXfrm.child("a:ext").append_attribute("cy").set_value(std::to_string(cy).c_str());
     spPr.append_child("a:prstGeom").append_attribute("prst").set_value("rect");
     spPr.append_child("a:solidFill").append_child("a:srgbClr").append_attribute("val").set_value("FFFFFF");
     XMLNode ln = spPr.append_child("a:ln");
@@ -814,50 +819,52 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     rPr.append_attribute("i").set_value("false");
     r.append_child("a:t").text().set("This shape represents a pivot slicer. Slicers are not supported in this version of Excel.");
 
-    XMLNode cd = anchor.append_child("xdr:clientData");
-    cd.append_attribute("fLocksWithSheet").set_value("true");
-    cd.append_attribute("fPrintsWithSheet").set_value("true");
+    anchor.append_child("xdr:clientData");
 }
 
-std::vector<XLSlicer> XLWorksheet::slicers() const
+XLSlicerCollection& XLWorksheet::slicers()
 {
-    std::vector<XLSlicer> result;
-    auto& rels = const_cast<XLWorksheet*>(this)->relationships();
-    for (const auto& rel : rels.relationships()) {
-        if (rel.type() == XLRelationshipType::Slicer) {
-            std::string target = rel.target();
-            std::string absPath = eliminateDotAndDotDotFromPath("xl/worksheets/" + target);
-            XLXmlData* xmlData = const_cast<XLDocument&>(parentDoc()).getXmlData(XLInternalAccess{}, absPath, true);
-            if (!xmlData) {
-                xmlData = const_cast<XLDocument&>(parentDoc()).addXmlData(XLInternalAccess{}, absPath, "", XLContentType::Slicer);
-            }
-            if (xmlData) {
-                result.emplace_back(xmlData);
-            }
-        }
+    if (!m_impl->m_slicers.valid()) {
+        m_impl->m_slicers = XLSlicerCollection(this);
     }
-    return result;
+    return m_impl->m_slicers;
 }
 
 void XLWorksheet::deleteSlicer(const std::string& name)
 {
-    // 1. Remove drawing shape representation
+    // 1. Remove drawing shape representation (search inside mc:AlternateContent)
     if (hasDrawing()) {
         XLDrawing& drw = drawing();
         auto drwRoot = drw.xmlDocument().document_element();
         pugi::xml_node targetAnchor;
         for (auto anchor : drwRoot.children()) {
+            // New anchor style: oneCellAnchor/twoCellAnchor with mc:AlternateContent
+            auto alt = anchor.child("mc:AlternateContent");
+            if (alt) {
+                // Look inside mc:Choice → xdr:graphicFrame → ... → sle:slicer[name]
+                for (auto choice : alt.children("mc:Choice")) {
+                    auto gf = choice.child("xdr:graphicFrame");
+                    if (!gf) continue;
+                    auto cNvPr = gf.child("xdr:nvGraphicFramePr").child("xdr:cNvPr");
+                    if (cNvPr && std::string(cNvPr.attribute("name").value()) == name) {
+                        targetAnchor = anchor;
+                        break;
+                    }
+                    // Also check sle:slicer name directly
+                    auto sle = gf.child("a:graphic").child("a:graphicData").child("sle:slicer");
+                    if (!sle)
+                        sle = gf.child("a:graphic").child("a:graphicData").child("sle15:slicer");
+                    if (sle && std::string(sle.attribute("name").value()) == name) {
+                        targetAnchor = anchor;
+                        break;
+                    }
+                }
+                if (targetAnchor) break;
+            }
+            // Fallback: direct xdr:graphicFrame (no AlternateContent)
             auto graphicFrame = anchor.child("xdr:graphicFrame");
             if (graphicFrame) {
                 auto nameAttr = graphicFrame.child("xdr:nvGraphicFramePr").child("xdr:cNvPr").attribute("name");
-                if (nameAttr && std::string(nameAttr.value()) == name) {
-                    targetAnchor = anchor;
-                    break;
-                }
-            }
-            auto sp = anchor.child("xdr:sp");
-            if (sp) {
-                auto nameAttr = sp.child("xdr:nvSpPr").child("xdr:cNvPr").attribute("name");
                 if (nameAttr && std::string(nameAttr.value()) == name) {
                     targetAnchor = anchor;
                     break;
@@ -913,4 +920,7 @@ void XLWorksheet::deleteSlicer(const std::string& name)
 
     // 3. Delete slicer file and orphan cache
     parentDoc().deleteSlicerFileAndOrphanCache(name);
+
+    // 4. Invalidate the collection cache so next access re-enumerates
+    m_impl->m_slicers.reload();
 }

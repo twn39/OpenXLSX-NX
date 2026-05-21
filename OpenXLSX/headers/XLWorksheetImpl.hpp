@@ -8,6 +8,7 @@
 #include "XLComments.hpp"
 #include "XLThreadedComments.hpp"
 #include "XLTables.hpp"
+#include "XLSlicerCollection.hpp"
 
 namespace OpenXLSX {
     struct XLWorksheetImpl {
@@ -19,6 +20,7 @@ namespace OpenXLSX {
         XLComments                                         m_comments{};
         XLThreadedComments                                 m_threadedComments{};
         XLTableCollection                                  m_tables{};
+        XLSlicerCollection                                 m_slicers{};
     };
 }
 

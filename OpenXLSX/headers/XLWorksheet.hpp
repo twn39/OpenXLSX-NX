@@ -33,6 +33,7 @@ namespace OpenXLSX
     class XLPivotTableOptions;
     class XLSlicer;
     struct XLSlicerOptions;
+    class XLSlicerCollection;
     class XLRelationships;
     class XLStreamReader;
     class XLStreamWriter;
@@ -121,6 +122,7 @@ namespace OpenXLSX
         friend class XLRow;
         friend class XLWorkbook;
         friend class XLTableCollection;
+        friend class XLSlicerCollection;
         friend class XLSheetBase<XLWorksheet>;
         friend class XLRowDataProxy;
 
@@ -430,6 +432,7 @@ namespace OpenXLSX
          * @param table The table to filter.
          * @param columnName The exact name of the table column to filter.
          * @param options The visual and naming options for the slicer.
+         * @deprecated Use slicers().add(cellRef, table, column) instead.
          */
         void addTableSlicer(std::string_view       cellReference,
                             const XLTable&         table,
@@ -442,6 +445,7 @@ namespace OpenXLSX
          * @param pivotTable The Pivot Table to filter.
          * @param columnName The exact name of the pivot field (source column name) to filter.
          * @param options The visual and naming options for the slicer.
+         * @deprecated Use slicers().add(cellRef, pivotTable, field) instead.
          */
         void addPivotSlicer(std::string_view       cellReference,
                             const XLPivotTable&    pivotTable,
@@ -449,9 +453,26 @@ namespace OpenXLSX
                             const XLSlicerOptions& options = XLSlicerOptions());
 
         /**
-         * @brief Get list of all slicers in this worksheet.
+         * @brief Get the slicer collection for this worksheet.
+         *
+         * Returns a live reference to the XLSlicerCollection object, which supports:
+         *  - range-for iteration
+         *  - named/index access via operator[]
+         *  - fluent slicer creation via add()
+         *  - removal via remove()
+         *
+         * Example:
+         * @code
+         *   wks.slicers().add("E2", table, "Region")
+         *       .caption("Region Filter")
+         *       .style(XLSlicerStyle::Dark3)
+         *       .size(180, 250)
+         *       .showOnly({"North", "West"});
+         *
+         *   wks.slicers()["Region"].setCaption("New Title");
+         * @endcode
          */
-        std::vector<XLSlicer> slicers() const;
+        XLSlicerCollection& slicers();
 
         /**
          * @brief Delete a slicer by name, cleaning up drawings, relationships, and orphan caches.

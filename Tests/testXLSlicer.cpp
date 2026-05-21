@@ -2,6 +2,8 @@
 #include "OpenXLSX.hpp"
 #include "XLDrawing.hpp"
 #include "XLTables.hpp"
+#include "XLSlicer.hpp"
+#include "XLSlicerCollection.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <fstream>
@@ -91,7 +93,8 @@ TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
     int  anchorCount       = 0;
     int  graphicFrameCount = 0;
     int  fallbackCount     = 0;
-    for (auto anchor : drwRoot.children("xdr:twoCellAnchor")) {
+    // Note: we now use xdr:oneCellAnchor + ext (pixel-accurate) instead of twoCellAnchor
+    for (auto anchor : drwRoot.children("xdr:oneCellAnchor")) {
         anchorCount++;
         auto altContent = anchor.child("mc:AlternateContent");
         REQUIRE(!altContent.empty());
@@ -185,29 +188,48 @@ TEST_CASE("SlicerPropertiesAndCascadingDeletion", "[XLSlicer]")
         doc.save();
     }
 
-    // 2. Open and test attributes & slicers() listing
+    // 2. Open and test attributes & slicers() listing via new XLSlicerCollection API
     {
         XLDocument doc;
         doc.open(filename);
         auto wks = doc.workbook().worksheet("Sheet1");
 
-        auto list = wks.slicers();
-        REQUIRE(list.size() == 1);
-        
-        auto slicer = list[0];
+        // New API: slicers() returns XLSlicerCollection& (not vector)
+        auto& coll = wks.slicers();
+        REQUIRE(coll.size() == 1);
+        REQUIRE(coll.count() == 1);
+        REQUIRE(!coll.empty());
+        REQUIRE(coll.contains("MyRegionSlicer"));
+        REQUIRE(!coll.contains("NonExistent"));
+
+        // Access by index
+        auto& slicer = coll[static_cast<size_t>(0)];
         REQUIRE(slicer.name() == "MyRegionSlicer");
         REQUIRE(slicer.caption() == "My Region Slicer");
-        REQUIRE(slicer.slicerStyle() == "SlicerStyleDark3");
+        REQUIRE(slicer.styleRaw() == "SlicerStyleDark3");    // updated API name
+        REQUIRE(slicer.style() == XLSlicerStyle::Dark3);     // strongly-typed enum
         REQUIRE(slicer.showCaption() == true);
         REQUIRE(slicer.cache() == "Slicer_MyRegionSlicer");
 
-        // Modify properties
-        slicer.setCaption("New Caption");
-        slicer.setSlicerStyle("SlicerStyleLight2");
-        slicer.setShowCaption(false);
+        // Access by name
+        REQUIRE(coll["MyRegionSlicer"].name() == "MyRegionSlicer");
+
+        // Modify properties via fluent chained setters (new ergonomic API)
+        slicer.setCaption("New Caption")
+              .setStyle(XLSlicerStyle::Light2)    // strongly-typed
+              .setShowCaption(false);
         REQUIRE(slicer.caption() == "New Caption");
-        REQUIRE(slicer.slicerStyle() == "SlicerStyleLight2");
+        REQUIRE(slicer.styleRaw() == "SlicerStyleLight2");
+        REQUIRE(slicer.style() == XLSlicerStyle::Light2);
         REQUIRE(slicer.showCaption() == false);
+
+        // range-for iteration
+        int iterCount = 0;
+        for (auto& s : wks.slicers()) {
+            REQUIRE(!s.name().empty());
+            ++iterCount;
+        }
+        REQUIRE(iterCount == 1);
 
         doc.save();
     }
