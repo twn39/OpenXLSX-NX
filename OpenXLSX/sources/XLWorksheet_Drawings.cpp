@@ -456,13 +456,38 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
 
     // 1. Create/Find Slicer Cache and Slicer files
     std::string actualCacheName = parentDoc().findOrCreateTableSlicerCache(tableId, colId, cacheName, columnName);
-    std::string slicerFilename = parentDoc().createSlicer(name, actualCacheName, caption);
 
-    XLXmlData* slicerData = parentDoc().getXmlData(XLInternalAccess{}, slicerFilename);
-    if (slicerData) {
-        XLSlicer slicer(slicerData);
-        if (!options.slicerStyle.empty()) {
-            slicer.setStyleRaw(options.slicerStyle);
+    // ── Per-sheet slicer XML sharing ─────────────────────────────────────
+    // OOXML: all slicers on the same sheet share one slicer.xml file.
+    // Look for an existing Slicer relationship on this worksheet.
+    std::string existingSlicerFile;
+    std::string existingSlicerRId;
+    for (const auto& rel : relationships().relationships()) {
+        if (rel.type() == XLRelationshipType::Slicer) {
+            // Target is "../slicers/slicerN.xml" → resolve to "xl/slicers/slicerN.xml"
+            existingSlicerFile = eliminateDotAndDotDotFromPath("xl/worksheets/" + rel.target());
+            existingSlicerRId  = rel.id();
+            break;
+        }
+    }
+
+    // Append slicer node to existing file, or create new file
+    std::string slicerFilename = parentDoc().createSlicer(name, actualCacheName, caption, existingSlicerFile);
+
+    // Apply style/options to the newly appended slicer node (direct XML)
+    if (!options.slicerStyle.empty()) {
+        XLXmlData* slicerData = parentDoc().getXmlData(XLInternalAccess{}, slicerFilename);
+        if (slicerData) {
+            XMLNode root = slicerData->getXmlDocument()->document_element();
+            for (auto node : root.children("slicer")) {
+                if (std::string_view(node.attribute("name").value()) == name) {
+                    // Set or update style attribute directly
+                    auto styleAttr = node.attribute("style");
+                    if (styleAttr) styleAttr.set_value(options.slicerStyle.c_str());
+                    else node.append_attribute("style").set_value(options.slicerStyle.c_str());
+                    break;
+                }
+            }
         }
     }
 
@@ -477,40 +502,44 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
         }
     }
 
-    // 2. Add Slicer relationship to worksheet
-    relationships().addRelationship(XLRelationshipType::Slicer, "../slicers/" + slicerFilename.substr(11));
-    std::string rId = relationships().relationshipByTarget("../slicers/" + slicerFilename.substr(11)).id();
+    // 2. Add Slicer relationship to worksheet (only if this is the first slicer on this sheet)
+    std::string slicerRelTarget = "../slicers/" + slicerFilename.substr(11);
+    std::string rId;
+    if (existingSlicerFile.empty()) {
+        // First slicer on this sheet — register the relationship
+        relationships().addRelationship(XLRelationshipType::Slicer, slicerRelTarget);
+        rId = relationships().relationshipByTarget(slicerRelTarget).id();
+    } else {
+        // Reuse the existing relationship ID
+        rId = existingSlicerRId;
+    }
 
     // 3. Add extLst to worksheet.xml
     XMLNode sheetNode = xmlDocument().document_element();
     XMLNode extLst    = sheetNode.child("extLst");
     if (!sheetNode.attribute("xmlns:mc"))
         sheetNode.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
-    if (!sheetNode.attribute("xmlns:x15"))
-        sheetNode.append_attribute("xmlns:x15").set_value("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main");
-    if (!sheetNode.attribute("mc:Ignorable")) { sheetNode.append_attribute("mc:Ignorable").set_value("x15"); }
-    else {
-        std::string ign = sheetNode.attribute("mc:Ignorable").value();
-        if (ign.find("x15") == std::string::npos) { sheetNode.attribute("mc:Ignorable").set_value((ign + " x15").c_str()); }
-    }
 
     if (extLst.empty()) extLst = sheetNode.append_child("extLst");
 
-    XMLNode ext = extLst.find_child_by_attribute("uri", "{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
+    // Use X14 URI {A8765BA9} — supported by Excel 2010+ and more broadly compatible
+    XMLNode ext = extLst.find_child_by_attribute("uri", "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
     if (ext.empty()) {
         ext = extLst.append_child("ext");
-        ext.append_attribute("xmlns:x15").set_value("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main");
-        ext.append_attribute("uri").set_value("{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
+        ext.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+        ext.append_attribute("uri").set_value("{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
     }
 
     XMLNode slicerList = ext.child("x14:slicerList");
     if (slicerList.empty()) {
         slicerList = ext.append_child("x14:slicerList");
-        // Need to add x14 namespace to root or here
-        slicerList.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
     }
 
-    slicerList.append_child("x14:slicer").append_attribute("r:id").set_value(rId.c_str());
+    // Only add the relationship reference once (first slicer registers it)
+    if (existingSlicerFile.empty()) {
+        slicerList.append_child("x14:slicer").append_attribute("r:id").set_value(rId.c_str());
+    }
+
 
     // Build drawing anchor using oneCellAnchor + ext for pixel-accurate sizing
     // Bug fix: old code used twoCellAnchor with hardcoded +2 col / +10 row offsets
@@ -669,13 +698,32 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
 
     // 1. Create Slicer Cache and Slicer files
     std::string actualCacheName = parentDoc().findOrCreatePivotSlicerCache(cacheId, sheetId, ptName, cacheName, columnName);
-    std::string slicerFilename = parentDoc().createSlicer(sName, actualCacheName, caption);
 
-    XLXmlData* slicerData = parentDoc().getXmlData(XLInternalAccess{}, slicerFilename);
-    if (slicerData) {
-        XLSlicer slicer(slicerData);
-        if (!options.slicerStyle.empty()) {
-            slicer.setStyleRaw(options.slicerStyle);
+    // Per-sheet slicer XML sharing: look for existing slicer relationship on this worksheet
+    std::string existingSlicerFile;
+    std::string existingSlicerRId;
+    for (const auto& rel : relationships().relationships()) {
+        if (rel.type() == XLRelationshipType::Slicer) {
+            existingSlicerFile = eliminateDotAndDotDotFromPath("xl/worksheets/" + rel.target());
+            existingSlicerRId  = rel.id();
+            break;
+        }
+    }
+    std::string slicerFilename = parentDoc().createSlicer(sName, actualCacheName, caption, existingSlicerFile);
+
+    // Apply style via direct XML attribute (no XLSlicer construction needed)
+    if (!options.slicerStyle.empty()) {
+        XLXmlData* slicerData = parentDoc().getXmlData(XLInternalAccess{}, slicerFilename);
+        if (slicerData) {
+            XMLNode root = slicerData->getXmlDocument()->document_element();
+            for (auto node : root.children("slicer")) {
+                if (std::string_view(node.attribute("name").value()) == sName) {
+                    auto styleAttr = node.attribute("style");
+                    if (styleAttr) styleAttr.set_value(options.slicerStyle.c_str());
+                    else node.append_attribute("style").set_value(options.slicerStyle.c_str());
+                    break;
+                }
+            }
         }
     }
 
@@ -692,9 +740,15 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
         }
     }
 
-    // 2. Add Slicer relationship to worksheet
-    relationships().addRelationship(XLRelationshipType::Slicer, "../slicers/" + slicerFilename.substr(11));
-    std::string rId = relationships().relationshipByTarget("../slicers/" + slicerFilename.substr(11)).id();
+    // 2. Add Slicer relationship to worksheet (only for first slicer on this sheet)
+    std::string slicerRelTarget = "../slicers/" + slicerFilename.substr(11);
+    std::string rId;
+    if (existingSlicerFile.empty()) {
+        relationships().addRelationship(XLRelationshipType::Slicer, slicerRelTarget);
+        rId = relationships().relationshipByTarget(slicerRelTarget).id();
+    } else {
+        rId = existingSlicerRId;
+    }
 
     // 3. Add extLst to worksheet.xml
     XMLNode sheetNode = xmlDocument().document_element();
@@ -876,8 +930,9 @@ void XLWorksheet::deleteSlicer(const std::string& name)
         }
     }
 
-    // 2. Remove relationship and sheet extLst reference
+    // 2. Remove relationship and sheet extLst reference only if no other slicers share the file
     std::string rId;
+    bool otherSlicersLeft = false;
     auto& rels = relationships();
     auto relList = rels.relationships();
     for (const auto& rel : relList) {
@@ -889,17 +944,27 @@ void XLWorksheet::deleteSlicer(const std::string& name)
                 xmlData = const_cast<XLDocument&>(parentDoc()).addXmlData(XLInternalAccess{}, absPath, "", XLContentType::Slicer);
             }
             if (xmlData) {
-                XLSlicer slicer(xmlData);
-                if (slicer.name() == name) {
+                auto root = xmlData->getXmlDocument()->document_element();
+                bool foundThisSlicer = false;
+                for (auto slicerNode : root.children("slicer")) {
+                    if (std::string(slicerNode.attribute("name").value()) == name) {
+                        foundThisSlicer = true;
+                    } else {
+                        otherSlicersLeft = true;
+                    }
+                }
+                if (foundThisSlicer) {
                     rId = rel.id();
-                    rels.deleteRelationship(rel);
+                    if (!otherSlicersLeft) {
+                        rels.deleteRelationship(rel);
+                    }
                     break;
                 }
             }
         }
     }
 
-    if (!rId.empty()) {
+    if (!rId.empty() && !otherSlicersLeft) {
         auto sheetNode = xmlDocument().document_element();
         auto extLst = sheetNode.child("extLst");
         if (extLst) {
@@ -924,3 +989,4 @@ void XLWorksheet::deleteSlicer(const std::string& name)
     // 4. Invalidate the collection cache so next access re-enumerates
     m_impl->m_slicers.reload();
 }
+

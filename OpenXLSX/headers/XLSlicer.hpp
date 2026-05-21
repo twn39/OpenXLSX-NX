@@ -55,6 +55,7 @@ namespace OpenXLSX
 
         /// Full three-source constructor used by XLSlicerCollection.
         XLSlicer(XLXmlData* slicerXml,
+                 XMLNode    slicerNode,
                  XLXmlData* cacheXml,
                  XMLNode    anchorNode,
                  XLWorksheet* worksheet);
@@ -133,6 +134,7 @@ namespace OpenXLSX
         XMLNode cacheRoot()  const;
 
         XLXmlData*   m_slicerXml{nullptr};
+        XMLNode      m_slicerNode;
         XLXmlData*   m_cacheXml{nullptr};
         XMLNode      m_anchorNode;       ///< xdr:oneCellAnchor or xdr:twoCellAnchor
         XLWorksheet* m_worksheet{nullptr};

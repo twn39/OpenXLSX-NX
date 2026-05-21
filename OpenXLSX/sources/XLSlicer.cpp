@@ -62,13 +62,19 @@ XLSlicerStyle OpenXLSX::xlSlicerStyleFromString(std::string_view s)
 
 XLSlicer::XLSlicer(XLXmlData* slicerXml)
     : m_slicerXml(slicerXml)
-{}
+{
+    if (m_slicerXml) {
+        m_slicerNode = m_slicerXml->getXmlDocument()->document_element().child("slicer");
+    }
+}
 
 XLSlicer::XLSlicer(XLXmlData* slicerXml,
+                   XMLNode    slicerNode,
                    XLXmlData* cacheXml,
                    XMLNode    anchorNode,
                    XLWorksheet* worksheet)
     : m_slicerXml(slicerXml)
+    , m_slicerNode(slicerNode)
     , m_cacheXml(cacheXml)
     , m_anchorNode(anchorNode)
     , m_worksheet(worksheet)
@@ -80,8 +86,7 @@ XLSlicer::XLSlicer(XLXmlData* slicerXml,
 
 XMLNode XLSlicer::slicerNode() const
 {
-    if (!m_slicerXml) return XMLNode{};
-    return m_slicerXml->getXmlDocument()->document_element().child("slicer");
+    return m_slicerNode;
 }
 
 XMLNode XLSlicer::cacheRoot() const

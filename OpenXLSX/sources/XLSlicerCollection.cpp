@@ -118,7 +118,7 @@ void XLSlicerCollection::load() const
                 anchorNode   = findSlicerAnchor(drwRoot, slicerName);
             }
 
-            m_slicers.emplace_back(slicerXml, cacheXml, anchorNode,
+            m_slicers.emplace_back(slicerXml, slicerNode, cacheXml, anchorNode,
                                    const_cast<XLWorksheet*>(m_worksheet));
         }
     }

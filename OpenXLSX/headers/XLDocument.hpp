@@ -334,7 +334,9 @@ namespace OpenXLSX
                                                  std::string_view name,
                                                  std::string_view sourceName);
 
-        std::string createSlicer(std::string_view name, std::string_view cacheName, std::string_view caption);
+        std::string createSlicer(std::string_view name, std::string_view cacheName, std::string_view caption,
+                                 std::string_view existingSlicerFile = {});
+
 
         void deleteSlicerFileAndOrphanCache(const std::string& name);
 

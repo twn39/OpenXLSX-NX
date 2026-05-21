@@ -74,19 +74,19 @@ TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
     REQUIRE(!extLst.empty());
 
     // Check for slicerList extension
-    auto ext = extLst.find_child_by_attribute("uri", "{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
+    auto ext = extLst.find_child_by_attribute("uri", "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
     REQUIRE(!ext.empty());
 
     auto slicerList = ext.child("x14:slicerList");
     REQUIRE(!slicerList.empty());
 
-    // We added 2 slicers, so there should be 2 x14:slicer relationships
+    // Under per-sheet sharing, we added 2 slicers but they share 1 slicer.xml relationship
     int slicerRefCount = 0;
     for (auto s : slicerList.children("x14:slicer")) {
         slicerRefCount++;
         REQUIRE(!s.attribute("r:id").empty());
     }
-    REQUIRE(slicerRefCount == 2);
+    REQUIRE(slicerRefCount == 1);
 
     // Verify Drawing XML structure
     auto drwRoot           = wks2.drawing().xmlDocument().document_element();
@@ -130,10 +130,10 @@ TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
     auto wbkExtLst = wbkNode.child("extLst");
     REQUIRE(!wbkExtLst.empty());
 
-    auto wbkExt = wbkExtLst.find_child_by_attribute("uri", "{46BE6895-7355-4a93-B00E-2C351335B9C9}");
+    auto wbkExt = wbkExtLst.find_child_by_attribute("uri", "{BBE1A952-AA13-448e-AADC-164F8A28A991}");
     REQUIRE(!wbkExt.empty());
 
-    auto slicerCaches = wbkExt.child("x15:slicerCaches");
+    auto slicerCaches = wbkExt.child("x14:slicerCaches");
     REQUIRE(!slicerCaches.empty());
 
     int cacheRefCount = 0;

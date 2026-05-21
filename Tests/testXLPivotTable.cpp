@@ -240,7 +240,11 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     auto drwRoot = drwDoc.document_element();
 
     bool foundA14Choice = false;
-    for (auto anchor : drwRoot.children("xdr:twoCellAnchor")) {
+    for (auto anchor : drwRoot.children()) {
+        std::string anchorName = anchor.name();
+        if (anchorName != "xdr:twoCellAnchor" && anchorName != "xdr:oneCellAnchor") {
+            continue;
+        }
         auto altContent = anchor.child("mc:AlternateContent");
         if (!altContent.empty()) {
             auto choice = altContent.child("mc:Choice");
