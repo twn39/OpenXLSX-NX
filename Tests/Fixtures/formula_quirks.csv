@@ -54,7 +54,7 @@ Formula|ExpectedType|ExpectedValue
 =SQRT(16)|Number|4
 =SQRT(-1)|Error|#NUM!
 =LOG(100, 10)|Number|2
-=LN(100)|Error|#NAME?
+=LN(100)|Number|4.605170185988092
 =EXP(1)|Number|2.718281828459045
 =PI()|Number|3.141592653589793
 =SUM(1,2,3,"4")|Number|6

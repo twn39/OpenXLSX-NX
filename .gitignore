@@ -59,4 +59,4 @@ build_fuzz
 /*.xlsx
 /*.png
 tmp
-openxlsx_vs_excelize_report.md
+openxlsx_analysis_report.md

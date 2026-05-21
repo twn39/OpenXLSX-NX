@@ -259,6 +259,12 @@ namespace OpenXLSX
             return m_type == Type::Scalar || m_type == Type::Array ? 1 : 0;
         }
 
+        /// @brief Return the 1-based row of the top-left cell (LazyRange only; 0 for other types).
+        uint32_t firstRow() const noexcept { return m_type == Type::LazyRange ? m_r1 : 0; }
+
+        /// @brief Return the 1-based column of the top-left cell (LazyRange only; 0 for other types).
+        uint16_t firstCol() const noexcept { return m_type == Type::LazyRange ? m_c1 : 0; }
+
         bool empty() const
         {
             if (m_type == Type::Empty) return true;
@@ -539,6 +545,62 @@ namespace OpenXLSX
         static XLCellValue fnQuartileInc(const std::vector<XLFormulaArg>& args);
         static XLCellValue fnQuartileExc(const std::vector<XLFormulaArg>& args);
         static XLCellValue fnIsnontext(const std::vector<XLFormulaArg>& args);
+
+        // ---- Batch 2 – Math / Trig (pure cmath wrappers) ----
+        static XLCellValue fnLn(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnAtan(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnAtan2Fn(const std::vector<XLFormulaArg>& args);    ///< Excel ATAN2(x,y)
+        static XLCellValue fnSinh(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnCosh(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnTanh(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnAsinh(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnAcosh(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnAtanh(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnSqrtpi(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnFact(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnFactdouble(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnCombin(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnCombina(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnProduct(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnGcd(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnLcm(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnEven(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnOdd(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnQuotient(const std::vector<XLFormulaArg>& args);
+
+        // ---- Batch 2 – High-frequency utility ----
+        static XLCellValue fnSubtotal(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnChoose(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnRow(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnColumn(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnDatedif(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnIrr(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnMirr(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnRate(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnIpmt(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnPpmt(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnModeSngl(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnSkew(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnKurt(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnForecastLinear(const std::vector<XLFormulaArg>& args);
+
+        // ---- Batch 3 – Statistical distributions ----
+        static XLCellValue fnNormSDist(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnNormDist(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnNormSInv(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnNormInv(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnTDist(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnTDistRT(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnTDist2T(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnTInv(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnTInv2T(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnChisqDist(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnChisqDistRT(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnChisqInv(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnChisqInvRT(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnBinomDist(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnPoissonDist(const std::vector<XLFormulaArg>& args);
+        static XLCellValue fnExponDist(const std::vector<XLFormulaArg>& args);
     };
 
 }    // namespace OpenXLSX

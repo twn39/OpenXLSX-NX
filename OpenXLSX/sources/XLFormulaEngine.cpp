@@ -31,6 +31,11 @@ XLFormulaArg XLFormulaEngine::expandArg(const XLASTNode& argNode, const XLCellRe
 {
     if (argNode.kind == XLNodeKind::Range) return expandRange(argNode.text, resolver);
 
+    // Single cell reference: create a 1x1 LazyRange so position metadata (row/col) is preserved.
+    // Functions like ROW() and COLUMN() need the address, not just the resolved value.
+    // Other functions that iterate values will call operator[0] which resolves via the resolver.
+    if (argNode.kind == XLNodeKind::CellRef) return expandRange(argNode.text, resolver);
+
     // Evaluate normally and wrap in a single-element scalar
     return XLFormulaArg(evalNode(argNode, resolver));
 }
@@ -447,17 +452,112 @@ const std::unordered_map<std::string, XLFormulaEngine::FuncImpl>& XLFormulaEngin
         map["DEVSQ"]    = fnDevsq;
         map["AVERAGEA"] = fnAveragea;
 
-        // Missing checklist functions
+        // Pre-existing checklist functions (from original batch)
         map["SLN"]     = fnSln;
         map["SYD"]     = fnSyd;
         map["CHAR"]    = fnChar;
         map["UNICHAR"] = fnUnichar;
         map["CODE"]    = fnCode;
         map["UNICODE"] = fnUnicode;
-        map["NOW"]     = fnNow;
-        map["TODAY"]   = fnToday;
-        map["TRUE"]    = fnTrue;
-        map["FALSE"]   = fnFalse;
+
+        // ---- Batch 1: Math / Trig additions (pure cmath wrappers) ----
+        map["LN"]          = fnLn;
+        map["ATAN"]        = fnAtan;
+        map["ATAN2"]       = fnAtan2Fn;
+        map["SINH"]        = fnSinh;
+        map["COSH"]        = fnCosh;
+        map["TANH"]        = fnTanh;
+        map["ASINH"]       = fnAsinh;
+        map["ACOSH"]       = fnAcosh;
+        map["ATANH"]       = fnAtanh;
+        map["SQRTPI"]      = fnSqrtpi;
+        map["FACT"]        = fnFact;
+        map["FACTDOUBLE"]  = fnFactdouble;
+        map["COMBIN"]      = fnCombin;
+        map["COMBINA"]     = fnCombina;
+        map["_xlfn.COMBINA"] = fnCombina;
+        map["PRODUCT"]     = fnProduct;
+        map["GCD"]         = fnGcd;
+        map["LCM"]         = fnLcm;
+        map["EVEN"]        = fnEven;
+        map["ODD"]         = fnOdd;
+        map["QUOTIENT"]    = fnQuotient;
+
+        // ---- Batch 2: High-frequency utility ----
+        map["SUBTOTAL"]               = fnSubtotal;
+        map["CHOOSE"]                 = fnChoose;
+        map["ROW"]                    = fnRow;
+        map["COLUMN"]                 = fnColumn;
+        map["DATEDIF"]                = fnDatedif;
+        map["IRR"]                    = fnIrr;
+        map["MIRR"]                   = fnMirr;
+        map["RATE"]                   = fnRate;
+        map["IPMT"]                   = fnIpmt;
+        map["PPMT"]                   = fnPpmt;
+        map["MODE"]                   = fnModeSngl;
+        map["MODE.SNGL"]              = fnModeSngl;
+        map["_xlfn.MODE.SNGL"]        = fnModeSngl;
+        map["SKEW"]                   = fnSkew;
+        map["KURT"]                   = fnKurt;
+        map["FORECAST"]               = fnForecastLinear;
+        map["FORECAST.LINEAR"]        = fnForecastLinear;
+        map["_xlfn.FORECAST.LINEAR"]  = fnForecastLinear;
+
+        // ---- Batch 3: Statistical distributions ----
+        // Normal distribution
+        map["NORM.S.DIST"]        = fnNormSDist;
+        map["_xlfn.NORM.S.DIST"]  = fnNormSDist;
+        map["NORMSDIST"]          = fnNormSDist;    // legacy Excel alias (2 args → cumul=true)
+        map["NORM.DIST"]          = fnNormDist;
+        map["_xlfn.NORM.DIST"]    = fnNormDist;
+        map["NORMDIST"]           = fnNormDist;
+        map["NORM.S.INV"]         = fnNormSInv;
+        map["_xlfn.NORM.S.INV"]   = fnNormSInv;
+        map["NORMSINV"]           = fnNormSInv;
+        map["NORM.INV"]           = fnNormInv;
+        map["_xlfn.NORM.INV"]     = fnNormInv;
+        map["NORMINV"]            = fnNormInv;
+
+        // T distribution
+        map["T.DIST"]             = fnTDist;
+        map["_xlfn.T.DIST"]       = fnTDist;
+        map["T.DIST.RT"]          = fnTDistRT;
+        map["_xlfn.T.DIST.RT"]    = fnTDistRT;
+        map["T.DIST.2T"]          = fnTDist2T;
+        map["_xlfn.T.DIST.2T"]    = fnTDist2T;
+        map["TDIST"]              = fnTDist2T;      // legacy: 2-tail by convention
+        map["T.INV"]              = fnTInv;
+        map["_xlfn.T.INV"]        = fnTInv;
+        map["T.INV.2T"]           = fnTInv2T;
+        map["_xlfn.T.INV.2T"]     = fnTInv2T;
+        map["TINV"]               = fnTInv2T;       // legacy alias
+
+        // Chi-squared distribution
+        map["CHISQ.DIST"]         = fnChisqDist;
+        map["_xlfn.CHISQ.DIST"]   = fnChisqDist;
+        map["CHISQ.DIST.RT"]      = fnChisqDistRT;
+        map["_xlfn.CHISQ.DIST.RT"]= fnChisqDistRT;
+        map["CHIDIST"]            = fnChisqDistRT;  // legacy: right-tail
+        map["CHISQ.INV"]          = fnChisqInv;
+        map["_xlfn.CHISQ.INV"]    = fnChisqInv;
+        map["CHISQ.INV.RT"]       = fnChisqInvRT;
+        map["_xlfn.CHISQ.INV.RT"] = fnChisqInvRT;
+        map["CHIINV"]             = fnChisqInvRT;   // legacy alias
+
+        // Binomial distribution
+        map["BINOM.DIST"]         = fnBinomDist;
+        map["_xlfn.BINOM.DIST"]   = fnBinomDist;
+        map["BINOMDIST"]          = fnBinomDist;
+
+        // Poisson distribution
+        map["POISSON.DIST"]       = fnPoissonDist;
+        map["_xlfn.POISSON.DIST"] = fnPoissonDist;
+        map["POISSON"]            = fnPoissonDist;
+
+        // Exponential distribution
+        map["EXPON.DIST"]         = fnExponDist;
+        map["_xlfn.EXPON.DIST"]   = fnExponDist;
+        map["EXPONDIST"]          = fnExponDist;
 
         return map;
     }();

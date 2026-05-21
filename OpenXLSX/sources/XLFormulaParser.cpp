@@ -454,8 +454,23 @@ XLFormulaArg XLFormulaEngine::expandRange(std::string_view rangeRef, const XLCel
 
     auto colonPos = rangeRef.find(':');
     if (colonPos == std::string_view::npos) {
-        // Single cell
-        return XLFormulaArg(resolver(rangeRef));
+        // Single cell — construct a 1x1 LazyRange to preserve position metadata (for ROW/COLUMN)
+        std::string refStr(rangeRef);
+        // Strip sheet prefix if any
+        std::string sheetPart;
+        auto        bang = refStr.find('!');
+        if (bang != std::string::npos) { sheetPart = refStr.substr(0, bang); refStr = refStr.substr(bang + 1); }
+        // Strip $
+        refStr.erase(std::remove(refStr.begin(), refStr.end(), '$'), refStr.end());
+        try {
+            XLCellReference cr(refStr);
+            uint32_t r = cr.row();
+            uint16_t c = cr.column();
+            return XLFormulaArg(r, r, c, c, std::move(sheetPart), &resolver);
+        } catch (...) {
+            // Not a valid cell ref (e.g. named range) — fall back to resolver
+            return XLFormulaArg(resolver(rangeRef));
+        }
     }
 
     std::string startRef(rangeRef.substr(0, colonPos));
