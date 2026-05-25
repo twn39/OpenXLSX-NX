@@ -1710,15 +1710,24 @@ std::string XLDocument::createSlicer(std::string_view name,
         }
     }
 
-    // Count existing slicers in the file to generate a unique xr10:uid index
+    // Count existing slicers workbook-wide to generate a unique xr10:uid index
     uint32_t slicerIdx = 1;
+    for (auto& item : m_data) {
+        if (item.getXmlType() == XLContentType::Slicer) {
+            auto docPtr = item.getXmlDocument();
+            if (docPtr) {
+                auto root = docPtr->document_element();
+                for (auto child = root.first_child_of_type(pugi::node_element); !child.empty();
+                     child = child.next_sibling_of_type(pugi::node_element)) {
+                    ++slicerIdx;
+                }
+            }
+        }
+    }
+
     XLXmlData* slicerXml = getXmlData(filename, /*doNotThrow=*/true);
     if (slicerXml) {
         XMLNode root = slicerXml->getXmlDocument()->document_element();
-        for (auto child = root.first_child_of_type(pugi::node_element); !child.empty();
-             child = child.next_sibling_of_type(pugi::node_element))
-            ++slicerIdx;
-
         // Attribute order must match Excel: name, xr10:uid, cache, caption, rowHeight
         // xr10:uid is REQUIRED by OOXML — its absence causes Excel to report corruption
         std::string uid = fmt::format("{{00000000-0014-0000-FFFF-FFFF{:02d}000000}}", slicerIdx);
