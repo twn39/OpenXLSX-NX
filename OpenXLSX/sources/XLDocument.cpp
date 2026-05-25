@@ -1437,8 +1437,26 @@ std::string XLDocument::findOrCreateTableSlicerCache(uint32_t tableId, uint32_t 
             }
         }
     }
-    createTableSlicerCache(tableId, tableColumnId, name, sourceName);
-    return std::string(name);
+
+    std::string uniqueName = std::string(name);
+    uint32_t suffix = 1;
+    while (true) {
+        bool nameExists = false;
+        for (const auto& item : m_data) {
+            if (item.getXmlType() == XLContentType::SlicerCache) {
+                auto root = item.getXmlDocument()->document_element();
+                if (std::string_view(root.attribute("name").value()) == uniqueName) {
+                    nameExists = true;
+                    break;
+                }
+            }
+        }
+        if (!nameExists) break;
+        uniqueName = std::string(name) + std::to_string(suffix++);
+    }
+
+    createTableSlicerCache(tableId, tableColumnId, uniqueName, sourceName);
+    return uniqueName;
 }
 
 std::string XLDocument::findOrCreatePivotSlicerCache(uint32_t pivotCacheId, uint32_t sheetId, std::string_view pivotTableName, std::string_view name, std::string_view sourceName)
@@ -1471,8 +1489,26 @@ std::string XLDocument::findOrCreatePivotSlicerCache(uint32_t pivotCacheId, uint
             }
         }
     }
-    createPivotSlicerCache(pivotCacheId, sheetId, pivotTableName, name, sourceName);
-    return std::string(name);
+
+    std::string uniqueName = std::string(name);
+    uint32_t suffix = 1;
+    while (true) {
+        bool nameExists = false;
+        for (const auto& item : m_data) {
+            if (item.getXmlType() == XLContentType::SlicerCache) {
+                auto root = item.getXmlDocument()->document_element();
+                if (std::string_view(root.attribute("name").value()) == uniqueName) {
+                    nameExists = true;
+                    break;
+                }
+            }
+        }
+        if (!nameExists) break;
+        uniqueName = std::string(name) + std::to_string(suffix++);
+    }
+
+    createPivotSlicerCache(pivotCacheId, sheetId, pivotTableName, uniqueName, sourceName);
+    return uniqueName;
 }
 
 void XLDocument::deleteSlicerFileAndOrphanCache(const std::string& name)
