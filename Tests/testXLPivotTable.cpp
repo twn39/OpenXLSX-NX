@@ -170,6 +170,13 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     REQUIRE(!wbkExt.empty());
     REQUIRE(!wbkExt.child("x14:slicerCaches").empty());
 
+    // Verify both definedNames exist in the workbook (both widget name and cache name)
+    auto definedNames = doc2.workbook().definedNames();
+    REQUIRE(definedNames.exists("Region"));
+    REQUIRE(definedNames.get("Region").refersTo() == "#N/A");
+    REQUIRE(definedNames.exists("Slicer_Region"));
+    REQUIRE(definedNames.get("Slicer_Region").refersTo() == "#N/A");
+
     // --- NEW: Deep Archive XML content format validation ---
 
     // 1. Validate PivotCacheDefinition contains the required x14:pivotCacheDefinition extLst (The root cause of the bug)
@@ -203,6 +210,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     REQUIRE(std::string(scRoot.name()) == "slicerCacheDefinition");
     REQUIRE(std::string(scRoot.attribute("name").value()) == "Slicer_Region");
     REQUIRE(std::string(scRoot.attribute("sourceName").value()) == "Region");
+    REQUIRE(std::string(scRoot.attribute("xr10:uid").value()) == "{00000000-0013-0000-FFFF-FFFF01000000}");
     auto scPivotTables = scRoot.child("pivotTables");
     REQUIRE(!scPivotTables.empty());
     REQUIRE(std::string(scPivotTables.child("pivotTable").attribute("name").value()) == "MyPivot");
