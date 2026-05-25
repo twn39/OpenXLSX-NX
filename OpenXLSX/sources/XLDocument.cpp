@@ -1424,9 +1424,11 @@ std::string XLDocument::findOrCreateTableSlicerCache(uint32_t tableId, uint32_t 
             auto root = item.getXmlDocument()->document_element();
             auto extLst = root.child("extLst");
             if (extLst) {
-                auto ext = extLst.child("ext");
+                auto ext = extLst.child("x:ext");
+                if (ext.empty()) ext = extLst.child("ext");
                 if (ext) {
                     auto cacheDef = ext.child("x15:tableSlicerCache");
+                    if (cacheDef.empty()) cacheDef = ext.child("tableSlicerCache");
                     if (cacheDef && cacheDef.attribute("tableId").as_uint() == tableId 
                                  && cacheDef.attribute("column").as_uint() == tableColumnId) {
                         return root.attribute("name").value();
