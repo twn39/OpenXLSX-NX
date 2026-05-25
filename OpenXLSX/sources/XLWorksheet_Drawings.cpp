@@ -580,6 +580,19 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     int64_t toRow    = row + cy / rowHeightEmu;
     int64_t toRowOff = cy % rowHeightEmu;
 
+    // Count existing shapes workbook-wide to generate a unique shapeId
+    uint32_t shapeId = 1;
+    for (const auto& wksName : parentDoc().workbook().worksheetNames()) {
+        auto wks = parentDoc().workbook().worksheet(wksName);
+        if (wks.hasDrawing()) {
+            auto root = wks.drawing().xmlDocument().document_element();
+            for (auto child = root.first_child_of_type(pugi::node_element); !child.empty();
+                 child = child.next_sibling_of_type(pugi::node_element)) {
+                ++shapeId;
+            }
+        }
+    }
+
     XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
     anchor.append_attribute("editAs").set_value("absolute");
 
@@ -611,8 +624,7 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     XMLNode nvGraphicFramePr = graphicFrame.append_child("xdr:nvGraphicFramePr");
     XMLNode cNvPr            = nvGraphicFramePr.append_child("xdr:cNvPr");
 
-    auto childCount = static_cast<size_t>(std::distance(drwRoot.children().begin(), drwRoot.children().end()));
-    cNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
+    cNvPr.append_attribute("id").set_value(fmt::format("{}", shapeId).c_str());
     cNvPr.append_attribute("name").set_value(name.c_str());
 
     // ECMA-376 / Office Open XML: <a:extLst> with a16:creationId is required for slicer shape identity
@@ -625,7 +637,7 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
         creationId.append_attribute("xmlns:a16").set_value("http://schemas.microsoft.com/office/drawing/2014/main");
         // Generate a stable UID based on shape index: {00000000-0008-0000-0000-00000N000000}
         creationId.append_attribute("id").set_value(
-            fmt::format("{{00000000-0008-0000-0000-{:012X}}}", childCount + 1).c_str());
+            fmt::format("{{00000000-0008-0000-0000-{:012X}}}", shapeId).c_str());
     }
 
     nvGraphicFramePr.append_child("xdr:cNvGraphicFramePr");
@@ -651,7 +663,7 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
 
     XMLNode nvSpPr  = sp.append_child("xdr:nvSpPr");
     XMLNode spCNvPr = nvSpPr.append_child("xdr:cNvPr");
-    spCNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
+    spCNvPr.append_attribute("id").set_value(fmt::format("{}", shapeId).c_str());
     spCNvPr.append_attribute("name").set_value("");
     nvSpPr.append_child("xdr:cNvSpPr").append_attribute("txBox").set_value("true");
 
@@ -835,6 +847,19 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     int64_t toRow    = row + cy / rowHeightEmu;
     int64_t toRowOff = cy % rowHeightEmu;
 
+    // Count existing shapes workbook-wide to generate a unique shapeId
+    uint32_t shapeId = 1;
+    for (const auto& wksName : parentDoc().workbook().worksheetNames()) {
+        auto wks = parentDoc().workbook().worksheet(wksName);
+        if (wks.hasDrawing()) {
+            auto root = wks.drawing().xmlDocument().document_element();
+            for (auto child = root.first_child_of_type(pugi::node_element); !child.empty();
+                 child = child.next_sibling_of_type(pugi::node_element)) {
+                ++shapeId;
+            }
+        }
+    }
+
     XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
     anchor.append_attribute("editAs").set_value("absolute");
 
@@ -864,8 +889,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     XMLNode nvGraphicFramePr = graphicFrame.append_child("xdr:nvGraphicFramePr");
     XMLNode cNvPr            = nvGraphicFramePr.append_child("xdr:cNvPr");
 
-    auto childCount = static_cast<size_t>(std::distance(drwRoot.children().begin(), drwRoot.children().end()));
-    cNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
+    cNvPr.append_attribute("id").set_value(fmt::format("{}", shapeId).c_str());
     cNvPr.append_attribute("name").set_value(sName.c_str());
 
     // ECMA-376 / Office Open XML: <a:extLst> with a16:creationId is required for slicer shape identity
@@ -876,7 +900,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
         XMLNode creationId = ext.append_child("a16:creationId");
         creationId.append_attribute("xmlns:a16").set_value("http://schemas.microsoft.com/office/drawing/2014/main");
         creationId.append_attribute("id").set_value(
-            fmt::format("{{00000000-0008-0000-0000-{:012X}}}", childCount + 1).c_str());
+            fmt::format("{{00000000-0008-0000-0000-{:012X}}}", shapeId).c_str());
     }
 
     nvGraphicFramePr.append_child("xdr:cNvGraphicFramePr");
@@ -902,7 +926,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
 
     XMLNode nvSpPr  = sp.append_child("xdr:nvSpPr");
     XMLNode spCNvPr = nvSpPr.append_child("xdr:cNvPr");
-    spCNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
+    spCNvPr.append_attribute("id").set_value(fmt::format("{}", shapeId).c_str());
     spCNvPr.append_attribute("name").set_value("");
     nvSpPr.append_child("xdr:cNvSpPr").append_attribute("txBox").set_value("true");
 
