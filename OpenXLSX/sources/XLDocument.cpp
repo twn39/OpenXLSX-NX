@@ -1354,7 +1354,7 @@ std::string XLDocument::createPivotSlicerCache(uint32_t         pivotCacheId,
     }
 
     std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x xr10" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" sourceName="{1}">
+<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x xr10" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" xr10:uid="{{00000000-0013-0000-FFFF-FFFF0{5}000000}}" sourceName="{1}">
   <pivotTables>
     <pivotTable tabId="{2}" name="{3}"/>
   </pivotTables>
@@ -1370,7 +1370,8 @@ std::string XLDocument::createPivotSlicerCache(uint32_t         pivotCacheId,
                                           sourceName,
                                           sheetId,
                                           pivotTableName,
-                                          pivotCacheId);
+                                          pivotCacheId,
+                                          num);
 
     m_archive.addEntry(filename, templateStr);
     m_contentTypes.addOverride("/" + filename, XLContentType::SlicerCache);

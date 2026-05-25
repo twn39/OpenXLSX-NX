@@ -684,6 +684,9 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     if (!parentDoc().workbook().definedNames().exists(name)) {
         parentDoc().workbook().definedNames().append(name, "#N/A");
     }
+    if (actualCacheName != name && !parentDoc().workbook().definedNames().exists(actualCacheName)) {
+        parentDoc().workbook().definedNames().append(actualCacheName, "#N/A");
+    }
 }
 
 
@@ -930,6 +933,9 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     // Register definedName pointing to #N/A (required by Excel for slicers to not trigger corruption warning)
     if (!parentDoc().workbook().definedNames().exists(sName)) {
         parentDoc().workbook().definedNames().append(sName, "#N/A");
+    }
+    if (actualCacheName != sName && !parentDoc().workbook().definedNames().exists(actualCacheName)) {
+        parentDoc().workbook().definedNames().append(actualCacheName, "#N/A");
     }
 }
 
