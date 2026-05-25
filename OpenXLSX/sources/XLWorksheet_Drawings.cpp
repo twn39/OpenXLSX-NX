@@ -337,7 +337,7 @@ XLThreadedComment XLWorksheet::addComment(std::string_view cellRef, std::string_
     XMLNode root = xmlDocument().document_element();
     XMLNode extLst = root.child("extLst");
     if (!extLst) {
-        extLst = root.append_child("extLst");
+        extLst = appendAndGetNode(root, "extLst", m_nodeOrder);
     }
     bool hasThreadedExt = false;
     for (XMLNode ext = extLst.child("ext"); ext; ext = ext.next_sibling("ext")) {
@@ -452,7 +452,15 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
 
     std::string name      = options.name.empty() ? std::string(columnName) : options.name;
     std::string caption   = options.caption.empty() ? std::string(columnName) : options.caption;
-    std::string cacheName = "Slicer_" + name;
+    // Cache name is keyed on the source column, not on the user-provided slicer widget name.
+    // This matches Excelize's setSlicerCache approach and prevents double-prefix
+    // (e.g., when name="Slicer_Region", cacheName must still be "Slicer_Region" not "Slicer_Slicer_Region").
+    std::string cacheName = "Slicer_" + std::string(columnName);
+
+    // IMPORTANT: Force drawing() to be initialized first so it gets the lowest rId.
+    // Excel always registers the drawing relationship before the slicer relationship.
+    // This ensures drawing=rId1, table=rId2, slicer=rId3 (matching Excel's order).
+    std::ignore = drawing();
 
     // 1. Create/Find Slicer Cache and Slicer files
     std::string actualCacheName = parentDoc().findOrCreateTableSlicerCache(tableId, colId, cacheName, columnName);
@@ -515,31 +523,36 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     }
 
     // 3. Add extLst to worksheet.xml
+    // Excel does NOT add xmlns:x14 to the worksheet root for slicers.
+    // xmlns:x14 is declared inline on x14:slicerList only.
+    // Do NOT modify mc:Ignorable on the worksheet root for slicers.
     XMLNode sheetNode = xmlDocument().document_element();
     XMLNode extLst    = sheetNode.child("extLst");
     if (!sheetNode.attribute("xmlns:mc"))
         sheetNode.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
 
-    if (extLst.empty()) extLst = sheetNode.append_child("extLst");
+    if (extLst.empty()) extLst = appendAndGetNode(sheetNode, "extLst", m_nodeOrder);
 
-    // Use X14 URI {A8765BA9} — supported by Excel 2010+ and more broadly compatible
-    XMLNode ext = extLst.find_child_by_attribute("uri", "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
+    // URI {3A4CF648-6AED-40f4-86FF-DC5316D8AED3}: table slicer list reference in worksheet extLst
+    // Excel puts uri first, then xmlns:x15 on ext; x14:slicerList must declare xmlns:x14 inline
+    XMLNode ext = extLst.find_child_by_attribute("uri", "{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
     if (ext.empty()) {
         ext = extLst.append_child("ext");
-        ext.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
-        ext.append_attribute("uri").set_value("{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
+        ext.append_attribute("uri").set_value("{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
+        ext.append_attribute("xmlns:x15").set_value("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main");
     }
 
     XMLNode slicerList = ext.child("x14:slicerList");
     if (slicerList.empty()) {
         slicerList = ext.append_child("x14:slicerList");
+        // xmlns:x14 must be declared inline on x14:slicerList (not on worksheet root)
+        slicerList.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
     }
 
     // Only add the relationship reference once (first slicer registers it)
     if (existingSlicerFile.empty()) {
         slicerList.append_child("x14:slicer").append_attribute("r:id").set_value(rId.c_str());
     }
-
 
     // Build drawing anchor using oneCellAnchor + ext for pixel-accurate sizing
     // Bug fix: old code used twoCellAnchor with hardcoded +2 col / +10 row offsets
@@ -551,29 +564,46 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     XLDrawing& drw     = drawing();
     XMLNode    drwRoot = drw.xmlDocument().document_element();
 
-    // Use oneCellAnchor so size is specified in EMU, not relative to cells.
-    // 1 pixel = 9525 EMU (96 DPI)
+    // Excel uses twoCellAnchor with editAs="absolute" for slicers.
+    // Size is encoded in the "to" corner cell/offset coords.
+    // 1 EMU = 1/914400 inch; default col width ~9 chars ≈ 914400 EMU, row height ≈ 190500 EMU
+    // We approximate: each col ≈ 914400 EMU wide, each row ≈ 190500 EMU tall
+    // cols spanned = ceil(width_px * 9525 / 914400), rows spanned = ceil(height_px * 9525 / 190500)
     const int64_t cx = static_cast<int64_t>(options.width)  * 9525;
     const int64_t cy = static_cast<int64_t>(options.height) * 9525;
 
-    XMLNode anchor = drwRoot.append_child("xdr:oneCellAnchor");
+    // Compute "to" cell: find the cell that the bottom-right corner lands in
+    const int64_t colWidthEmu = 914400;   // ~1 inch per column (approx)
+    const int64_t rowHeightEmu = 190500;  // default row height in EMU
+    int64_t toCol    = colIdx + cx / colWidthEmu;
+    int64_t toColOff = cx % colWidthEmu;
+    int64_t toRow    = row + cy / rowHeightEmu;
+    int64_t toRowOff = cy % rowHeightEmu;
+
+    XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
+    anchor.append_attribute("editAs").set_value("absolute");
 
     XMLNode from = anchor.append_child("xdr:from");
     from.append_child("xdr:col").text().set(colIdx);
-    from.append_child("xdr:colOff").text().set(options.offsetX * 9525);
+    from.append_child("xdr:colOff").text().set(static_cast<int64_t>(options.offsetX) * 9525);
     from.append_child("xdr:row").text().set(row);
-    from.append_child("xdr:rowOff").text().set(options.offsetY * 9525);
+    from.append_child("xdr:rowOff").text().set(static_cast<int64_t>(options.offsetY) * 9525);
 
-    XMLNode anchorExt = anchor.append_child("xdr:ext");
-    anchorExt.append_attribute("cx").set_value(std::to_string(cx).c_str());
-    anchorExt.append_attribute("cy").set_value(std::to_string(cy).c_str());
+    XMLNode to = anchor.append_child("xdr:to");
+    to.append_child("xdr:col").text().set(toCol);
+    to.append_child("xdr:colOff").text().set(toColOff);
+    to.append_child("xdr:row").text().set(toRow);
+    to.append_child("xdr:rowOff").text().set(toRowOff);
 
+    // OOXML ECMA-376 §22.1.2: xmlns:sle MUST be declared on mc:AlternateContent (or ancestor),
+    // not on mc:Choice, because Requires="sle" references it at the AlternateContent scope.
     XMLNode altContent = anchor.append_child("mc:AlternateContent");
     altContent.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
+    altContent.append_attribute("xmlns:sle").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
 
+    // Excel table slicers use the 2010/slicer namespace (sle:), Requires="sle"
     XMLNode choice = altContent.append_child("mc:Choice");
-    choice.append_attribute("xmlns:sle15").set_value("http://schemas.microsoft.com/office/drawing/2012/slicer");
-    choice.append_attribute("Requires").set_value("sle15");
+    choice.append_attribute("Requires").set_value("sle");
 
     XMLNode graphicFrame = choice.append_child("xdr:graphicFrame");
     graphicFrame.append_attribute("macro").set_value("");
@@ -584,7 +614,19 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     auto childCount = static_cast<size_t>(std::distance(drwRoot.children().begin(), drwRoot.children().end()));
     cNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
     cNvPr.append_attribute("name").set_value(name.c_str());
-    cNvPr.append_attribute("descr").set_value("");
+
+    // ECMA-376 / Office Open XML: <a:extLst> with a16:creationId is required for slicer shape identity
+    // (Excel 2013+ uses this to link drawing shape → slicer object)
+    {
+        XMLNode extLst    = cNvPr.append_child("a:extLst");
+        XMLNode ext       = extLst.append_child("a:ext");
+        ext.append_attribute("uri").set_value("{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}");
+        XMLNode creationId = ext.append_child("a16:creationId");
+        creationId.append_attribute("xmlns:a16").set_value("http://schemas.microsoft.com/office/drawing/2014/main");
+        // Generate a stable UID based on shape index: {00000000-0008-0000-0000-00000N000000}
+        creationId.append_attribute("id").set_value(
+            fmt::format("{{00000000-0008-0000-0000-{:012X}}}", childCount + 1).c_str());
+    }
 
     nvGraphicFramePr.append_child("xdr:cNvGraphicFramePr");
 
@@ -596,10 +638,10 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
 
     XMLNode graphic     = graphicFrame.append_child("a:graphic");
     XMLNode graphicData = graphic.append_child("a:graphicData");
+    // Excel uses 2010/slicer URI for table slicers in the graphicData element
     graphicData.append_attribute("uri").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
 
     XMLNode sleSlicer = graphicData.append_child("sle:slicer");
-    sleSlicer.append_attribute("xmlns:sle").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
     sleSlicer.append_attribute("name").set_value(name.c_str());
 
     XMLNode fallback = altContent.append_child("mc:Fallback");
@@ -623,25 +665,28 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     spPr.append_child("a:solidFill").append_child("a:srgbClr").append_attribute("val").set_value("FFFFFF");
     XMLNode ln = spPr.append_child("a:ln");
     ln.append_attribute("w").set_value("1");
-    ln.append_child("a:solidFill").append_child("a:prstClr").append_attribute("val").set_value("black");
+    ln.append_child("a:solidFill").append_child("a:prstClr").append_attribute("val").set_value("green");
 
     XMLNode txBody = sp.append_child("xdr:txBody");
     XMLNode bodyPr = txBody.append_child("a:bodyPr");
-    bodyPr.append_attribute("anchorCtr").set_value("false");
-    bodyPr.append_attribute("rot").set_value("0");
-    bodyPr.append_attribute("horzOverflow").set_value("clip");
-    bodyPr.append_attribute("spcFirstLastPara").set_value("false");
     bodyPr.append_attribute("vertOverflow").set_value("clip");
-
+    bodyPr.append_attribute("horzOverflow").set_value("clip");
+    txBody.append_child("a:lstStyle");
     XMLNode p   = txBody.append_child("a:p");
     XMLNode r   = p.append_child("a:r");
-    XMLNode rPr = r.append_child("a:rPr");
-    rPr.append_attribute("b").set_value("false");
-    rPr.append_attribute("i").set_value("false");
-    r.append_child("a:t").text().set("This shape represents a table slicer. Table slicers are not supported in this version of Excel.");
+    r.append_child("a:rPr").append_attribute("lang").set_value("en-US");
+    r.append_child("a:t").text().set("This shape represents a table slicer. Table slicers are not supported in this version of Excel.\n\nIf the shape was modified in an earlier version of Excel, or if the workbook was saved in Excel 2007 or earlier, the slicer cannot be used.");
 
+    // ECMA-376 §20.5.2.3 CT_TwoCellAnchor requires <xdr:clientData/> as the last child
     anchor.append_child("xdr:clientData");
+
+    // Register definedName pointing to #N/A (required by Excel for slicers to not trigger corruption warning)
+    if (!parentDoc().workbook().definedNames().exists(name)) {
+        parentDoc().workbook().definedNames().append(name, "#N/A");
+    }
 }
+
+
 
 void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
                                  const XLPivotTable&    pivotTable,
@@ -663,7 +708,8 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
 
     std::string sName     = options.name.empty() ? std::string(columnName) : options.name;
     std::string caption   = options.caption.empty() ? std::string(columnName) : options.caption;
-    std::string cacheName = "Slicer_" + sName;
+    // Cache name is keyed on source column, not user-provided slicer widget name.
+    std::string cacheName = "Slicer_" + std::string(columnName);
 
     // Find PivotCacheDefinition and add the extLst required for slicers
     std::string pcRId;
@@ -753,7 +799,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     // 3. Add extLst to worksheet.xml
     XMLNode sheetNode = xmlDocument().document_element();
     XMLNode extLst    = sheetNode.child("extLst");
-    if (extLst.empty()) extLst = sheetNode.append_child("extLst");
+    if (extLst.empty()) extLst = appendAndGetNode(sheetNode, "extLst", m_nodeOrder);
 
     XMLNode ext = extLst.find_child_by_attribute("uri", "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
     if (ext.empty()) {
@@ -766,17 +812,6 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     if (slicerList.empty()) { slicerList = ext.append_child("x14:slicerList"); }
 
     slicerList.append_child("x14:slicer").append_attribute("r:id").set_value(rId.c_str());
-
-    // Ensure sheet namespaces for mc:Ignorable
-    if (!sheetNode.attribute("xmlns:mc"))
-        sheetNode.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
-    if (!sheetNode.attribute("xmlns:x14"))
-        sheetNode.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
-    if (!sheetNode.attribute("mc:Ignorable")) { sheetNode.append_attribute("mc:Ignorable").set_value("x14"); }
-    else {
-        std::string ign = sheetNode.attribute("mc:Ignorable").value();
-        if (ign.find("x14") == std::string::npos) { sheetNode.attribute("mc:Ignorable").set_value((ign + " x14").c_str()); }
-    }
 
     // 4. Add drawing for the slicer (oneCellAnchor + ext for pixel-accurate sizing)
     XLCellReference ref{std::string(cellReference)};
@@ -802,7 +837,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     anchorExt.append_attribute("cy").set_value(std::to_string(cy).c_str());
 
     XMLNode altContent = anchor.append_child("mc:AlternateContent");
-    altContent.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
+    // xmlns:mc is already declared on the root xdr:wsDr element
 
     XMLNode choice = altContent.append_child("mc:Choice");
     choice.append_attribute("xmlns:a14").set_value("http://schemas.microsoft.com/office/drawing/2010/main");
@@ -874,6 +909,11 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     r.append_child("a:t").text().set("This shape represents a pivot slicer. Slicers are not supported in this version of Excel.");
 
     anchor.append_child("xdr:clientData");
+
+    // Register definedName pointing to #N/A (required by Excel for slicers to not trigger corruption warning)
+    if (!parentDoc().workbook().definedNames().exists(sName)) {
+        parentDoc().workbook().definedNames().append(sName, "#N/A");
+    }
 }
 
 XLSlicerCollection& XLWorksheet::slicers()
@@ -985,6 +1025,11 @@ void XLWorksheet::deleteSlicer(const std::string& name)
 
     // 3. Delete slicer file and orphan cache
     parentDoc().deleteSlicerFileAndOrphanCache(name);
+
+    // Remove the definedName associated with the slicer
+    if (parentDoc().workbook().definedNames().exists(name)) {
+        parentDoc().workbook().definedNames().remove(name);
+    }
 
     // 4. Invalidate the collection cache so next access re-enumerates
     m_impl->m_slicers.reload();

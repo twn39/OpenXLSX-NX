@@ -558,12 +558,15 @@ void XLDrawing::initXml()
     if (getXmlPath().empty()) return;
     XMLDocument& doc = xmlDocument();
     if (doc.document_element().empty()) {
-        doc.load_string("<?xml version=\"1.0\" encoding=\"UTF-8\"standalone=\"yes\"?>\n"
+        doc.load_string("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
                         "<xdr:wsDr"
                         " xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\""
                         " xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\""
                         " xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\""
                         " xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\""
+                        " xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\""
+                        " xmlns:sle15=\"http://schemas.microsoft.com/office/drawing/2012/slicer\""
+                        " mc:Ignorable=\"sle15\""
                         ">"
                         "</xdr:wsDr>",
                         pugi_parse_settings);

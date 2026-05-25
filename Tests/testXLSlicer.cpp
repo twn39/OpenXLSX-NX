@@ -73,8 +73,8 @@ TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
     auto extLst    = sheetNode.child("extLst");
     REQUIRE(!extLst.empty());
 
-    // Check for slicerList extension
-    auto ext = extLst.find_child_by_attribute("uri", "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
+    // Check for slicerList extension (ExtURISlicerListX15 for table slicers)
+    auto ext = extLst.find_child_by_attribute("uri", "{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}");
     REQUIRE(!ext.empty());
 
     auto slicerList = ext.child("x14:slicerList");
@@ -93,20 +93,20 @@ TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
     int  anchorCount       = 0;
     int  graphicFrameCount = 0;
     int  fallbackCount     = 0;
-    // Note: we now use xdr:oneCellAnchor + ext (pixel-accurate) instead of twoCellAnchor
-    for (auto anchor : drwRoot.children("xdr:oneCellAnchor")) {
+    // Note: we now use xdr:twoCellAnchor + absolute (Excel-compliant) instead of oneCellAnchor
+    for (auto anchor : drwRoot.children("xdr:twoCellAnchor")) {
         anchorCount++;
         auto altContent = anchor.child("mc:AlternateContent");
         REQUIRE(!altContent.empty());
 
         auto choice = altContent.child("mc:Choice");
         REQUIRE(!choice.empty());
-        REQUIRE(std::string(choice.attribute("Requires").value()) == "sle15");
+        REQUIRE(std::string(choice.attribute("Requires").value()) == "sle");
 
         auto graphicFrame = choice.child("xdr:graphicFrame");
         if (!graphicFrame.empty()) {
             graphicFrameCount++;
-            // Check that graphic uri is correct
+            // TABLE slicers use 2010/slicer namespace (sle:), not 2012/slicer (sle15:)
             auto graphicData = graphicFrame.child("a:graphic").child("a:graphicData");
             REQUIRE(std::string(graphicData.attribute("uri").value()) == "http://schemas.microsoft.com/office/drawing/2010/slicer");
             auto sleSlicer = graphicData.child("sle:slicer");
@@ -130,10 +130,11 @@ TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
     auto wbkExtLst = wbkNode.child("extLst");
     REQUIRE(!wbkExtLst.empty());
 
-    auto wbkExt = wbkExtLst.find_child_by_attribute("uri", "{BBE1A952-AA13-448e-AADC-164F8A28A991}");
+    // Workbook extLst: TABLE slicer caches use ExtURISlicerCachesX15 = {46BE6895...}
+    auto wbkExt = wbkExtLst.find_child_by_attribute("uri", "{46BE6895-7355-4a93-B00E-2C351335B9C9}");
     REQUIRE(!wbkExt.empty());
 
-    auto slicerCaches = wbkExt.child("x14:slicerCaches");
+    auto slicerCaches = wbkExt.child("x15:slicerCaches");
     REQUIRE(!slicerCaches.empty());
 
     int cacheRefCount = 0;
@@ -209,7 +210,8 @@ TEST_CASE("SlicerPropertiesAndCascadingDeletion", "[XLSlicer]")
         REQUIRE(slicer.styleRaw() == "SlicerStyleDark3");    // updated API name
         REQUIRE(slicer.style() == XLSlicerStyle::Dark3);     // strongly-typed enum
         REQUIRE(slicer.showCaption() == true);
-        REQUIRE(slicer.cache() == "Slicer_MyRegionSlicer");
+        // Cache name is keyed on source column name, not user-provided slicer widget name
+        REQUIRE(slicer.cache() == "Slicer_Region");
 
         // Access by name
         REQUIRE(coll["MyRegionSlicer"].name() == "MyRegionSlicer");
@@ -264,3 +266,71 @@ TEST_CASE("SlicerPropertiesAndCascadingDeletion", "[XLSlicer]")
         REQUIRE(hasSlicersOrCaches == false);
     }
 }
+
+TEST_CASE("SlicerDefinedNamesAndDisplayNameValidation", "[XLSlicer]")
+{
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename("__TableSlicerBugFix_xlsx") + ".xlsx";
+
+    // 1. Create document with Table T1 and Table SalesTable
+    {
+        XLDocument doc;
+        doc.create(filename, XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        wks.cell("A1").value() = "Region";
+        wks.cell("B1").value() = "Product";
+        wks.cell("C1").value() = "Sales";
+        wks.cell("A2").value() = "North";
+        wks.cell("B2").value() = "Apple";
+        wks.cell("C2").value() = 100;
+
+        wks.cell("D1").value() = "Region2";
+        wks.cell("E1").value() = "Product2";
+        wks.cell("F1").value() = "Sales2";
+        wks.cell("D2").value() = "South";
+        wks.cell("E2").value() = "Orange";
+        wks.cell("F2").value() = 200;
+
+        auto tables = wks.tables();
+
+        // Add a table named "T1" (valid cell reference)
+        auto table1 = tables.add("T1", "A1:C2");
+        // Verify displayName is sanitized to "T1_"
+        REQUIRE(table1.name() == "T1");
+        REQUIRE(table1.displayName() == "T1_");
+
+        // Add a table named "SalesTable" (not a cell reference)
+        auto table2 = tables.add("SalesTable", "D1:F2");
+        REQUIRE(table2.name() == "SalesTable");
+        REQUIRE(table2.displayName() == "SalesTable");
+
+        // Add a slicer named "Slicer_Region"
+        XLSlicerOptions opts;
+        opts.name = "Slicer_Region";
+        wks.addTableSlicer("H2", table1, "Region", opts);
+
+        // Verify that definedName was registered in the workbook
+        auto definedNames = doc.workbook().definedNames();
+        REQUIRE(definedNames.exists("Slicer_Region"));
+        REQUIRE(definedNames.get("Slicer_Region").refersTo() == "#N/A");
+
+        doc.save();
+    }
+
+    // 2. Open and delete slicer, verify definedName is removed
+    {
+        XLDocument doc;
+        doc.open(filename);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        REQUIRE(doc.workbook().definedNames().exists("Slicer_Region"));
+
+        wks.deleteSlicer("Slicer_Region");
+
+        // Verify definedName was deleted
+        REQUIRE_FALSE(doc.workbook().definedNames().exists("Slicer_Region"));
+
+        doc.save();
+    }
+}
+

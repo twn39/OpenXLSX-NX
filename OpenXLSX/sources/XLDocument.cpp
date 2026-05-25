@@ -562,6 +562,56 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
         else {
             auto allocData = item.getRawAllocatedData(
                 XLXmlSavingDeclaration(m_xmlSavingDeclaration.version(), m_xmlSavingDeclaration.encoding(), xmlIsStandalone));
+
+            // OOXML compliance: inject xr/xr2/xr3 namespaces and xr:uid into worksheet root at save time.
+            // This is the definitive injection point — any earlier DOM-based patches may be undone by
+            // subsequent DOM mutations, so we patch the final serialized string here.
+            const auto& xmlPath = item.getXmlPath();
+            bool isWorksheet = (xmlPath.rfind("xl/worksheets/", 0) == 0) && (xmlPath.size() > 14) &&
+                               (xmlPath.find(".xml", xmlPath.size() - 4) != std::string::npos);
+            if (isWorksheet) {
+                // Build a std::string from the allocated block
+                std::string raw(static_cast<const char*>(allocData.data), allocData.size);
+                const std::string wsTag = "<worksheet ";
+                size_t wsPos = raw.find(wsTag);
+                // Only inject xr namespaces if:
+                //   1. The worksheet root lacks xmlns:xr (not already enriched), AND
+                //   2. The worksheet contains a slicerList — xr namespaces are ONLY needed for slicers.
+                //      Injecting into every worksheet breaks sheets that have their own mc:Ignorable
+                //      (e.g., sparkline sheets that use "x14ac x14" and must not grow to "x14ac x14 xr xr2 xr3").
+                bool hasSlicerList = raw.find("x14:slicerList") != std::string::npos ||
+                                     raw.find(":slicerList") != std::string::npos;
+                if (wsPos != std::string::npos && raw.find("xmlns:xr=") == std::string::npos && hasSlicerList) {
+                    size_t tagEnd = raw.find('>', wsPos);
+                    std::string tag = raw.substr(wsPos, tagEnd - wsPos);
+
+                    auto injectIfMissing = [&](const std::string& marker, const std::string& injection) {
+                        if (tag.find(marker) == std::string::npos) tag += " " + injection;
+                    };
+                    injectIfMissing("xmlns:xr=",  "xmlns:xr=\"http://schemas.microsoft.com/office/spreadsheetml/2014/revision\"");
+                    injectIfMissing("xmlns:xr2=", "xmlns:xr2=\"http://schemas.microsoft.com/office/spreadsheetml/2015/revision2\"");
+                    injectIfMissing("xmlns:xr3=", "xmlns:xr3=\"http://schemas.microsoft.com/office/spreadsheetml/2016/revision3\"");
+                    injectIfMissing("xr:uid=",    "xr:uid=\"{00000000-0001-0000-0000-000000000000}\"");
+
+                    // Expand mc:Ignorable to include xr, xr2, xr3
+                    size_t ignPos = tag.find("mc:Ignorable=\"");
+                    if (ignPos != std::string::npos) {
+                        size_t valStart = ignPos + 14;
+                        size_t valEnd   = tag.find('"', valStart);
+                        std::string ignVal = tag.substr(valStart, valEnd - valStart);
+                        auto addPfx = [&](const std::string& prefix) {
+                            if (ignVal.find(prefix) == std::string::npos) ignVal += " " + prefix;
+                        };
+                        addPfx("xr"); addPfx("xr2"); addPfx("xr3");
+                        tag = tag.substr(0, valStart) + ignVal + tag.substr(valEnd);
+                    }
+
+                    raw = raw.substr(0, wsPos) + tag + raw.substr(tagEnd);
+                    m_archive.addEntry(xmlPath, raw);
+                    continue;
+                }
+            }
+
             m_archive.addEntryAllocated(item.getXmlPath(), allocData.release(), allocData.size);
         }
     }
@@ -830,13 +880,13 @@ XLDrawing XLDocument::sheetDrawing(uint16_t sheetXmlNo)
     std::string drawingFilename = fmt::format("xl/drawings/drawing{}.xml", sheetXmlNo);
 
     if (!m_archive.hasEntry(drawingFilename)) {
+        // Match Excel's actual drawing template: only xdr+a namespaces on root.
+        // mc and sle namespaces are declared inline on mc:AlternateContent/mc:Choice child nodes.
         m_archive.addEntry(drawingFilename,
                            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<xdr:wsDr "
                            "xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" "
-                           "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" "
-                           "xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" "
-                           "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" "
-                           "xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"></xdr:wsDr>");
+                           "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\""
+                           "></xdr:wsDr>");
         m_contentTypes.addOverride("/" + drawingFilename, XLContentType::Drawing);
     }
     constexpr bool DO_NOT_THROW = true;
@@ -1216,18 +1266,14 @@ std::string XLDocument::createTableSlicerCache(uint32_t tableId, uint32_t tableC
         filename = fmt::format("xl/slicerCaches/slicerCache{}.xml", num);
     }
 
-    std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8"?>
-<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" sourceName="{1}">
-  <extLst>
-    <ext xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" uri="{{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}}">
-      <x15:tableSlicerCache tableId="{2}" column="{3}"/>
-    </ext>
-  </extLst>
+    std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x xr10" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" xr10:uid="{{00000000-0013-0000-FFFF-FFFF0{4}000000}}" sourceName="{1}"><extLst><x:ext uri="{{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}}" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main"><x15:tableSlicerCache tableId="{2}" column="{3}"/></x:ext></extLst>
 </slicerCacheDefinition>)",
                                           name,
                                           sourceName,
                                           tableId,
-                                          tableColumnId);
+                                          tableColumnId,
+                                          num);
 
     m_archive.addEntry(filename, templateStr);
     m_contentTypes.addOverride("/" + filename, XLContentType::SlicerCache);
@@ -1242,51 +1288,53 @@ std::string XLDocument::createTableSlicerCache(uint32_t tableId, uint32_t tableC
     std::string rId = m_wbkRelationships.relationshipByTarget(relTarget).id();
 
     // Add extLst to workbook.xml to reference the slicer cache
-    // Correct URI: {BBE1A952-AA13-448e-AADC-164F8A28A991} with x14:slicerCaches
+    // TABLE slicers are X15 features (Excel 2013+): use ExtURISlicerCachesX15 = {46BE6895-7355-4a93-B00E-2C351335B9C9}
+    // with x15: prefixes throughout. This is DIFFERENT from pivot slicers which use {BBE1A952...} (X14).
     XMLNode wbkNode = m_workbook.xmlDocument().document_element();
     XMLNode extLst  = wbkNode.child("extLst");
-    if (!wbkNode.attribute("xmlns:mc"))
-        wbkNode.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
+    // Table slicers need xmlns:x15 on workbook root (X15 = Excel 2013+)
     if (!wbkNode.attribute("xmlns:x15"))
         wbkNode.append_attribute("xmlns:x15").set_value("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main");
-    if (!wbkNode.attribute("mc:Ignorable")) wbkNode.append_attribute("mc:Ignorable").set_value("x15");
+    if (!wbkNode.attribute("xmlns:mc"))
+        wbkNode.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
+    // mc:Ignorable must list x15 so older readers skip unknown x15 elements
+    if (!wbkNode.attribute("mc:Ignorable")) {
+        wbkNode.append_attribute("mc:Ignorable").set_value("x15");
+    } else {
+        std::string ign = wbkNode.attribute("mc:Ignorable").value();
+        if (ign.find("x15") == std::string::npos)
+            wbkNode.attribute("mc:Ignorable").set_value((ign + " x15").c_str());
+    }
 
     if (extLst.empty()) extLst = wbkNode.append_child("extLst");
 
-    // Excel uses {BBE1A952-AA13-448e-AADC-164F8A28A991} for slicerCaches in workbook extLst
-    XMLNode ext = extLst.find_child_by_attribute("uri", "{BBE1A952-AA13-448e-AADC-164F8A28A991}");
+    // Excel always writes x14:workbookPr ext first if not already present
+    if (extLst.find_child_by_attribute("uri", "{79F54976-1DA5-4618-B147-4CDE4B953A38}").empty()) {
+        XMLNode wbkPrExt = extLst.prepend_child("ext");
+        wbkPrExt.append_attribute("uri").set_value("{79F54976-1DA5-4618-B147-4CDE4B953A38}");
+        wbkPrExt.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+        wbkPrExt.append_child("x14:workbookPr");
+    }
+
+    // URI {46BE6895-7355-4a93-B00E-2C351335B9C9}: table slicer cache list in workbook.xml
+    // Excel: uri first, then xmlns:x15; x15:slicerCaches contains x14:slicerCache with xmlns:x14 inline
+    XMLNode ext = extLst.find_child_by_attribute("uri", "{46BE6895-7355-4a93-B00E-2C351335B9C9}");
     if (ext.empty()) {
         ext = extLst.append_child("ext");
-        ext.append_attribute("uri").set_value("{BBE1A952-AA13-448e-AADC-164F8A28A991}");
-        ext.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+        ext.append_attribute("uri").set_value("{46BE6895-7355-4a93-B00E-2C351335B9C9}");
+        ext.append_attribute("xmlns:x15").set_value("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main");
     }
 
-    XMLNode slicerCaches = ext.child("x14:slicerCaches");
+    XMLNode slicerCaches = ext.child("x15:slicerCaches");
     if (slicerCaches.empty()) {
-        slicerCaches = ext.append_child("x14:slicerCaches");
+        slicerCaches = ext.append_child("x15:slicerCaches");
+        // Excel declares xmlns:x14 inline on x15:slicerCaches
+        slicerCaches.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
     }
 
+    // Excel uses x14:slicerCache inside x15:slicerCaches (not x15:slicerCache)
     slicerCaches.append_child("x14:slicerCache").append_attribute("r:id").set_value(rId.c_str());
 
-    // Add definedName to workbook.xml using the cache name ("Slicer_X" format)
-    XMLNode definedNames = wbkNode.child("definedNames");
-    if (definedNames.empty()) {
-        XMLNode calcPr = wbkNode.child("calcPr");
-        if (!calcPr.empty()) { definedNames = wbkNode.insert_child_before("definedNames", calcPr); }
-        else {
-            definedNames = wbkNode.append_child("definedNames");
-        }
-    }
-    // Only add if not already present
-    bool alreadyDefined = false;
-    for (auto dn : definedNames.children("definedName")) {
-        if (std::string_view(dn.attribute("name").value()) == name) { alreadyDefined = true; break; }
-    }
-    if (!alreadyDefined) {
-        XMLNode definedName = definedNames.append_child("definedName");
-        definedName.append_attribute("name").set_value(std::string(name).c_str());
-        definedName.text().set("#N/A");
-    }
     return filename;
 }
 
@@ -1305,8 +1353,8 @@ std::string XLDocument::createPivotSlicerCache(uint32_t         pivotCacheId,
         filename = fmt::format("xl/slicerCaches/slicerCache{}.xml", num);
     }
 
-    std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8"?>
-<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" sourceName="{1}">
+    std::string templateStr = fmt::format(R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<slicerCacheDefinition xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x xr10" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" name="{0}" sourceName="{1}">
   <pivotTables>
     <pivotTable tabId="{2}" name="{3}"/>
   </pivotTables>
@@ -1364,25 +1412,6 @@ std::string XLDocument::createPivotSlicerCache(uint32_t         pivotCacheId,
     }
 
     slicerCaches.append_child("x14:slicerCache").append_attribute("r:id").set_value(rId.c_str());
-
-    // Add definedName to workbook.xml (deduplicated)
-    XMLNode definedNames = wbkNode.child("definedNames");
-    if (definedNames.empty()) {
-        XMLNode calcPr = wbkNode.child("calcPr");
-        if (!calcPr.empty()) { definedNames = wbkNode.insert_child_before("definedNames", calcPr); }
-        else {
-            definedNames = wbkNode.append_child("definedNames");
-        }
-    }
-    bool alreadyDefined2 = false;
-    for (auto dn : definedNames.children("definedName")) {
-        if (std::string_view(dn.attribute("name").value()) == name) { alreadyDefined2 = true; break; }
-    }
-    if (!alreadyDefined2) {
-        XMLNode definedName = definedNames.append_child("definedName");
-        definedName.append_attribute("name").set_value(std::string(name).c_str());
-        definedName.text().set("#N/A");
-    }
 
     return filename;
 }
@@ -1629,9 +1658,8 @@ std::string XLDocument::createSlicer(std::string_view name,
             filename = fmt::format("xl/slicers/slicer{}.xml", num);
         }
 
-        std::string templateStr = R"(<?xml version="1.0" encoding="UTF-8"?>
-<slicers xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" mc:Ignorable="x xr10">
-</slicers>)";
+        std::string templateStr = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<slicers xmlns="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x xr10" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10"></slicers>)";
 
         m_archive.addEntry(filename, templateStr);
         m_contentTypes.addOverride("/" + filename, XLContentType::Slicer);
@@ -1643,12 +1671,21 @@ std::string XLDocument::createSlicer(std::string_view name,
         }
     }
 
-    // Append the <slicer> node to the (possibly shared) file
+    // Count existing slicers in the file to generate a unique xr10:uid index
+    uint32_t slicerIdx = 1;
     XLXmlData* slicerXml = getXmlData(filename, /*doNotThrow=*/true);
     if (slicerXml) {
         XMLNode root = slicerXml->getXmlDocument()->document_element();
+        for (auto child = root.first_child_of_type(pugi::node_element); !child.empty();
+             child = child.next_sibling_of_type(pugi::node_element))
+            ++slicerIdx;
+
+        // Attribute order must match Excel: name, xr10:uid, cache, caption, rowHeight
+        // xr10:uid is REQUIRED by OOXML — its absence causes Excel to report corruption
+        std::string uid = fmt::format("{{00000000-0014-0000-FFFF-FFFF{:02d}000000}}", slicerIdx);
         XMLNode node = root.append_child("slicer");
         node.append_attribute("name").set_value(std::string(name).c_str());
+        node.append_attribute("xr10:uid").set_value(uid.c_str());
         node.append_attribute("cache").set_value(std::string(cacheName).c_str());
         node.append_attribute("caption").set_value(std::string(caption).c_str());
         node.append_attribute("rowHeight").set_value("251883");

@@ -1,5 +1,6 @@
 // ===== External Includes ===== //
 #include <algorithm>
+#include <fmt/format.h>
 #include <pugixml.hpp>
 #include <string_view>
 #include <vector>
@@ -88,29 +89,55 @@ namespace OpenXLSX
             colCount = end.column() - start.column() + 1;
         }
 
+        std::string displayName = std::string(name);
+        auto isCellRef = [](std::string_view s) {
+            if (s.empty()) return false;
+            size_t idx = 0;
+            while (idx < s.size() && ((s[idx] >= 'A' && s[idx] <= 'Z') || (s[idx] >= 'a' && s[idx] <= 'z'))) {
+                idx++;
+            }
+            if (idx == 0 || idx == s.size()) return false;
+            while (idx < s.size() && s[idx] >= '0' && s[idx] <= '9') {
+                idx++;
+            }
+            return idx == s.size();
+        };
+        if (isCellRef(displayName)) {
+            displayName += "_";
+        }
+
         std::string tableXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
                                "<table xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+                               "xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" "
+                               "mc:Ignorable=\"xr xr3\" "
+                               "xmlns:xr=\"http://schemas.microsoft.com/office/spreadsheetml/2014/revision\" "
+                               "xmlns:xr3=\"http://schemas.microsoft.com/office/spreadsheetml/2016/revision3\" "
                                "id=\"" +
                                std::to_string(tableId) +
                                "\" "
+                               "xr:uid=\"{00000000-000C-0000-FFFF-FFFF00000000}\" "
                                "name=\"" +
                                std::string(name) +
                                "\" "
                                "displayName=\"" +
-                               std::string(name) +
+                               displayName +
                                "\" "
                                "ref=\"" +
                                std::string(range) +
                                "\">"
                                "<autoFilter ref=\"" +
                                std::string(range) +
-                               "\"/>"
+                               "\" xr:uid=\"{00000000-0009-0000-0100-000001000000}\"/>"
                                "<tableColumns count=\"" +
                                std::to_string(colCount) + "\">";
         for (uint16_t i = 0; i < colCount; ++i) {
             std::string h = m_worksheet->cell(start.row(), static_cast<uint16_t>(start.column() + i)).value().getString();
             if (h.empty()) h = "Column" + std::to_string(i + 1);
-            tableXml += "<tableColumn id=\"" + std::to_string(i + 1) + "\" name=\"" + h + "\"/>";
+            // xr3:uid pattern matches Excel's generated values: 0000000N for column N (1-indexed)
+            tableXml += "<tableColumn id=\"" + std::to_string(i + 1) +
+                        "\" xr3:uid=\"{00000000-0010-0000-0000-0000" +
+                        fmt::format("{:02d}", i + 1) + "000000}\"" +
+                        " name=\"" + h + "\"/>";
         }
         tableXml += "</tableColumns><tableStyleInfo name=\"TableStyleMedium2\" showFirstColumn=\"0\" showLastColumn=\"0\" "
                     "showRowStripes=\"1\" showColumnStripes=\"0\"/></table>";

@@ -72,7 +72,7 @@ namespace OpenXLSX
         struct State {
             std::string name;
             std::string caption;
-            std::string styleRaw   = "SlicerStyleLight1";
+            std::string styleRaw   = "";   // Empty = no style attribute (Excel default)
             uint32_t    widthPx    = 144;
             uint32_t    heightPx   = 200;
             int32_t     offsetX    = 0;

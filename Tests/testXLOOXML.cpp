@@ -468,13 +468,19 @@ testTestDoc:    // Wait, I'll just use the doc directly.
             REQUIRE(tableXml.find("totalsRowCount=\"1\"") != std::string::npos);
 
             // 2. Verify autoFilter and custom filter
-            REQUIRE(tableXml.find("<autoFilter ref=\"A1:B3\">") != std::string::npos);
+            // autoFilter now includes xr:uid attribute (required by OOXML), so search for prefix only
+            REQUIRE(tableXml.find("autoFilter ref=\"A1:B3\"") != std::string::npos);
             REQUIRE(tableXml.find("<filterColumn colId=\"1\">") != std::string::npos);
             REQUIRE(tableXml.find("<customFilter operator=\"greaterThan\" val=\"100\"") != std::string::npos);
 
             // 3. Verify table column attributes
-            REQUIRE(tableXml.find("<tableColumn id=\"1\" name=\"H1\" totalsRowLabel=\"Total\"") != std::string::npos);
-            REQUIRE(tableXml.find("<tableColumn id=\"2\" name=\"H2\" totalsRowFunction=\"sum\"") != std::string::npos);
+            // tableColumn now includes xr3:uid attribute, so search for id/name only
+            REQUIRE(tableXml.find("tableColumn id=\"1\"") != std::string::npos);
+            REQUIRE(tableXml.find("name=\"H1\"") != std::string::npos);
+            REQUIRE(tableXml.find("totalsRowLabel=\"Total\"") != std::string::npos);
+            REQUIRE(tableXml.find("tableColumn id=\"2\"") != std::string::npos);
+            REQUIRE(tableXml.find("name=\"H2\"") != std::string::npos);
+            REQUIRE(tableXml.find("totalsRowFunction=\"sum\"") != std::string::npos);
 
             testDoc.close();
         }

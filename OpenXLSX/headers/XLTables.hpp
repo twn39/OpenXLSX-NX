@@ -29,7 +29,7 @@ namespace OpenXLSX
         uint32_t    height  = 200;    // pixels
         int32_t     offsetX = 0;      // pixels
         int32_t     offsetY = 0;      // pixels
-        std::string slicerStyle = "SlicerStyleLight1";
+        std::string slicerStyle = "";    // Empty = use Excel default (no style attribute written)
         std::vector<std::string> selectedItems = {};
     };
 
