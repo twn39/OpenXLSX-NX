@@ -813,7 +813,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
 
     slicerList.append_child("x14:slicer").append_attribute("r:id").set_value(rId.c_str());
 
-    // 4. Add drawing for the slicer (oneCellAnchor + ext for pixel-accurate sizing)
+    // 4. Add drawing for the slicer (twoCellAnchor + absolute for Excel compliance)
     XLCellReference ref{std::string(cellReference)};
     uint32_t        row    = ref.row() - 1;
     uint16_t        colIdx = ref.column() - 1;
@@ -824,24 +824,36 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     const int64_t cx = static_cast<int64_t>(options.width)  * 9525;
     const int64_t cy = static_cast<int64_t>(options.height) * 9525;
 
-    XMLNode anchor = drwRoot.append_child("xdr:oneCellAnchor");
+    // Compute "to" cell: find the cell that the bottom-right corner lands in
+    const int64_t colWidthEmu = 914400;   // ~1 inch per column (approx)
+    const int64_t rowHeightEmu = 190500;  // default row height in EMU
+    int64_t toCol    = colIdx + cx / colWidthEmu;
+    int64_t toColOff = cx % colWidthEmu;
+    int64_t toRow    = row + cy / rowHeightEmu;
+    int64_t toRowOff = cy % rowHeightEmu;
+
+    XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
+    anchor.append_attribute("editAs").set_value("absolute");
 
     XMLNode from = anchor.append_child("xdr:from");
     from.append_child("xdr:col").text().set(colIdx);
-    from.append_child("xdr:colOff").text().set(options.offsetX * 9525);
+    from.append_child("xdr:colOff").text().set(static_cast<int64_t>(options.offsetX) * 9525);
     from.append_child("xdr:row").text().set(row);
-    from.append_child("xdr:rowOff").text().set(options.offsetY * 9525);
+    from.append_child("xdr:rowOff").text().set(static_cast<int64_t>(options.offsetY) * 9525);
 
-    XMLNode anchorExt = anchor.append_child("xdr:ext");
-    anchorExt.append_attribute("cx").set_value(std::to_string(cx).c_str());
-    anchorExt.append_attribute("cy").set_value(std::to_string(cy).c_str());
+    XMLNode to = anchor.append_child("xdr:to");
+    to.append_child("xdr:col").text().set(toCol);
+    to.append_child("xdr:colOff").text().set(toColOff);
+    to.append_child("xdr:row").text().set(toRow);
+    to.append_child("xdr:rowOff").text().set(toRowOff);
 
+    // OOXML ECMA-376 §22.1.2: xmlns:sle MUST be declared on mc:AlternateContent (or ancestor)
     XMLNode altContent = anchor.append_child("mc:AlternateContent");
-    // xmlns:mc is already declared on the root xdr:wsDr element
+    altContent.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
+    altContent.append_attribute("xmlns:sle").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
 
     XMLNode choice = altContent.append_child("mc:Choice");
-    choice.append_attribute("xmlns:a14").set_value("http://schemas.microsoft.com/office/drawing/2010/main");
-    choice.append_attribute("Requires").set_value("a14");
+    choice.append_attribute("Requires").set_value("sle");
 
     XMLNode graphicFrame = choice.append_child("xdr:graphicFrame");
     graphicFrame.append_attribute("macro").set_value("");
@@ -852,7 +864,17 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     auto childCount = static_cast<size_t>(std::distance(drwRoot.children().begin(), drwRoot.children().end()));
     cNvPr.append_attribute("id").set_value(fmt::format("{}", childCount + 1).c_str());
     cNvPr.append_attribute("name").set_value(sName.c_str());
-    cNvPr.append_attribute("descr").set_value("");
+
+    // ECMA-376 / Office Open XML: <a:extLst> with a16:creationId is required for slicer shape identity
+    {
+        XMLNode extLst    = cNvPr.append_child("a:extLst");
+        XMLNode ext       = extLst.append_child("a:ext");
+        ext.append_attribute("uri").set_value("{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}");
+        XMLNode creationId = ext.append_child("a16:creationId");
+        creationId.append_attribute("xmlns:a16").set_value("http://schemas.microsoft.com/office/drawing/2014/main");
+        creationId.append_attribute("id").set_value(
+            fmt::format("{{00000000-0008-0000-0000-{:012X}}}", childCount + 1).c_str());
+    }
 
     nvGraphicFramePr.append_child("xdr:cNvGraphicFramePr");
 
@@ -867,10 +889,10 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     graphicData.append_attribute("uri").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
 
     XMLNode sleSlicer = graphicData.append_child("sle:slicer");
-    sleSlicer.append_attribute("xmlns:sle").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
     sleSlicer.append_attribute("name").set_value(sName.c_str());
 
     XMLNode fallback = altContent.append_child("mc:Fallback");
+    fallback.append_attribute("xmlns").set_value("");
     XMLNode sp       = fallback.append_child("xdr:sp");
     sp.append_attribute("macro").set_value("");
     sp.append_attribute("textlink").set_value("");
@@ -891,22 +913,17 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     spPr.append_child("a:solidFill").append_child("a:srgbClr").append_attribute("val").set_value("FFFFFF");
     XMLNode ln = spPr.append_child("a:ln");
     ln.append_attribute("w").set_value("1");
-    ln.append_child("a:solidFill").append_child("a:prstClr").append_attribute("val").set_value("black");
+    ln.append_child("a:solidFill").append_child("a:prstClr").append_attribute("val").set_value("green");
 
     XMLNode txBody = sp.append_child("xdr:txBody");
     XMLNode bodyPr = txBody.append_child("a:bodyPr");
-    bodyPr.append_attribute("anchorCtr").set_value("false");
-    bodyPr.append_attribute("rot").set_value("0");
-    bodyPr.append_attribute("horzOverflow").set_value("clip");
-    bodyPr.append_attribute("spcFirstLastPara").set_value("false");
     bodyPr.append_attribute("vertOverflow").set_value("clip");
-
+    bodyPr.append_attribute("horzOverflow").set_value("clip");
+    txBody.append_child("a:lstStyle");
     XMLNode p   = txBody.append_child("a:p");
     XMLNode r   = p.append_child("a:r");
-    XMLNode rPr = r.append_child("a:rPr");
-    rPr.append_attribute("b").set_value("false");
-    rPr.append_attribute("i").set_value("false");
-    r.append_child("a:t").text().set("This shape represents a pivot slicer. Slicers are not supported in this version of Excel.");
+    r.append_child("a:rPr").append_attribute("lang").set_value("en-US");
+    r.append_child("a:t").text().set("This shape represents a pivot slicer. Slicers are not supported in this version of Excel.\n\nIf the shape was modified in an earlier version of Excel, or if the workbook was saved in Excel 2007 or earlier, the slicer cannot be used.");
 
     anchor.append_child("xdr:clientData");
 

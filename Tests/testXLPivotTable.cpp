@@ -228,7 +228,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     for (auto name : doc2.archive().entryNames()) {
         if (name.find("xl/drawings/drawing") == 0) {
             std::string temp = doc2.extractXmlFromArchive(name);
-            if (temp.find("RegionSlicer") != std::string::npos || temp.find("a14") != std::string::npos) {
+            if (temp.find("RegionSlicer") != std::string::npos || temp.find("sle") != std::string::npos) {
                 drawingStr = temp;
                 break;
             }
@@ -239,7 +239,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     drwDoc.load_string(drawingStr.c_str());
     auto drwRoot = drwDoc.document_element();
 
-    bool foundA14Choice = false;
+    bool foundSleChoice = false;
     for (auto anchor : drwRoot.children()) {
         std::string anchorName = anchor.name();
         if (anchorName != "xdr:twoCellAnchor" && anchorName != "xdr:oneCellAnchor") {
@@ -248,8 +248,8 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
         auto altContent = anchor.child("mc:AlternateContent");
         if (!altContent.empty()) {
             auto choice = altContent.child("mc:Choice");
-            if (!choice.empty() && std::string(choice.attribute("Requires").value()) == "a14") {
-                foundA14Choice    = true;
+            if (!choice.empty() && std::string(choice.attribute("Requires").value()) == "sle") {
+                foundSleChoice    = true;
                 auto graphicFrame = choice.child("xdr:graphicFrame");
                 REQUIRE(!graphicFrame.empty());
                 auto sleSlicer = graphicFrame.child("a:graphic").child("a:graphicData").child("sle:slicer");
@@ -258,7 +258,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
             }
         }
     }
-    REQUIRE(foundA14Choice == true);
+    REQUIRE(foundSleChoice == true);
 
     // Test double save for robustness
     doc2.saveAs(__global_unique_testXLPivotTable_0(), XLForceOverwrite);
