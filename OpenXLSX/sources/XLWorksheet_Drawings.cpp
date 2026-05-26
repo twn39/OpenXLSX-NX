@@ -580,17 +580,12 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     int64_t toRow    = row + cy / rowHeightEmu;
     int64_t toRowOff = cy % rowHeightEmu;
 
-    // Count existing shapes workbook-wide to generate a unique shapeId
+    // Count existing anchors in THIS drawing to generate a drawing-local unique shapeId.
+    // OOXML requires cNvPr id to be unique within the drawing (not workbook-wide).
     uint32_t shapeId = 1;
-    for (const auto& wksName : parentDoc().workbook().worksheetNames()) {
-        auto wks = parentDoc().workbook().worksheet(wksName);
-        if (wks.hasDrawing()) {
-            auto root = wks.drawing().xmlDocument().document_element();
-            for (auto child = root.first_child_of_type(pugi::node_element); !child.empty();
-                 child = child.next_sibling_of_type(pugi::node_element)) {
-                ++shapeId;
-            }
-        }
+    for (auto child = drwRoot.first_child_of_type(pugi::node_element); !child.empty();
+         child = child.next_sibling_of_type(pugi::node_element)) {
+        ++shapeId;
     }
 
     XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
@@ -608,15 +603,14 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     to.append_child("xdr:row").text().set(toRow);
     to.append_child("xdr:rowOff").text().set(toRowOff);
 
-    // OOXML ECMA-376 §22.1.2: xmlns:sle MUST be declared on mc:AlternateContent (or ancestor),
-    // not on mc:Choice, because Requires="sle" references it at the AlternateContent scope.
+    // OOXML ECMA-376 §22.1.2: namespace declarations scoped to the minimum required element.
+    // Excel writes xmlns:sle15 on mc:Choice and xmlns:sle directly on sle:slicer (not on AlternateContent).
     XMLNode altContent = anchor.append_child("mc:AlternateContent");
     altContent.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
-    altContent.append_attribute("xmlns:sle").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
 
-    // Excel table slicers use the 2010/slicer namespace (sle:), Requires="sle"
     XMLNode choice = altContent.append_child("mc:Choice");
-    choice.append_attribute("Requires").set_value("sle");
+    choice.append_attribute("xmlns:sle15").set_value("http://schemas.microsoft.com/office/drawing/2012/slicer");
+    choice.append_attribute("Requires").set_value("sle15");
 
     XMLNode graphicFrame = choice.append_child("xdr:graphicFrame");
     graphicFrame.append_attribute("macro").set_value("");
@@ -653,9 +647,12 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     // Excel uses 2010/slicer URI for table slicers in the graphicData element
     graphicData.append_attribute("uri").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
 
+    // xmlns:sle is declared on sle:slicer itself (not hoisted to AlternateContent)
     XMLNode sleSlicer = graphicData.append_child("sle:slicer");
+    sleSlicer.append_attribute("xmlns:sle").set_value("http://schemas.microsoft.com/office/drawing/2010/slicer");
     sleSlicer.append_attribute("name").set_value(name.c_str());
 
+    // Fallback: no xmlns="" — Table slicer fallback does not reset the default namespace.
     XMLNode fallback = altContent.append_child("mc:Fallback");
     XMLNode sp       = fallback.append_child("xdr:sp");
     sp.append_attribute("macro").set_value("");
@@ -665,16 +662,25 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     XMLNode spCNvPr = nvSpPr.append_child("xdr:cNvPr");
     spCNvPr.append_attribute("id").set_value(fmt::format("{}", shapeId).c_str());
     spCNvPr.append_attribute("name").set_value("");
-    nvSpPr.append_child("xdr:cNvSpPr").append_attribute("txBox").set_value("true");
+    // Excel adds <a:spLocks noTextEdit="1"/> to mark the fallback shape as non-editable
+    XMLNode cNvSpPr = nvSpPr.append_child("xdr:cNvSpPr");
+    cNvSpPr.append_child("a:spLocks").append_attribute("noTextEdit").set_value("1");
 
     XMLNode spPr   = sp.append_child("xdr:spPr");
     XMLNode spXfrm = spPr.append_child("a:xfrm");
-    spXfrm.append_child("a:off").append_attribute("x").set_value("0");
-    spXfrm.child("a:off").append_attribute("y").set_value("0");
+    // Fallback uses absolute EMU position computed from the anchor cell + offset
+    int64_t fallbackX = static_cast<int64_t>(colIdx) * 914400 +
+                        static_cast<int64_t>(options.offsetX) * 9525;
+    int64_t fallbackY = static_cast<int64_t>(row) * 190500 +
+                        static_cast<int64_t>(options.offsetY) * 9525;
+    spXfrm.append_child("a:off").append_attribute("x").set_value(std::to_string(fallbackX).c_str());
+    spXfrm.child("a:off").append_attribute("y").set_value(std::to_string(fallbackY).c_str());
     spXfrm.append_child("a:ext").append_attribute("cx").set_value(std::to_string(cx).c_str());
     spXfrm.child("a:ext").append_attribute("cy").set_value(std::to_string(cy).c_str());
-    spPr.append_child("a:prstGeom").append_attribute("prst").set_value("rect");
-    spPr.append_child("a:solidFill").append_child("a:srgbClr").append_attribute("val").set_value("FFFFFF");
+    XMLNode prstGeom = spPr.append_child("a:prstGeom");
+    prstGeom.append_attribute("prst").set_value("rect");
+    prstGeom.append_child("a:avLst");
+    spPr.append_child("a:solidFill").append_child("a:prstClr").append_attribute("val").set_value("white");
     XMLNode ln = spPr.append_child("a:ln");
     ln.append_attribute("w").set_value("1");
     ln.append_child("a:solidFill").append_child("a:prstClr").append_attribute("val").set_value("green");
@@ -847,17 +853,12 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     int64_t toRow    = row + cy / rowHeightEmu;
     int64_t toRowOff = cy % rowHeightEmu;
 
-    // Count existing shapes workbook-wide to generate a unique shapeId
+    // Count existing anchors in THIS drawing to generate a drawing-local unique shapeId.
+    // OOXML requires cNvPr id to be unique within the drawing (not workbook-wide).
     uint32_t shapeId = 1;
-    for (const auto& wksName : parentDoc().workbook().worksheetNames()) {
-        auto wks = parentDoc().workbook().worksheet(wksName);
-        if (wks.hasDrawing()) {
-            auto root = wks.drawing().xmlDocument().document_element();
-            for (auto child = root.first_child_of_type(pugi::node_element); !child.empty();
-                 child = child.next_sibling_of_type(pugi::node_element)) {
-                ++shapeId;
-            }
-        }
+    for (auto child = drwRoot.first_child_of_type(pugi::node_element); !child.empty();
+         child = child.next_sibling_of_type(pugi::node_element)) {
+        ++shapeId;
     }
 
     XMLNode anchor = drwRoot.append_child("xdr:twoCellAnchor");
@@ -936,7 +937,9 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     spXfrm.child("a:off").append_attribute("y").set_value("0");
     spXfrm.append_child("a:ext").append_attribute("cx").set_value(std::to_string(cx).c_str());
     spXfrm.child("a:ext").append_attribute("cy").set_value(std::to_string(cy).c_str());
-    spPr.append_child("a:prstGeom").append_attribute("prst").set_value("rect");
+    XMLNode prstGeom = spPr.append_child("a:prstGeom");
+    prstGeom.append_attribute("prst").set_value("rect");
+    prstGeom.append_child("a:avLst");
     spPr.append_child("a:solidFill").append_child("a:srgbClr").append_attribute("val").set_value("FFFFFF");
     XMLNode ln = spPr.append_child("a:ln");
     ln.append_attribute("w").set_value("1");

@@ -1,8 +1,9 @@
 /**
  * testXLSlicerComprehensive.cpp
  *
- * 生成一个覆盖分片器的综合性 excel 文件 (slicer_comprehensive_demo.xlsx)，
- * 包含多个表格、数据透视表，以及对应的表格分片器和透视表分片器，用于人工校验。
+ * 将原有的综合性 Excel 拆分为独立的功能测试文件：
+ * 1. slicer_table_demo.xlsx (包含表格分片器，多 Sheet 等)
+ * 2. slicer_pivot_demo.xlsx (包含数据透视表及对应的透视表分片器)
  */
 #include "TestHelpers.hpp"
 #include "OpenXLSX.hpp"
@@ -44,6 +45,99 @@ void fillDemoData(XLWorksheet& wks)
 }
 
 } // namespace
+
+TEST_CASE("GenerateTableSlicerDemo", "[SlicerDemo]")
+{
+    const std::string out = "slicer_table_demo.xlsx";
+    XLDocument doc;
+    doc.create(out, XLForceOverwrite);
+
+    // 1. Sheet1: Raw data table + 2 Table Slicers
+    auto wks1 = doc.workbook().worksheet(1);
+    wks1.setName("Sheet1");
+    fillDemoData(wks1);
+
+    auto table1 = wks1.tables().add("T_Sales", "A1:D9");
+
+    // Add table slicers
+    wks1.slicers().add("F1", table1, "Region")
+        .name("Slicer_Region")
+        .caption("地区 (Light1)")
+        .style(XLSlicerStyle::Light1)
+        .size(150, 200);
+
+    wks1.slicers().add("H1", table1, "Product")
+        .name("Slicer_Product")
+        .caption("产品 (Dark3)")
+        .style(XLSlicerStyle::Dark3)
+        .size(150, 200);
+
+    // 2. Sheet2: Another sheet with a Table and Slicer to test multi-sheet workbook-wide cache name uniqueness
+    doc.workbook().addWorksheet("Sheet2");
+    auto wks2 = doc.workbook().worksheet("Sheet2");
+    fillDemoData(wks2);
+
+    auto table2 = wks2.tables().add("T_Quarter", "A1:D9");
+
+    wks2.slicers().add("F1", table2, "Quarter")
+        .name("Slicer_Quarter")
+        .caption("季度 (Light4)")
+        .style(XLSlicerStyle::Light4)
+        .size(150, 200);
+
+    doc.save();
+    doc.close();
+
+    std::cout << "\n===================================================\n";
+    std::cout << "  表格切片器测试文件生成完毕: " << out << "\n";
+    std::cout << "  包含多 Sheet、唯一 Cache 命名、各种样式表格切片器。\n";
+    std::cout << "===================================================\n\n";
+
+    REQUIRE(true);
+}
+
+TEST_CASE("GeneratePivotSlicerDemo", "[SlicerDemo]")
+{
+    const std::string out = "slicer_pivot_demo.xlsx";
+    XLDocument doc;
+    doc.create(out, XLForceOverwrite);
+
+    // 1. Sheet1: Raw data table
+    auto wks1 = doc.workbook().worksheet(1);
+    wks1.setName("Sheet1");
+    fillDemoData(wks1);
+
+    // 2. Sheet2: Pivot Table + Pivot Slicer
+    doc.workbook().addWorksheet("Sheet2");
+    auto wks2 = doc.workbook().worksheet("Sheet2");
+    
+    // Add Pivot Table sourcing from Sheet1!A1:D9
+    auto pt = wks2.addPivotTable(
+        XLPivotTableOptions("PT_Sales", "Sheet1!A1:D9", "A1")
+            .addRowField("Region")
+            .addColumnField("Product")
+            .addDataField("Sales", "总销售额")
+    );
+
+    if (pt.valid()) {
+        wks2.slicers().add("F1", pt, "Region")
+            .caption("地区筛选[Pivot]")
+            .style(XLSlicerStyle::Dark4)
+            .size(160, 220);
+    } else {
+        wks2.cell("F1").value() = "Pivot Table Creation Failed";
+    }
+
+    doc.save();
+    doc.close();
+
+    std::cout << "\n===================================================\n";
+    std::cout << "  透视表切片器测试文件生成完毕: " << out << "\n";
+    std::cout << "  包含数据源 Sheet、透视表 Sheet，以及透视表切片器。\n";
+    std::cout << "===================================================\n\n";
+
+    REQUIRE(true);
+}
 
 TEST_CASE("GenerateSlicerComprehensiveDemo", "[SlicerDemo]")
 {
@@ -115,3 +209,4 @@ TEST_CASE("GenerateSlicerComprehensiveDemo", "[SlicerDemo]")
 
     REQUIRE(true);
 }
+

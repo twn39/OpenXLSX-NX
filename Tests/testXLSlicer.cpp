@@ -101,12 +101,12 @@ TEST_CASE("TableSlicerAPIandOOXMLValidation", "[XLSlicer]")
 
         auto choice = altContent.child("mc:Choice");
         REQUIRE(!choice.empty());
-        REQUIRE(std::string(choice.attribute("Requires").value()) == "sle");
+        REQUIRE(std::string(choice.attribute("Requires").value()) == "sle15");
 
         auto graphicFrame = choice.child("xdr:graphicFrame");
         if (!graphicFrame.empty()) {
             graphicFrameCount++;
-            // TABLE slicers use 2010/slicer namespace (sle:), not 2012/slicer (sle15:)
+            // TABLE slicers use 2012/slicer namespace (sle15:) for drawing alternate content choice, and sle for local tag.
             auto graphicData = graphicFrame.child("a:graphic").child("a:graphicData");
             REQUIRE(std::string(graphicData.attribute("uri").value()) == "http://schemas.microsoft.com/office/drawing/2010/slicer");
             auto sleSlicer = graphicData.child("sle:slicer");

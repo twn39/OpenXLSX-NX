@@ -574,11 +574,29 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
                 std::string raw(static_cast<const char*>(allocData.data), allocData.size);
                 const std::string wsTag = "<worksheet ";
                 size_t wsPos = raw.find(wsTag);
-                // Only inject xr namespaces if:
-                //   1. The worksheet root lacks xmlns:xr (not already enriched), AND
-                //   2. The worksheet contains a slicerList — xr namespaces are ONLY needed for slicers.
-                //      Injecting into every worksheet breaks sheets that have their own mc:Ignorable
-                //      (e.g., sparkline sheets that use "x14ac x14" and must not grow to "x14ac x14 xr xr2 xr3").
+
+                // Always parse sheet ID from xmlPath (e.g. xl/worksheets/sheet1.xml -> 1)
+                uint32_t sheetId = 1;
+                size_t sheetStart = xmlPath.rfind("sheet");
+                size_t xmlEnd = xmlPath.rfind(".xml");
+                if (sheetStart != std::string::npos && xmlEnd != std::string::npos) {
+                    try {
+                        sheetId = std::stoul(xmlPath.substr(sheetStart + 5, xmlEnd - (sheetStart + 5)));
+                    } catch (...) {
+                        sheetId = 1;
+                    }
+                }
+                std::string uniqueUid = fmt::format("{{00000000-0001-0000-0000-{:012X}}}", sheetId);
+
+                // If xr:uid is already present in raw string, replace its value to ensure workbook-wide uniqueness
+                size_t uidPos = raw.find("xr:uid=\"");
+                if (uidPos != std::string::npos) {
+                    size_t quoteEnd = raw.find('"', uidPos + 8);
+                    if (quoteEnd != std::string::npos) {
+                        raw.replace(uidPos + 8, quoteEnd - (uidPos + 8), uniqueUid);
+                    }
+                }
+
                 bool hasSlicerList = raw.find("x14:slicerList") != std::string::npos ||
                                      raw.find(":slicerList") != std::string::npos;
                 if (wsPos != std::string::npos && raw.find("xmlns:xr=") == std::string::npos && hasSlicerList) {
@@ -591,7 +609,7 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
                     injectIfMissing("xmlns:xr=",  "xmlns:xr=\"http://schemas.microsoft.com/office/spreadsheetml/2014/revision\"");
                     injectIfMissing("xmlns:xr2=", "xmlns:xr2=\"http://schemas.microsoft.com/office/spreadsheetml/2015/revision2\"");
                     injectIfMissing("xmlns:xr3=", "xmlns:xr3=\"http://schemas.microsoft.com/office/spreadsheetml/2016/revision3\"");
-                    injectIfMissing("xr:uid=",    "xr:uid=\"{00000000-0001-0000-0000-000000000000}\"");
+                    injectIfMissing("xr:uid=",    "xr:uid=\"" + uniqueUid + "\"");
 
                     // Expand mc:Ignorable to include xr, xr2, xr3
                     size_t ignPos = tag.find("mc:Ignorable=\"");
@@ -603,13 +621,14 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
                             if (ignVal.find(prefix) == std::string::npos) ignVal += " " + prefix;
                         };
                         addPfx("xr"); addPfx("xr2"); addPfx("xr3");
-                        tag = tag.substr(0, valStart) + ignVal + tag.substr(valEnd);
+                        tag.replace(valStart, valEnd - valStart, ignVal);
                     }
 
-                    raw = raw.substr(0, wsPos) + tag + raw.substr(tagEnd);
-                    m_archive.addEntry(xmlPath, raw);
-                    continue;
+                    raw.replace(wsPos, tagEnd - wsPos, tag);
                 }
+
+                m_archive.addEntry(xmlPath, raw);
+                continue;
             }
 
             m_archive.addEntryAllocated(item.getXmlPath(), allocData.release(), allocData.size);
@@ -1308,9 +1327,10 @@ std::string XLDocument::createTableSlicerCache(uint32_t tableId, uint32_t tableC
 
     if (extLst.empty()) extLst = wbkNode.append_child("extLst");
 
-    // Excel always writes x14:workbookPr ext first if not already present
+    // Excel always writes x14:workbookPr ext AFTER {BBE1A952} pivot cache and BEFORE {46BE6895} table caches.
+    // So we append it (it gets pushed before the table cache which is appended after).
     if (extLst.find_child_by_attribute("uri", "{79F54976-1DA5-4618-B147-4CDE4B953A38}").empty()) {
-        XMLNode wbkPrExt = extLst.prepend_child("ext");
+        XMLNode wbkPrExt = extLst.append_child("ext");
         wbkPrExt.append_attribute("uri").set_value("{79F54976-1DA5-4618-B147-4CDE4B953A38}");
         wbkPrExt.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
         wbkPrExt.append_child("x14:workbookPr");
@@ -1359,9 +1379,9 @@ std::string XLDocument::createPivotSlicerCache(uint32_t         pivotCacheId,
     <pivotTable tabId="{2}" name="{3}"/>
   </pivotTables>
   <data>
-    <tabular pivotCacheId="{4}" showMissing="false">
+    <tabular pivotCacheId="{4}" showMissing="0">
       <items count="1">
-        <i x="0" s="true"/>
+        <i x="0" s="1"/>
       </items>
     </tabular>
   </data>
@@ -1402,7 +1422,9 @@ std::string XLDocument::createPivotSlicerCache(uint32_t         pivotCacheId,
 
     XMLNode ext = extLst.find_child_by_attribute("uri", "{BBE1A952-AA13-448e-AADC-164F8A28A991}");
     if (ext.empty()) {
-        ext = extLst.append_child("ext");
+        // {BBE1A952} must be FIRST in extLst (before workbookPr and table caches).
+        // Use prepend_child so it appears before any existing ext nodes.
+        ext = extLst.prepend_child("ext");
         ext.append_attribute("uri").set_value("{BBE1A952-AA13-448e-AADC-164F8A28A991}");
         ext.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
     }

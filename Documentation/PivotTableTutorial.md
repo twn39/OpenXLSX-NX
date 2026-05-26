@@ -108,19 +108,34 @@ OpenXLSX provides comprehensive CRUD operations to manage existing Pivot Tables,
     pivotWks.deletePivotTable("PivotByProduct");
 ```
 
-## 5. Adding Slicers
+## 5. Adding Pivot Slicers
 
-A Slicer is a visual filtering control that connects to a Pivot Table. Adding a slicer in OpenXLSX is extremely straightforward once the Pivot Table is created.
+A Slicer is a visual filtering control that connects to a Pivot Table. Once the Pivot Table is created, use `addPivotSlicer()` to attach a slicer.
 
 ```cpp
-    // Configure the Slicer
+    // Configure the slicer
     XLSlicerOptions sOpts;
-    sOpts.name = "Region";           // The exact name of the source data column
-    sOpts.caption = "Select Region"; // The display title of the slicer window
+    sOpts.name      = "Region";         // Must match the pivot field source column name
+    sOpts.caption   = "Select Region";  // Display title shown on the slicer header
+    sOpts.style     = XLSlicerStyle::Dark4;
+    sOpts.width     = 160;              // pixels
+    sOpts.height    = 240;              // pixels
 
-    // Add the slicer to the worksheet, anchoring it at cell "E5"
-    pivotWks.addPivotSlicer("E5", pt, "Region", sOpts);
+    // Anchor the slicer at cell "F5", connected to `pt`
+    pivotWks.addPivotSlicer("F5", pt, "Region", sOpts);
 ```
+
+You can also access and modify the slicer after creation via the collection:
+
+```cpp
+    pivotWks.slicers()["Region"]
+        .setCaption("Filter: Region")
+        .setStyle(XLSlicerStyle::Light2)
+        .showOnly({"North", "East"});  // Pre-select items programmatically
+```
+
+> For Table Slicers (connected to `XLTable` instead of `XLPivotTable`), use `wks.addTableSlicer()`.  
+> See the full [Slicer Tutorial](SlicerTutorial.md) for all options, multi-sheet usage, and OOXML compatibility notes.
 
 ## 6. Finalizing the Document
 
@@ -135,3 +150,4 @@ Save and close the document as usual.
 ```
 
 When you open the generated `PivotDemo.xlsx` file, the native deduplication engine ensures your pivot tables and slicers are fully populated, styled, and interactive immediately!
+

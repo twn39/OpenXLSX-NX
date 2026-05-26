@@ -115,7 +115,7 @@ namespace OpenXLSX
                                "id=\"" +
                                std::to_string(tableId) +
                                "\" "
-                               "xr:uid=\"{00000000-000C-0000-FFFF-FFFF00000000}\" "
+                               "xr:uid=\"" + fmt::format("{{00000000-000C-0000-FFFF-FFFF{:08X}}}", tableId) + "\" "
                                "name=\"" +
                                std::string(name) +
                                "\" "
@@ -127,16 +127,15 @@ namespace OpenXLSX
                                "\">"
                                "<autoFilter ref=\"" +
                                std::string(range) +
-                               "\" xr:uid=\"{00000000-0009-0000-0100-000001000000}\"/>"
+                               "\" xr:uid=\"" + fmt::format("{{00000000-0009-0000-0100-{:06X}000000}}", tableId) + "\"/>"
                                "<tableColumns count=\"" +
                                std::to_string(colCount) + "\">";
         for (uint16_t i = 0; i < colCount; ++i) {
             std::string h = m_worksheet->cell(start.row(), static_cast<uint16_t>(start.column() + i)).value().getString();
             if (h.empty()) h = "Column" + std::to_string(i + 1);
-            // xr3:uid pattern matches Excel's generated values: 0000000N for column N (1-indexed)
+            // xr3:uid pattern matches Excel's generated values: unique per table and column index
             tableXml += "<tableColumn id=\"" + std::to_string(i + 1) +
-                        "\" xr3:uid=\"{00000000-0010-0000-0000-0000" +
-                        fmt::format("{:02d}", i + 1) + "000000}\"" +
+                        "\" xr3:uid=\"" + fmt::format("{{00000000-0010-0000-0000-{:04X}{:08X}}}", tableId, i + 1) + "\"" +
                         " name=\"" + h + "\"/>";
         }
         tableXml += "</tableColumns><tableStyleInfo name=\"TableStyleMedium2\" showFirstColumn=\"0\" showLastColumn=\"0\" "
