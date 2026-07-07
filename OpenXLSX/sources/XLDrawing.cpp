@@ -371,11 +371,15 @@ XLVmlDrawing::XLVmlDrawing(gsl::not_null<XLXmlData*> xmlData) : XLXmlFile(xmlDat
         else if (node.raw_name() == ShapeNodeName) {
             ++m_shapeCount;
             std::string strNodeId = node.attribute("id").value();
-            size_t      pos       = strNodeId.length();
             uint32_t    nodeId    = 0;
-            while (pos > 0 and std::isdigit(strNodeId[--pos]))    // determine any trailing nodeId
-                nodeId = 10 * nodeId + static_cast<uint32_t>(strNodeId[pos] - '0');
-            m_lastAssignedShapeId = std::max(m_lastAssignedShapeId, nodeId);
+            size_t      firstDigit = strNodeId.find_first_of("0123456789");
+            if (firstDigit != std::string::npos) {
+                nodeId = std::stoul(strNodeId.substr(firstDigit));
+            }
+            if (nodeId >= 1025) {
+                nodeId = nodeId - 1025;
+            }
+            m_lastAssignedShapeId = std::max(m_lastAssignedShapeId, nodeId + 1);
         }
         node = nextNode;
     }
@@ -516,7 +520,7 @@ XLShape XLVmlDrawing::createShape([[maybe_unused]] const XLShape& shapeTemplate)
     }
 
     using namespace std::literals::string_literals;
-    node.prepend_attribute("id").set_value(fmt::format("shape_{}", m_lastAssignedShapeId++).c_str());
+    node.prepend_attribute("id").set_value(fmt::format("_x0000_s{}", 1025 + m_lastAssignedShapeId++).c_str());
     node.append_attribute("type").set_value(("#"s + m_defaultShapeTypeId).c_str());
 
     m_shapeCount++;
