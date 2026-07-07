@@ -1,0 +1,7 @@
+{
+  "include": ["OpenXLSX"],
+  "exclude": ["third_party", "vendors", "build", ".venv", ".git", ".idea", ".cache", "Documentation"],
+  "output": ".codegraph",
+  "workers": 4,
+  "cache": true
+}
