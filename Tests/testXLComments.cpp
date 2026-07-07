@@ -404,4 +404,48 @@ TEST_CASE("CommentsFluentandWorksheetDX", "[XLComments][Fluent]")
 
         REQUIRE(std::filesystem::exists(filename));
     }
+
+    SECTION("OOXML Structure and Corruption Protection")
+    {
+        XLDocument doc;
+        std::string filename = "OOXML_Comments_Protection_Test.xlsx";
+        doc.create(filename, XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        // Add a modern threaded comment, which generates drawing, legacy comments, and threaded comments
+        wks.cell("B2").value() = "Comment Cell";
+        auto tc = wks.addComment("B2", "This is a threaded comment text", "Author Name");
+        wks.addReply(tc.id(), "This is a reply text", "Replier Name");
+
+        doc.save();
+
+        // 1. Get raw XML contents
+        std::string sheetXml = getRawXml(doc, "xl/worksheets/sheet1.xml");
+        std::string relsXml = getRawXml(doc, "xl/worksheets/_rels/sheet1.xml.rels");
+        std::string commentsXml = getRawXml(doc, "xl/comments1.xml");
+        
+        doc.close();
+
+        // 2. Validate sheet1.xml: MUST NOT contain extLst with x14:threadedComments (which triggers corruption in Excel)
+        REQUIRE(sheetXml.find("<extLst>") == std::string::npos);
+        REQUIRE(sheetXml.find("threadedComments") == std::string::npos);
+        REQUIRE(sheetXml.find("xmlns:x14=\"") == std::string::npos);
+
+        // 3. Validate sheet1.xml.rels: relationships must be exactly correct and ordered
+        // VML drawing MUST be rId1 (to match legacyDrawing r:id="rId1")
+        // Comments MUST be rId2
+        // Threaded comments MUST be rId3
+        REQUIRE(relsXml.find("Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing\"") != std::string::npos);
+        REQUIRE(relsXml.find("Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments\"") != std::string::npos);
+        REQUIRE(relsXml.find("Id=\"rId3\" Type=\"http://schemas.microsoft.com/office/2017/10/relationships/threadedComment\"") != std::string::npos);
+
+        // 4. Validate comments1.xml: MUST NOT contain shapeId or xr:uid attributes (which trigger Excel schema violations on fallback notes)
+        REQUIRE(commentsXml.find("shapeId=") == std::string::npos);
+        REQUIRE(commentsXml.find("xr:uid=") == std::string::npos);
+        REQUIRE(commentsXml.find("xmlns:xr=") == std::string::npos);
+        REQUIRE(commentsXml.find("mc:Ignorable=") == std::string::npos);
+
+        // Clean up
+        std::filesystem::remove(filename);
+    }
 }
