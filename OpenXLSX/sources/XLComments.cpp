@@ -362,14 +362,7 @@ bool XLComments::deleteComment(const std::string& cellRef)
         m_hintIndex = 0;
         m_commentMap.erase(cellRef);
 
-        // Re-index remaining comments to keep shapeId attributes contiguous and synchronized
-        uint32_t commentIndex = 0;
-        using namespace std::literals::string_literals;
-        for (XMLNode curr = m_commentList.first_child_of_type(pugi::node_element); not curr.empty(); curr = curr.next_sibling_of_type(pugi::node_element)) {
-            if (curr.name() == "comment"s) {
-                appendAndSetAttribute(curr, "shapeId", std::to_string(commentIndex++));
-            }
-        }
+
     }
     // ===== Delete the shape associated with the comment.
     OpenXLSX::ignore(m_vmlDrawing.deleteShape(cellRef));    // disregard if deleteShape fails
@@ -538,45 +531,7 @@ bool XLComments::set(std::string const& cellRef,
         comment.append_attribute("ref").set_value(destRef.address().c_str());    // then do so - otherwise it can remain untouched
     appendAndSetAttribute(comment, "authorId", std::to_string(authorId_));       // update authorId
 
-    // Compute the 0-based comment index to assign shapeId attribute
-    uint32_t commentIndex = 0;
-    XMLNode curr = m_commentList.first_child_of_type(pugi::node_element);
-    while (not curr.empty() and curr != comment) {
-        commentIndex++;
-        curr = curr.next_sibling_of_type(pugi::node_element);
-    }
-    appendAndSetAttribute(comment, "shapeId", std::to_string(commentIndex));
 
-    // Ensure comments root and comment element have revision uid attributes
-    {
-        XMLNode rootNode = xmlDocument().document_element();
-        if (rootNode.attribute("xmlns:mc").empty()) {
-            rootNode.append_attribute("xmlns:mc") = "http://schemas.openxmlformats.org/markup-compatibility/2006";
-        }
-        if (rootNode.attribute("mc:Ignorable").empty()) {
-            rootNode.append_attribute("mc:Ignorable") = "xr";
-        }
-        if (rootNode.attribute("xmlns:xr").empty()) {
-            rootNode.append_attribute("xmlns:xr") = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
-        }
-
-        std::string authorName = "";
-        XMLNode authNode = authorNode(authorId_);
-        if (!authNode.empty() && authNode.first_child()) {
-            authorName = authNode.first_child().value();
-        }
-
-        if (authorName.rfind("tc=", 0) == 0) { // starts with "tc=" (modern threaded comment)
-            std::string uidVal = authorName.substr(3); // Extract GUID
-            for (auto &c : uidVal) {
-                if (c >= 'a' && c <= 'f') c = c - 'a' + 'A';
-            }
-            appendAndSetAttribute(comment, "xr:uid", uidVal);
-        } else {
-            // Legacy comments MUST NOT have xr:uid to prevent dangling references and corruption warnings
-            comment.remove_attribute("xr:uid");
-        }
-    }
 
     XMLNode tNode = comment.prepend_child("text").prepend_child("t");            // insert <text><t/></text> nodes
     tNode.append_attribute("xml:space").set_value("preserve");                   // set <t> node attribute xml:space
@@ -648,45 +603,7 @@ bool XLComments::setRichText(std::string const& cellRef,
     if (comment.attribute("ref").empty()) comment.append_attribute("ref").set_value(destRef.address().c_str());
     appendAndSetAttribute(comment, "authorId", std::to_string(authorId_));
 
-    // Compute the 0-based comment index to assign shapeId attribute
-    uint32_t commentIndex = 0;
-    XMLNode curr = m_commentList.first_child_of_type(pugi::node_element);
-    while (not curr.empty() and curr != comment) {
-        commentIndex++;
-        curr = curr.next_sibling_of_type(pugi::node_element);
-    }
-    appendAndSetAttribute(comment, "shapeId", std::to_string(commentIndex));
 
-    // Ensure comments root and comment element have revision uid attributes
-    {
-        XMLNode rootNode = xmlDocument().document_element();
-        if (rootNode.attribute("xmlns:mc").empty()) {
-            rootNode.append_attribute("xmlns:mc") = "http://schemas.openxmlformats.org/markup-compatibility/2006";
-        }
-        if (rootNode.attribute("mc:Ignorable").empty()) {
-            rootNode.append_attribute("mc:Ignorable") = "xr";
-        }
-        if (rootNode.attribute("xmlns:xr").empty()) {
-            rootNode.append_attribute("xmlns:xr") = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
-        }
-
-        std::string authorName = "";
-        XMLNode authNode = authorNode(authorId_);
-        if (!authNode.empty() && authNode.first_child()) {
-            authorName = authNode.first_child().value();
-        }
-
-        if (authorName.rfind("tc=", 0) == 0) { // starts with "tc=" (modern threaded comment)
-            std::string uidVal = authorName.substr(3); // Extract GUID
-            for (auto &c : uidVal) {
-                if (c >= 'a' && c <= 'f') c = c - 'a' + 'A';
-            }
-            appendAndSetAttribute(comment, "xr:uid", uidVal);
-        } else {
-            // Legacy comments MUST NOT have xr:uid to prevent dangling references and corruption warnings
-            comment.remove_attribute("xr:uid");
-        }
-    }
 
     // Delegate to XLComment to set rich text
     XLComment(comment).setRichText(richText);
