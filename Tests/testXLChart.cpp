@@ -441,6 +441,11 @@ TEST_CASE("ChartCellRangeAPI", "[XLChart][Range]")
             std::string chartXml = testDoc.getRawXml("xl/charts/chart1.xml");
             REQUIRE(chartXml.find("Sheet1!$B$1:$B$5") != std::string::npos);
             REQUIRE(chartXml.find("Sheet1!$A$1:$A$5") != std::string::npos);
+
+            // Verify drawing XML has required namespaces to prevent "damaged file" errors in Excel
+            std::string drawingXml = testDoc.getRawXml("xl/drawings/drawing1.xml");
+            REQUIRE(drawingXml.find("xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"") != std::string::npos);
+            REQUIRE(drawingXml.find("xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\"") != std::string::npos);
         }
     }
 }
