@@ -361,6 +361,15 @@ bool XLComments::deleteComment(const std::string& cellRef)
         m_hintNode  = XMLNode{};    // reset hint after modification of comment list
         m_hintIndex = 0;
         m_commentMap.erase(cellRef);
+
+        // Re-index remaining comments to keep shapeId attributes contiguous and synchronized
+        uint32_t commentIndex = 0;
+        using namespace std::literals::string_literals;
+        for (XMLNode curr = m_commentList.first_child_of_type(pugi::node_element); not curr.empty(); curr = curr.next_sibling_of_type(pugi::node_element)) {
+            if (curr.name() == "comment"s) {
+                appendAndSetAttribute(curr, "shapeId", std::to_string(commentIndex++));
+            }
+        }
     }
     // ===== Delete the shape associated with the comment.
     OpenXLSX::ignore(m_vmlDrawing.deleteShape(cellRef));    // disregard if deleteShape fails
@@ -527,6 +536,16 @@ bool XLComments::set(std::string const& cellRef,
     if (comment.attribute("ref").empty())                                        // if ref has to be created
         comment.append_attribute("ref").set_value(destRef.address().c_str());    // then do so - otherwise it can remain untouched
     appendAndSetAttribute(comment, "authorId", std::to_string(authorId_));       // update authorId
+
+    // Compute the 0-based comment index to assign shapeId attribute
+    uint32_t commentIndex = 0;
+    XMLNode curr = m_commentList.first_child_of_type(pugi::node_element);
+    while (not curr.empty() and curr != comment) {
+        commentIndex++;
+        curr = curr.next_sibling_of_type(pugi::node_element);
+    }
+    appendAndSetAttribute(comment, "shapeId", std::to_string(commentIndex));
+
     XMLNode tNode = comment.prepend_child("text").prepend_child("t");            // insert <text><t/></text> nodes
     tNode.append_attribute("xml:space").set_value("preserve");                   // set <t> node attribute xml:space
     tNode.prepend_child(pugi::node_pcdata).set_value(commentText.c_str());       // finally, insert <t> node_pcdata value
@@ -596,6 +615,15 @@ bool XLComments::setRichText(std::string const& cellRef,
 
     if (comment.attribute("ref").empty()) comment.append_attribute("ref").set_value(destRef.address().c_str());
     appendAndSetAttribute(comment, "authorId", std::to_string(authorId_));
+
+    // Compute the 0-based comment index to assign shapeId attribute
+    uint32_t commentIndex = 0;
+    XMLNode curr = m_commentList.first_child_of_type(pugi::node_element);
+    while (not curr.empty() and curr != comment) {
+        commentIndex++;
+        curr = curr.next_sibling_of_type(pugi::node_element);
+    }
+    appendAndSetAttribute(comment, "shapeId", std::to_string(commentIndex));
 
     // Delegate to XLComment to set rich text
     XLComment(comment).setRichText(richText);

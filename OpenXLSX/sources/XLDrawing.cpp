@@ -343,8 +343,10 @@ XLVmlDrawing::XLVmlDrawing(gsl::not_null<XLXmlData*> xmlData) : XLXmlFile(xmlDat
                         " xmlns:v=\"urn:schemas-microsoft-com:vml\""
                         " xmlns:o=\"urn:schemas-microsoft-com:office:office\""
                         " xmlns:x=\"urn:schemas-microsoft-com:office:excel\""
-                        " xmlns:w10=\"urn:schemas-microsoft-com:office:word\""
                         ">"
+                        "\n <o:shapelayout v:ext=\"edit\">"
+                        "\n  <o:idmap v:ext=\"edit\" data=\"1\"/>"
+                        "\n </o:shapelayout>"
                         "\n</xml>",
                         pugi_parse_settings);
 
