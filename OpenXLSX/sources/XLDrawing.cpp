@@ -42,8 +42,13 @@ namespace OpenXLSX
         if (node == insertAfter or node == insertAfter.next_sibling()) return node;
 
         XMLNode newNode{};
-        if (insertAfter.empty())
-            newNode = rootNode.prepend_copy(node);
+        if (insertAfter.empty()) {
+            XMLNode shapelayout = static_cast<pugi::xml_node>(rootNode).child("o:shapelayout");
+            if (not shapelayout.empty())
+                newNode = rootNode.insert_copy_after(node, shapelayout);
+            else
+                newNode = rootNode.prepend_copy(node);
+        }
         else
             newNode = rootNode.insert_copy_after(node, insertAfter);
 
@@ -394,8 +399,15 @@ XLVmlDrawing::XLVmlDrawing(gsl::not_null<XLXmlData*> xmlData) : XLXmlFile(xmlDat
             shapeTypeNode = shapeTypeNode.next_sibling_of_type(pugi::node_element);
     }
     if (shapeTypeNode.empty()) {
-        shapeTypeNode = rootNode.prepend_child(std::string(ShapeTypeNodeName).c_str(), XLForceNamespace);
-        rootNode.prepend_child(pugi::node_pcdata).set_value("\n\t");
+        XMLNode shapelayout = static_cast<pugi::xml_node>(rootNode).child("o:shapelayout");
+        if (not shapelayout.empty()) {
+            shapeTypeNode = rootNode.insert_child_after(std::string(ShapeTypeNodeName).c_str(), shapelayout, XLForceNamespace);
+            rootNode.insert_child_before(pugi::node_pcdata, shapeTypeNode).set_value("\n\t");
+        }
+        else {
+            shapeTypeNode = rootNode.prepend_child(std::string(ShapeTypeNodeName).c_str(), XLForceNamespace);
+            rootNode.prepend_child(pugi::node_pcdata).set_value("\n\t");
+        }
     }
     if (shapeTypeNode.first_child().empty())
         shapeTypeNode.append_child(pugi::node_pcdata).set_value("\n\t");    // insert indentation if node was empty

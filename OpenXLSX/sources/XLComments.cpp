@@ -460,8 +460,8 @@ void XLComments::setupVmlShape(const std::string& cellRef,
         shapeNode.insert_child_before(pugi::node_pcdata, textbox).set_value("\n\t\t");
     }
     appendAndSetAttribute(textbox, "style", "mso-direction-alt:auto");
-    if (textbox.child("div").empty()) {
-        XMLNode div = textbox.append_child("div");
+    if (static_cast<pugi::xml_node>(textbox).child("div").empty()) {
+        XMLNode div = textbox.append_child("div", XLForceNamespace);
         appendAndSetAttribute(div, "style", "text-align:left");
     }
 
