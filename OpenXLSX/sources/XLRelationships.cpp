@@ -281,7 +281,7 @@ XLRelationships::XLRelationships(gsl::not_null<XLXmlData*> xmlData, std::string 
     XMLDocument& doc = xmlDocument();
     if (doc.document_element().empty())    // handle a bad (no document element) relationships XML file
         doc.load_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                        "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"\n"
+                        "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n"
                         "</Relationships>",
                         pugi_parse_settings);
 }

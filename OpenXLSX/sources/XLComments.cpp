@@ -463,6 +463,7 @@ void XLComments::setupVmlShape(const std::string& cellRef,
     if (static_cast<pugi::xml_node>(textbox).child("div").empty()) {
         XMLNode div = textbox.append_child("div", XLForceNamespace);
         appendAndSetAttribute(div, "style", "text-align:left");
+        div.append_child(pugi::node_pcdata).set_value(" ");
     }
 
     // Standard Excel styling for comments
@@ -546,6 +547,37 @@ bool XLComments::set(std::string const& cellRef,
     }
     appendAndSetAttribute(comment, "shapeId", std::to_string(commentIndex));
 
+    // Ensure comments root and comment element have revision uid attributes
+    {
+        XMLNode rootNode = xmlDocument().document_element();
+        if (rootNode.attribute("xmlns:mc").empty()) {
+            rootNode.append_attribute("xmlns:mc") = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+        }
+        if (rootNode.attribute("mc:Ignorable").empty()) {
+            rootNode.append_attribute("mc:Ignorable") = "xr";
+        }
+        if (rootNode.attribute("xmlns:xr").empty()) {
+            rootNode.append_attribute("xmlns:xr") = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
+        }
+
+        std::string authorName = "";
+        XMLNode authNode = authorNode(authorId_);
+        if (!authNode.empty() && authNode.first_child()) {
+            authorName = authNode.first_child().value();
+        }
+
+        if (authorName.rfind("tc=", 0) == 0) { // starts with "tc=" (modern threaded comment)
+            std::string uidVal = authorName.substr(3); // Extract GUID
+            for (auto &c : uidVal) {
+                if (c >= 'a' && c <= 'f') c = c - 'a' + 'A';
+            }
+            appendAndSetAttribute(comment, "xr:uid", uidVal);
+        } else {
+            // Legacy comments MUST NOT have xr:uid to prevent dangling references and corruption warnings
+            comment.remove_attribute("xr:uid");
+        }
+    }
+
     XMLNode tNode = comment.prepend_child("text").prepend_child("t");            // insert <text><t/></text> nodes
     tNode.append_attribute("xml:space").set_value("preserve");                   // set <t> node attribute xml:space
     tNode.prepend_child(pugi::node_pcdata).set_value(commentText.c_str());       // finally, insert <t> node_pcdata value
@@ -624,6 +656,37 @@ bool XLComments::setRichText(std::string const& cellRef,
         curr = curr.next_sibling_of_type(pugi::node_element);
     }
     appendAndSetAttribute(comment, "shapeId", std::to_string(commentIndex));
+
+    // Ensure comments root and comment element have revision uid attributes
+    {
+        XMLNode rootNode = xmlDocument().document_element();
+        if (rootNode.attribute("xmlns:mc").empty()) {
+            rootNode.append_attribute("xmlns:mc") = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+        }
+        if (rootNode.attribute("mc:Ignorable").empty()) {
+            rootNode.append_attribute("mc:Ignorable") = "xr";
+        }
+        if (rootNode.attribute("xmlns:xr").empty()) {
+            rootNode.append_attribute("xmlns:xr") = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
+        }
+
+        std::string authorName = "";
+        XMLNode authNode = authorNode(authorId_);
+        if (!authNode.empty() && authNode.first_child()) {
+            authorName = authNode.first_child().value();
+        }
+
+        if (authorName.rfind("tc=", 0) == 0) { // starts with "tc=" (modern threaded comment)
+            std::string uidVal = authorName.substr(3); // Extract GUID
+            for (auto &c : uidVal) {
+                if (c >= 'a' && c <= 'f') c = c - 'a' + 'A';
+            }
+            appendAndSetAttribute(comment, "xr:uid", uidVal);
+        } else {
+            // Legacy comments MUST NOT have xr:uid to prevent dangling references and corruption warnings
+            comment.remove_attribute("xr:uid");
+        }
+    }
 
     // Delegate to XLComment to set rich text
     XLComment(comment).setRichText(richText);

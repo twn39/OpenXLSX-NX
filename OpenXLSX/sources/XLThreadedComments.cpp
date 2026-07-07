@@ -28,7 +28,11 @@ namespace {
         ss << "-";
         for (int i = 0; i < 12; i++) ss << dis(gen);
         ss << "}";
-        return ss.str();
+        std::string guid = ss.str();
+        for (auto &c : guid) {
+            if (c >= 'a' && c <= 'f') c = c - 'a' + 'A';
+        }
+        return guid;
     }
 }
 
@@ -148,14 +152,27 @@ XLThreadedComment XLThreadedComments::addReply(const std::string& parentId, cons
     
     // Attempt to find the parent to inherit the ref attribute (though OOXML typically omits or matches it)
     std::string refStr = "";
+    XMLNode lastNode{};
     for (XMLNode n = root.first_child(); n; n = n.next_sibling()) {
-        if (std::string(n.attribute("id").value()) == parentId) {
-            refStr = n.attribute("ref").value();
-            break;
+        if (std::string(n.name()) == "threadedComment") {
+            std::string idVal = n.attribute("id").value();
+            std::string pIdVal = n.attribute("parentId").value();
+            if (idVal == parentId || pIdVal == parentId) {
+                lastNode = n;
+            }
+            if (idVal == parentId) {
+                refStr = n.attribute("ref").value();
+            }
         }
     }
 
-    XMLNode commentNode = root.append_child("threadedComment");
+    XMLNode commentNode;
+    if (!lastNode.empty()) {
+        commentNode = root.insert_child_after("threadedComment", lastNode);
+    } else {
+        commentNode = root.append_child("threadedComment");
+    }
+
     if (!refStr.empty()) {
         commentNode.append_attribute("ref").set_value(refStr.c_str());
     }

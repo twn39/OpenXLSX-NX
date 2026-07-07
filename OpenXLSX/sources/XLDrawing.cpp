@@ -236,6 +236,7 @@ bool XLShapeStyle::setAttribute(std::string_view attributeName, std::string_view
 
     size_t lastPos   = 0;
     size_t appendPos = 0;
+    bool isReplace = false;
     do {
         size_t pos = m_style.find(';', lastPos);
 
@@ -245,6 +246,7 @@ bool XLShapeStyle::setAttribute(std::string_view attributeName, std::string_view
             int16_t thisAttrIndex = attributeOrderIndex(attrPair.substr(0, separatorPos));
             if (thisAttrIndex >= attrIndex) {
                 appendPos = (thisAttrIndex == attrIndex ? pos : lastPos);
+                if (thisAttrIndex == attrIndex) isReplace = true;
                 break;
             }
         }
@@ -261,8 +263,17 @@ bool XLShapeStyle::setAttribute(std::string_view attributeName, std::string_view
     }
 
     using namespace std::literals::string_literals;
-    m_style = m_style.substr(0, lastPos) + ((lastPos != 0 and appendPos == m_style.length()) ? ";"s : ""s) + std::string(attributeName) +
-              ":"s + std::string(attributeValue) + (appendPos < m_style.length() ? ";"s : ""s) + m_style.substr(appendPos);
+    if (isReplace) {
+        m_style = m_style.substr(0, lastPos) + std::string(attributeName) + ":"s + std::string(attributeValue) +
+                  (appendPos != std::string::npos ? m_style.substr(appendPos) : ""s);
+    }
+    else {
+        m_style = m_style.substr(0, lastPos) +
+                  ((lastPos != 0 and lastPos == m_style.length()) ? ";"s : ""s) +
+                  std::string(attributeName) + ":"s + std::string(attributeValue) +
+                  (lastPos < m_style.length() ? ";"s : ""s) +
+                  m_style.substr(appendPos);
+    }
 
     if (not m_styleAttribute.empty()) m_styleAttribute.set_value(m_style.c_str());
 
@@ -536,6 +547,31 @@ XLShape XLVmlDrawing::createShape([[maybe_unused]] const XLShape& shapeTemplate)
     using namespace std::literals::string_literals;
     node.prepend_attribute("id").set_value(fmt::format("_x0000_s{}", 1025 + m_lastAssignedShapeId++).c_str());
     node.append_attribute("type").set_value(("#"s + m_defaultShapeTypeId).c_str());
+    node.append_attribute("fillcolor").set_value("#ffffc0");
+    node.append_attribute("stroked").set_value("t");
+    node.append_attribute("o:allowincell").set_value("f");
+    node.append_attribute("o:insetmode").set_value("auto");
+
+    // Add path in correct schema position
+    XMLNode path = node.append_child("v:path");
+    path.append_attribute("o:connecttype").set_value("none");
+
+    // Add textbox and child div without namespace prefix
+    XMLNode textbox = node.append_child("v:textbox");
+    textbox.append_attribute("style").set_value("mso-direction-alt:auto");
+    XMLNode div = textbox.append_child("div", XLForceNamespace);
+    div.append_attribute("style").set_value("text-align:left");
+    div.append_child(pugi::node_pcdata).set_value(" ");
+
+    // Add ClientData with all sub-elements in the correct schema order
+    XMLNode clientData = node.append_child("x:ClientData");
+    clientData.append_attribute("ObjectType").set_value("Note");
+    clientData.append_child("x:MoveWithCells");
+    clientData.append_child("x:SizeWithCells");
+    clientData.append_child("x:Anchor");
+    clientData.append_child("x:AutoFill").append_child(pugi::node_pcdata).set_value("False");
+    clientData.append_child("x:Row");
+    clientData.append_child("x:Column");
 
     m_shapeCount++;
     return XLShape(node);

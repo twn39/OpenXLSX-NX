@@ -202,6 +202,7 @@ XLThreadedComments& XLWorksheet::threadedComments()
 {
     if (!m_impl->m_threadedComments.valid()) {
         std::ignore        = relationships();
+        std::ignore        = comments(); // Trigger Comments & VML Drawing first to ensure stable relationship ordering (rId1=VML, rId2=Comments, rId3=Threaded)
         uint16_t sheetXmlNo = sheetXmlNumber();
         m_impl->m_threadedComments  = parentDoc().sheetThreadedComments(sheetXmlNo);
         if (!m_impl->m_threadedComments.valid()) throw XLException("XLWorksheet::threadedComments(): could not create threadedComments XML");
@@ -327,30 +328,96 @@ XLThreadedComment XLWorksheet::addComment(std::string_view cellRef, std::string_
     std::string finalAuthor = author.empty() ? parentDoc().defaultAuthor() : std::string(author);
     std::string personId = parentDoc().persons().addPerson(finalAuthor);
     auto tc = threadedComments().addComment(std::string(cellRef), personId, std::string(text));
-    
+
     // Add legacy note for fallback and to generate the hidden VML box required by Excel.
     // Excel strictly requires the legacy author name to be "tc=" + the threaded comment ID!
     std::string legacyAuthor = "tc=" + tc.id();
     addNote(cellRef, text, legacyAuthor);
 
-    // Inject extLst to signal Excel that threaded comments exist here
+    // Register revisions namespaces on worksheet root node
     XMLNode root = xmlDocument().document_element();
-    XMLNode extLst = root.child("extLst");
-    if (!extLst) {
-        extLst = appendAndGetNode(root, "extLst", m_nodeOrder);
+    if (root.attribute("xmlns:xr").empty()) {
+        root.append_attribute("xmlns:xr") = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
     }
-    bool hasThreadedExt = false;
-    for (XMLNode ext = extLst.child("ext"); ext; ext = ext.next_sibling("ext")) {
-        if (std::string(ext.attribute("uri").value()) == "{C5A4FD07-D465-4E85-B267-3A3644040A51}") {
-            hasThreadedExt = true;
-            break;
+    if (root.attribute("xmlns:xr2").empty()) {
+        root.append_attribute("xmlns:xr2") = "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2";
+    }
+    if (root.attribute("xmlns:xr3").empty()) {
+        root.append_attribute("xmlns:xr3") = "http://schemas.microsoft.com/office/spreadsheetml/2016/revision3";
+    }
+    if (root.attribute("xr:uid").empty()) {
+        root.append_attribute("xr:uid") = "{00000000-0001-0000-0000-000000000000}";
+    }
+    auto worksheetIgnorableAttr = root.attribute("mc:Ignorable");
+    if (!worksheetIgnorableAttr.empty()) {
+        std::string ignorable = worksheetIgnorableAttr.value();
+        if (ignorable.find("xr") == std::string::npos) {
+            worksheetIgnorableAttr.set_value((ignorable + " xr xr2 xr3").c_str());
         }
     }
-    if (!hasThreadedExt) {
-        XMLNode ext = extLst.append_child("ext");
-        ext.append_attribute("uri").set_value("{C5A4FD07-D465-4E85-B267-3A3644040A51}");
-        ext.append_attribute("xmlns:x14").set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
-        ext.append_child("x14:threadedComments");
+    else {
+        root.append_attribute("mc:Ignorable") = "x14ac xr xr2 xr3";
+    }
+
+    // Ensure workbook has co-authoring & revisions registered
+    {
+        XMLNode wbkRoot = parentDoc().workbook().xmlDocument().document_element();
+        if (wbkRoot.attribute("xmlns:mc").empty()) {
+            wbkRoot.append_attribute("xmlns:mc") = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+        }
+        if (wbkRoot.attribute("xmlns:x15").empty()) {
+            wbkRoot.append_attribute("xmlns:x15") = "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main";
+        }
+        if (wbkRoot.attribute("xmlns:xr").empty()) {
+            wbkRoot.append_attribute("xmlns:xr") = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
+        }
+        if (wbkRoot.attribute("xmlns:xr6").empty()) {
+            wbkRoot.append_attribute("xmlns:xr6") = "http://schemas.microsoft.com/office/spreadsheetml/2016/revision6";
+        }
+        if (wbkRoot.attribute("xmlns:xr10").empty()) {
+            wbkRoot.append_attribute("xmlns:xr10") = "http://schemas.microsoft.com/office/spreadsheetml/2016/revision10";
+        }
+        if (wbkRoot.attribute("xmlns:xr2").empty()) {
+            wbkRoot.append_attribute("xmlns:xr2") = "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2";
+        }
+
+        auto wbkIgnorable = wbkRoot.attribute("mc:Ignorable");
+        if (!wbkIgnorable.empty()) {
+            std::string ignorable = wbkIgnorable.value();
+            if (ignorable.find("xr") == std::string::npos) {
+                wbkIgnorable.set_value((ignorable + " x15 xr xr6 xr10 xr2").c_str());
+            }
+        } else {
+            wbkRoot.append_attribute("mc:Ignorable") = "x15 xr xr6 xr10 xr2";
+        }
+
+        // Insert <xr:revisionPtr> in the correct order in workbook.xml
+        if (wbkRoot.child("xr:revisionPtr").empty()) {
+            XMLNode refNode = wbkRoot.child("bookViews");
+            if (refNode.empty()) refNode = wbkRoot.child("sheets");
+
+            XMLNode revPtr;
+            if (!refNode.empty()) {
+                revPtr = wbkRoot.insert_child_before("xr:revisionPtr", refNode);
+            } else {
+                revPtr = wbkRoot.append_child("xr:revisionPtr");
+            }
+
+            revPtr.append_attribute("revIDLastSave") = "0";
+            revPtr.append_attribute("documentId") = "8_{9D879BB4-8C31-734F-9A02-992F49050029}";
+            revPtr.append_attribute("xr6:coauthVersionLast") = "47";
+            revPtr.append_attribute("xr6:coauthVersionMax") = "47";
+            revPtr.append_attribute("xr10:uidLastSave") = "{00000000-0000-0000-0000-000000000000}";
+        }
+
+        // Add xr2:uid to workbookView if exists
+        XMLNode bookViews = wbkRoot.child("bookViews");
+        if (!bookViews.empty()) {
+            XMLNode workbookView = bookViews.child("workbookView");
+            if (!workbookView.empty() && workbookView.attribute("xr2:uid").empty()) {
+                workbookView.append_attribute("xr2:uid") = "{0C52AA12-D58F-7D4C-86DF-F1B519ACB25B}";
+            }
+        }
     }
     
     // Set the worksheet reference for fluent replies
@@ -367,8 +434,8 @@ XLThreadedComment XLWorksheet::addReply(const std::string& parentId, const std::
     std::string refStr = tc.ref();
     if (!refStr.empty()) {
         std::string fallbackText = comments().get(refStr);
-        fallbackText += "\nReply: " + text;
-        
+        fallbackText += " ; Reply: " + text;
+
         // Retain the existing 'tc=' author from the parent
         std::string parentAuthor = "tc=" + parentId;
         addNote(refStr, fallbackText, parentAuthor);

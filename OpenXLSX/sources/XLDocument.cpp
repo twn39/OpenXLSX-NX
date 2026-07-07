@@ -972,6 +972,7 @@ XLVmlDrawing XLDocument::sheetVmlDrawing(uint16_t sheetXmlNo)
 
     if (!m_archive.hasEntry(vmlDrawingFilename)) {
         m_archive.addEntry(vmlDrawingFilename, "<?xml version=\"1.0\" encoding=\"UTF-8\"standalone=\"yes\"?>");
+        m_contentTypes.addDefault("vml", "application/vnd.openxmlformats-officedocument.vmlDrawing");
         m_contentTypes.addOverride("/" + vmlDrawingFilename, XLContentType::VMLDrawing);
     }
     constexpr bool DO_NOT_THROW = true;
