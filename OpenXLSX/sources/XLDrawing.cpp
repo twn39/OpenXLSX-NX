@@ -583,6 +583,9 @@ void XLDrawing::addImage(std::string_view      rId,
                          const XLImageOptions& options)
 {
     XMLNode rootNode = xmlDocument().document_element();
+    if (!rootNode.attribute("xmlns:r")) {
+        rootNode.append_attribute("xmlns:r").set_value("http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+    }
 
     XMLNode anchor;
     if (options.positioning == XLImagePositioning::TwoCell) { anchor = rootNode.append_child("xdr:twoCellAnchor"); }
@@ -671,6 +674,12 @@ void XLDrawing::addImage(std::string_view      rId,
 void XLDrawing::addChartAnchor(std::string_view rId, std::string_view name, uint32_t row, uint32_t col, uint32_t width, uint32_t height)
 {
     XMLNode rootNode = xmlDocument().document_element();
+    if (!rootNode.attribute("xmlns:r")) {
+        rootNode.append_attribute("xmlns:r").set_value("http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+    }
+    if (!rootNode.attribute("xmlns:c")) {
+        rootNode.append_attribute("xmlns:c").set_value("http://schemas.openxmlformats.org/drawingml/2006/chart");
+    }
 
     // Create oneCellAnchor
     XMLNode anchor = rootNode.append_child("xdr:oneCellAnchor");
