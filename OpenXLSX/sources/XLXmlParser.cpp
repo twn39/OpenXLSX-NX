@@ -8,31 +8,19 @@
 
 namespace OpenXLSX
 {
-    thread_local bool NO_XML_NS = true;    // default: no XML namespaces
-
     bool enable_xml_namespaces()
     {
-#ifdef PUGI_AUGMENTED
-        NO_XML_NS = false;
         return true;
-#else
-        return false;
-#endif
     }
 
     bool disable_xml_namespaces()
     {
-#ifdef PUGI_AUGMENTED
-        NO_XML_NS = true;
         return true;
-#else
-        return false;
-#endif
     }
 
     const pugi::char_t* XMLNode::name_without_namespace(const pugi::char_t* name_) const
     {
-        if (NO_XML_NS) return name_;
+        if (!name_) return nullptr;
         const std::basic_string_view<pugi::char_t> nameView(name_);
         const auto                                 pos = nameView.find(':');
         if (pos == std::basic_string_view<pugi::char_t>::npos) return name_;
@@ -43,7 +31,11 @@ namespace OpenXLSX
 
     NameProxy OpenXLSX_xml_node::namespaced_name_proxy(const pugi::char_t* name_, bool force_ns) const
     {
-        if (!name_begin or force_ns) return NameProxy(name_);
+        if (!name_begin || force_ns) return NameProxy(name_);
+        if (name_) {
+            const char* colon = std::strchr(name_, ':');
+            if (colon) return NameProxy(name_);
+        }
         std::string namespaced_name_(xml_node::name(), name_begin);
         namespaced_name_.append(name_);
         return NameProxy(std::move(namespaced_name_));

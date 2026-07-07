@@ -473,8 +473,8 @@ namespace OpenXLSX
 
         XMLNode matchedNode;
         // 1. Try to find an existing chart node that matches
-        for (auto child : plotArea.children()) {
-            std::string_view name = child.name();
+        for (XMLNode child : plotArea.children()) {
+            std::string_view name = child.raw_name();
             if (name.length() > 5 && name.substr(name.length() - 5) == "Chart") {
                 bool nameMatches = targetNodeName.empty() || name == targetNodeName;
 
@@ -638,8 +638,8 @@ namespace OpenXLSX
     XMLNode getChartNode(const XMLDocument& doc)
     {
         XMLNode plotArea = doc.document_element().child("c:chart").child("c:plotArea");
-        for (auto child : plotArea.children()) {
-            std::string_view name = child.name();
+        for (XMLNode child : plotArea.children()) {
+            std::string_view name = child.raw_name();
             if (name.length() > 5 && name.substr(name.length() - 5) == "Chart") { return child; }
         }
         return XMLNode();
@@ -666,7 +666,7 @@ namespace OpenXLSX
 
         XMLNode insertBefore;
         for (XMLNode child : chartNode.children()) {
-            std::string_view n = child.name();
+            std::string_view n = child.raw_name();
             if (n != "c:barDir" && n != "c:grouping" && n != "c:varyColors" && n != "c:scatterStyle" && n != "c:radarStyle" &&
                 n != "c:wireframe" && n != "c:shape" && n != "c:ser")
             {
@@ -694,7 +694,7 @@ namespace OpenXLSX
             }
         }
 
-        std::string_view chartType = chartNode.name();
+        std::string_view chartType = chartNode.raw_name();
 
         // 2. Categories (X-Axis) and Values (Y-Axis)
         if (chartType == "c:scatterChart") {
@@ -803,8 +803,8 @@ void XLChart::setShowDataLabels(bool showValue, bool showCategory, bool showPerc
     XMLNode dLbls = chartNode.child("c:dLbls");
     if (dLbls.empty()) {
         XMLNode insertBeforeNode;
-        for (auto child : chartNode.children()) {
-            std::string_view name = child.name();
+        for (XMLNode child : chartNode.children()) {
+            std::string_view name = child.raw_name();
             if (name != "c:barDir" && name != "c:grouping" && name != "c:scatterStyle" && name != "c:varyColors" && name != "c:radarStyle" &&
                 name != "c:wireframe" && name != "c:shape" && name != "c:ser") {
                 insertBeforeNode = child;
@@ -922,7 +922,7 @@ void XLAxis::setLogScale(double base)
 void XLAxis::setDateAxis(bool isDateAxis)
 {
     if (m_node.empty()) return;
-    std::string_view currentName = m_node.name();
+    std::string_view currentName = m_node.raw_name();
 
     if (isDateAxis && currentName == "c:catAx") {
         m_node.set_name("c:dateAx");
@@ -999,8 +999,8 @@ void XLAxis::setMinorGridlines(bool show)
 XLAxis XLChart::axis(std::string_view position) const
 {
     XMLNode plotArea = xmlDocument().document_element().child("c:chart").child("c:plotArea");
-    for (auto child : plotArea.children()) {
-        std::string_view name = child.name();
+    for (XMLNode child : plotArea.children()) {
+        std::string_view name = child.raw_name();
         if (name == "c:catAx" || name == "c:valAx" || name == "c:dateAx") {
             if (child.child("c:axPos").attribute("val").value() == position) { return XLAxis(child); }
         }
@@ -1383,10 +1383,10 @@ namespace
         XMLNode spPr = container.child("c:spPr");
         if (spPr.empty()) {
             // For c:ser, spPr must come before dPt, dLbls, cat, val, etc.
-            if (std::string_view(container.name()) == "c:ser") {
+            if (std::string_view(container.raw_name()) == "c:ser") {
                 XMLNode insertBefore;
                 for (XMLNode child : container.children()) {
-                    std::string_view n = child.name();
+                    std::string_view n = child.raw_name();
                     if (n != "c:idx" && n != "c:order" && n != "c:tx") {
                         insertBefore = child;
                         break;
@@ -1452,8 +1452,8 @@ XLChartSeries& XLChartSeries::setDataPointColor(uint32_t pointIdx, std::string_v
     if (existingDpt.empty()) {
         // Insert c:dPt before the first non-metadata child (c:dLbls / c:cat / c:val etc.)
         XMLNode insertBefore;
-        for (auto child : m_node.children()) {
-            std::string_view n = child.name();
+        for (XMLNode child : m_node.children()) {
+            std::string_view n = child.raw_name();
             if (n != "c:idx" && n != "c:order" && n != "c:tx" && n != "c:spPr" && n != "c:dPt") {
                 insertBefore = child;
                 break;
@@ -1621,7 +1621,7 @@ XLChartSeries XLChart::addBubbleSeries(std::string_view xValRef, std::string_vie
 
     XMLNode insertBefore;
     for (XMLNode child : chartNode.children()) {
-        std::string_view n = child.name();
+        std::string_view n = child.raw_name();
         if (n != "c:barDir" && n != "c:grouping" && n != "c:varyColors" && n != "c:scatterStyle" && n != "c:radarStyle" &&
             n != "c:wireframe" && n != "c:shape" && n != "c:ser")
         {
@@ -1691,7 +1691,7 @@ XLChartSeries& XLChartSeries::setLineWidth(double points)
     if (spPr.empty()) {
         XMLNode insertBefore;
         for (XMLNode child : m_node.children()) {
-            std::string_view n = child.name();
+            std::string_view n = child.raw_name();
             if (n != "c:idx" && n != "c:order" && n != "c:tx") {
                 insertBefore = child;
                 break;
@@ -1725,7 +1725,7 @@ XLChartSeries& XLChartSeries::setLineDash(XLLineDashType dashType)
     if (spPr.empty()) {
         XMLNode insertBefore;
         for (XMLNode child : m_node.children()) {
-            std::string_view n = child.name();
+            std::string_view n = child.raw_name();
             if (n != "c:idx" && n != "c:order" && n != "c:tx") {
                 insertBefore = child;
                 break;
@@ -1818,8 +1818,8 @@ void XLChart::setShowDataTable(bool showTable, bool showKeys)
     XMLNode dTableNode = plotArea.child("c:dTable");
     if (dTableNode.empty()) {
         XMLNode insertAfter;
-        for (auto child : plotArea.children()) {
-            std::string_view name = child.name();
+        for (XMLNode child : plotArea.children()) {
+            std::string_view name = child.raw_name();
             if (name == "c:catAx" || name == "c:valAx" || name == "c:dateAx" || name == "c:serAx") {
                 insertAfter = child;
             }

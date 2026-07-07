@@ -763,11 +763,11 @@ update_hint:
         if (nodeSortIndex !=
             SORT_INDEX_NOT_FOUND) {    // can't sort anything if nodeOrder contains less than 2 entries or does not contain nodeName
             // ===== Find first node to follow nodeName per nodeOrder
-            while (not nextNode.empty() and findStringInVector(nextNode.name(), nodeOrder) < nodeSortIndex)
+            while (not nextNode.empty() and findStringInVector(nextNode.raw_name(), nodeOrder) < nodeSortIndex)
                 nextNode = nextNode.next_sibling_of_type(pugi::node_element);
             // ===== Evaluate search result
             if (not nextNode.empty()) {             // found nodeName or a node before which nodeName should be inserted
-                if (nextNode.name() == nodeName)    // if nodeName was found
+                if (std::string_view(nextNode.raw_name()) == nodeName)    // if nodeName was found
                     node = nextNode;                // use existing node
                 else {                              // else: a node was found before which nodeName must be inserted
                     node =

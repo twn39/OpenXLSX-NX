@@ -2,6 +2,7 @@
 #define OPENXLSX_XLXMLPARSER_HPP
 
 #include <memory>    // shared_ptr
+#include <cstring>   // std::strchr
 
 // ===== pugixml.hpp needed for pugi::impl::xml_memory_page_type_mask, pugi::xml_node_type, pugi::char_t, pugi::node_element,
 // pugi::xml_node, pugi::xml_attribute, pugi::xml_document
@@ -37,7 +38,6 @@ namespace OpenXLSX
      * Affected XMLNode methods: ::set_name, ::append_child, ::prepend_child, ::insert_child_after, ::insert_child_before
      */
 
-    extern thread_local bool NO_XML_NS;    // defined in XLXmlParser.cpp - default: no XML namespaces
     /**
      * @brief Set NO_XML_NS to false
      * @return true if PUGI_AUGMENTED is defined (success), false if PUGI_AUGMENTED is not in use (function would be pointless)
@@ -95,11 +95,13 @@ namespace OpenXLSX
         OpenXLSX_xml_node(base b) : pugi::xml_node(b),
                                     name_begin(0)
         {
-            if (NO_XML_NS) return;
             const char* name = xml_node::name();
-            size_t      pos  = 0;
-            while (name[pos] and name[pos] != ':') ++pos;    // find name delimiter
-            if (name[pos] == ':') name_begin = pos + 1;      // if delimiter was found: update name_begin to point behind that position
+            if (name && name[0]) {
+                const char* colon = std::strchr(name, ':');
+                if (colon) {
+                    name_begin = (colon - name) + 1;
+                }
+            }
         }
 
         /**

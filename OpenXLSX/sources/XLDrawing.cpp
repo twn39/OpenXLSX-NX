@@ -468,7 +468,7 @@ XMLNode XLVmlDrawing::shapeNode(std::string_view cellRef) const
         do {
             node = node.next_sibling_of_type(pugi::node_element);
         }
-        while (not node.empty() and node.name() != ShapeNodeName);
+        while (not node.empty() and node.raw_name() != ShapeNodeName);
     }
     return node;
 }
@@ -842,8 +842,8 @@ std::vector<uint8_t> XLDrawingItem::imageBinary() const
 uint32_t XLDrawing::imageCount() const
 {
     uint32_t count = 0;
-    for (const auto& child : xmlDocument().document_element().children()) {
-        std::string nodeName = child.name();
+    for (XMLNode child : xmlDocument().document_element().children()) {
+        std::string nodeName = child.raw_name();
         if (nodeName == "xdr:oneCellAnchor" or nodeName == "xdr:twoCellAnchor" or nodeName == "xdr:absoluteAnchor") {
             if (!child.child("xdr:pic").empty()) { count++; }
         }
@@ -854,8 +854,8 @@ uint32_t XLDrawing::imageCount() const
 XLDrawingItem XLDrawing::image(uint32_t index) const
 {
     uint32_t count = 0;
-    for (const auto& child : xmlDocument().document_element().children()) {
-        std::string nodeName = child.name();
+    for (XMLNode child : xmlDocument().document_element().children()) {
+        std::string nodeName = child.raw_name();
         if (nodeName == "xdr:oneCellAnchor" or nodeName == "xdr:twoCellAnchor" or nodeName == "xdr:absoluteAnchor") {
             if (!child.child("xdr:pic").empty()) {
                 if (count == index) { return XLDrawingItem(child, const_cast<XLDocument*>(&parentDoc())); }
