@@ -16,12 +16,13 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
 
     const auto len = formula.size();
 
-    auto emit = [&](XLTokenKind k, std::string text = {}, double num = 0.0, bool b = false) {
+    auto emit = [&](XLTokenKind k, std::size_t startOffset, std::string text = {}, double num = 0.0, bool b = false) {
         XLToken t;
         t.kind    = k;
         t.text    = std::move(text);
         t.number  = num;
         t.boolean = b;
+        t.offset  = startOffset;
         tokens.push_back(std::move(t));
     };
 
@@ -33,6 +34,8 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
             ++i;
             continue;
         }
+
+        std::size_t startOffset = i;
 
         // --- String literal ---
         if (c == '"') {
@@ -52,7 +55,7 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
                     s += formula[i++];
                 }
             }
-            emit(XLTokenKind::String, s);
+            emit(XLTokenKind::String, startOffset, s);
             continue;
         }
 
@@ -74,7 +77,7 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
             }
             catch (...) {
             }
-            emit(XLTokenKind::Number, numStr, val);
+            emit(XLTokenKind::Number, startOffset, numStr, val);
             continue;
         }
 
@@ -93,10 +96,10 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
                 std::string second;
                 ++i;    // skip ':'
                 while (i < len && (std::isalnum(static_cast<unsigned char>(formula[i])) || formula[i] == '$')) second += formula[i++];
-                if (!second.empty()) { emit(XLTokenKind::CellRef, ident + ":" + second); }
+                if (!second.empty()) { emit(XLTokenKind::CellRef, startOffset, ident + ":" + second); }
                 else {
-                    emit(XLTokenKind::CellRef, ident);
-                    emit(XLTokenKind::Colon);
+                    emit(XLTokenKind::CellRef, startOffset, ident);
+                    emit(XLTokenKind::Colon, i - 1);
                 }
                 continue;
             }
@@ -105,11 +108,11 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
             std::string upper = ident;
             std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
             if (upper == "TRUE") {
-                emit(XLTokenKind::Bool, ident, 1.0, true);
+                emit(XLTokenKind::Bool, startOffset, ident, 1.0, true);
                 continue;
             }
             if (upper == "FALSE") {
-                emit(XLTokenKind::Bool, ident, 0.0, false);
+                emit(XLTokenKind::Bool, startOffset, ident, 0.0, false);
                 continue;
             }
 
@@ -134,106 +137,145 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
                 bool isFuncCall = (nextPos < len && formula[nextPos] == '(');
 
                 if (alphaCount >= 1 && alphaCount <= 3 && digitCount >= 1 && j == ident.size() && !isFuncCall) {
-                    emit(XLTokenKind::CellRef, ident);
+                    emit(XLTokenKind::CellRef, startOffset, ident);
                     continue;
                 }
                 // Sheet-qualified ref like "Sheet1!A1"
                 auto bang = ident.find('!');
                 if (bang != std::string::npos) {
-                    emit(XLTokenKind::CellRef, ident);
+                    emit(XLTokenKind::CellRef, startOffset, ident);
                     continue;
                 }
             }
 
-            emit(XLTokenKind::Ident, ident);
+            emit(XLTokenKind::Ident, startOffset, ident);
             continue;
         }
 
         // --- Single or double char operators ---
         switch (c) {
             case '+':
-                emit(XLTokenKind::Plus);
+                emit(XLTokenKind::Plus, startOffset);
                 ++i;
                 break;
             case '-':
-                emit(XLTokenKind::Minus);
+                emit(XLTokenKind::Minus, startOffset);
                 ++i;
                 break;
             case '*':
-                emit(XLTokenKind::Star);
+                emit(XLTokenKind::Star, startOffset);
                 ++i;
                 break;
             case '/':
-                emit(XLTokenKind::Slash);
+                emit(XLTokenKind::Slash, startOffset);
                 ++i;
                 break;
             case '^':
-                emit(XLTokenKind::Caret);
+                emit(XLTokenKind::Caret, startOffset);
                 ++i;
                 break;
             case '%':
-                emit(XLTokenKind::Percent);
+                emit(XLTokenKind::Percent, startOffset);
                 ++i;
                 break;
             case '&':
-                emit(XLTokenKind::Amp);
+                emit(XLTokenKind::Amp, startOffset);
                 ++i;
                 break;
             case '(':
-                emit(XLTokenKind::LParen);
+                emit(XLTokenKind::LParen, startOffset);
                 ++i;
                 break;
             case ')':
-                emit(XLTokenKind::RParen);
+                emit(XLTokenKind::RParen, startOffset);
                 ++i;
                 break;
             case ',':
-                emit(XLTokenKind::Comma);
+                emit(XLTokenKind::Comma, startOffset);
                 ++i;
                 break;
             case ';':
-                emit(XLTokenKind::Semicolon);
+                emit(XLTokenKind::Semicolon, startOffset);
                 ++i;
                 break;
             case ':':
-                emit(XLTokenKind::Colon);
+                emit(XLTokenKind::Colon, startOffset);
                 ++i;
                 break;
             case '=':
-                emit(XLTokenKind::Eq);
+                emit(XLTokenKind::Eq, startOffset);
                 ++i;
                 break;
             case '<':
                 ++i;
                 if (i < len && formula[i] == '=') {
-                    emit(XLTokenKind::Le);
+                    emit(XLTokenKind::Le, startOffset);
                     ++i;
                 }
                 else if (i < len && formula[i] == '>') {
-                    emit(XLTokenKind::NEq);
+                    emit(XLTokenKind::NEq, startOffset);
                     ++i;
                 }
                 else
-                    emit(XLTokenKind::Lt);
+                    emit(XLTokenKind::Lt, startOffset);
                 break;
             case '>':
                 ++i;
                 if (i < len && formula[i] == '=') {
-                    emit(XLTokenKind::Ge);
+                    emit(XLTokenKind::Ge, startOffset);
                     ++i;
                 }
                 else
-                    emit(XLTokenKind::Gt);
+                    emit(XLTokenKind::Gt, startOffset);
                 break;
             default:
-                emit(XLTokenKind::Error, std::string(1, c));
+                emit(XLTokenKind::Error, startOffset, std::string(1, c));
                 ++i;
                 break;
         }
     }
 
-    emit(XLTokenKind::End);
+    emit(XLTokenKind::End, i);
     return tokens;
+}
+
+// =============================================================================
+// Diagnostics
+// =============================================================================
+
+void XLFormulaDiagnosticReporter::reportError(std::string message, std::size_t offset)
+{
+    m_diagnostics.push_back({std::move(message), offset});
+}
+
+const std::vector<XLFormulaDiagnostic>& XLFormulaDiagnosticReporter::diagnostics() const
+{
+    return m_diagnostics;
+}
+
+bool XLFormulaDiagnosticReporter::hasErrors() const
+{
+    return !m_diagnostics.empty();
+}
+
+void XLFormulaDiagnosticReporter::clear()
+{
+    m_diagnostics.clear();
+}
+
+std::string XLFormulaDiagnosticReporter::getFullReport() const
+{
+    std::string report;
+    for (const auto& diag : m_diagnostics) {
+        if (!report.empty()) report += "\n";
+        report += "Error at position " + std::to_string(diag.offset) + ": " + diag.message;
+        if (!m_formula.empty()) {
+            report += "\n" + m_formula + "\n";
+            std::size_t caretPos = std::min(diag.offset, m_formula.size());
+            report += std::string(caretPos, ' ') + "^";
+        }
+    }
+    return report;
 }
 
 // =============================================================================
@@ -268,6 +310,15 @@ bool XLFormulaParser::ParseContext::matchKind(XLTokenKind k)
     return false;
 }
 
+void XLFormulaParser::ParseContext::reportError(std::string message, std::size_t offset)
+{
+    if (panicMode) return;
+    panicMode = true;
+    if (reporter) {
+        reporter->reportError(std::move(message), offset);
+    }
+}
+
 // Operator precedence (higher = binds tighter)
 int XLFormulaParser::precedence(XLTokenKind k)
 {
@@ -296,10 +347,13 @@ int XLFormulaParser::precedence(XLTokenKind k)
 
 bool XLFormulaParser::isRightAssoc(XLTokenKind k) { return k == XLTokenKind::Caret; }
 
-std::unique_ptr<XLASTNode> XLFormulaParser::parse(gsl::span<const XLToken> tokens)
+std::unique_ptr<XLASTNode> XLFormulaParser::parse(gsl::span<const XLToken> tokens, XLFormulaDiagnosticReporter* reporter)
 {
-    ParseContext ctx{tokens, 0};
+    ParseContext ctx{tokens, 0, reporter, false};
     auto         node = parseExpr(ctx, 0);
+    if (ctx.current().kind != XLTokenKind::End) {
+        ctx.reportError("Unexpected trailing token '" + ctx.current().text + "'", ctx.current().offset);
+    }
     return node;
 }
 
@@ -411,13 +465,44 @@ std::unique_ptr<XLASTNode> XLFormulaParser::parsePrimary(ParseContext& ctx)
     if (tok.kind == XLTokenKind::LParen) {
         ctx.consume();
         auto inner = parseExpr(ctx, 0);
-        if (ctx.current().kind == XLTokenKind::RParen) ctx.consume();
+        if (ctx.current().kind == XLTokenKind::RParen) {
+            ctx.consume();
+            ctx.panicMode = false;
+        } else {
+            ctx.reportError("Missing closing parenthesis ')'", ctx.current().offset);
+        }
         return inner;
     }
 
-    // Error literal (#DIV/0! etc.) - just capture the token as error
-    auto node  = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
-    node->text = tok.text;
+    if (tok.kind == XLTokenKind::Comma || tok.kind == XLTokenKind::Semicolon || tok.kind == XLTokenKind::RParen) {
+        // Omitted argument or empty primary (e.g. FUNC(a,,b) or FUNC())
+        // Return an empty ErrorLit without reporting error, and do NOT consume it
+        auto node = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
+        node->text = "";
+        return node;
+    }
+
+    if (tok.kind == XLTokenKind::Error) {
+        if (tok.text != "{" && tok.text != "}" && tok.text != ";") {
+            ctx.reportError("Invalid character '" + tok.text + "'", tok.offset);
+        }
+        auto node = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
+        node->text = tok.text;
+        ctx.consume();
+        return node;
+    }
+
+    if (tok.kind == XLTokenKind::End) {
+        ctx.reportError("Unexpected end of expression", tok.offset);
+        auto node = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
+        node->text = "#VALUE!";
+        return node;
+    }
+
+    // Any other unexpected token (e.g. operators)
+    ctx.reportError("Expected operand, found '" + tok.text + "'", tok.offset);
+    auto node = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
+    node->text = "#VALUE!";
     ctx.consume();
     return node;
 }
@@ -435,12 +520,20 @@ std::unique_ptr<XLASTNode> XLFormulaParser::parseFuncCall(std::string name, Pars
     // Parse argument list (comma or semicolon separated)
     while (ctx.current().kind != XLTokenKind::RParen && ctx.current().kind != XLTokenKind::End) {
         node->children.push_back(parseExpr(ctx, 0));
-        if (ctx.current().kind == XLTokenKind::Comma || ctx.current().kind == XLTokenKind::Semicolon) { ctx.consume(); }
+        if (ctx.current().kind == XLTokenKind::Comma || ctx.current().kind == XLTokenKind::Semicolon) {
+            ctx.consume();
+            ctx.panicMode = false;
+        }
         else {
             break;
         }
     }
-    if (ctx.current().kind == XLTokenKind::RParen) ctx.consume();
+    if (ctx.current().kind == XLTokenKind::RParen) {
+        ctx.consume();
+        ctx.panicMode = false;
+    } else {
+        ctx.reportError("Missing closing parenthesis ')' for function '" + node->text + "'", ctx.current().offset);
+    }
     return node;
 }
 

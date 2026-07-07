@@ -75,6 +75,7 @@ namespace OpenXLSX
         std::string text;              ///< Raw text of the token (number string, identifier, …)
         double      number{0.0};       ///< Pre-parsed numeric value when kind == Number
         bool        boolean{false};    ///< Pre-parsed bool when kind == Bool
+        std::size_t offset{0};         ///< Position in the formula string
     };
 
     /**
@@ -141,6 +142,34 @@ namespace OpenXLSX
     };
 
     // =========================================================================
+    // Diagnostics
+    // =========================================================================
+
+    struct OPENXLSX_EXPORT XLFormulaDiagnostic
+    {
+        std::string message;
+        std::size_t offset{0};
+    };
+
+    class OPENXLSX_EXPORT XLFormulaDiagnosticReporter
+    {
+    public:
+        XLFormulaDiagnosticReporter() = default;
+        explicit XLFormulaDiagnosticReporter(std::string formula) : m_formula(std::move(formula)) {}
+
+        void reportError(std::string message, std::size_t offset);
+        
+        [[nodiscard]] const std::vector<XLFormulaDiagnostic>& diagnostics() const;
+        [[nodiscard]] bool hasErrors() const;
+        void clear();
+        [[nodiscard]] std::string getFullReport() const;
+
+    private:
+        std::string                      m_formula;
+        std::vector<XLFormulaDiagnostic> m_diagnostics;
+    };
+
+    // =========================================================================
     // Parser
     // =========================================================================
 
@@ -153,22 +182,27 @@ namespace OpenXLSX
         /**
          * @brief Parse the token list produced by XLFormulaLexer::tokenize().
          * @param tokens Span over the token vector (including sentinel End token).
+         * @param reporter Optional diagnostic reporter to collect syntax errors.
          * @return Root AST node.
-         * @throws XLFormulaError on syntax error.
+         * @throws XLFormulaError on syntax error if reporter is nullptr.
          */
-        static std::unique_ptr<XLASTNode> parse(gsl::span<const XLToken> tokens);
+        static std::unique_ptr<XLASTNode> parse(gsl::span<const XLToken> tokens, XLFormulaDiagnosticReporter* reporter = nullptr);
 
     private:
         // All state is local to the recursive parse calls below.
         struct ParseContext
         {
-            gsl::span<const XLToken> tokens;
-            std::size_t              pos{0};
+            gsl::span<const XLToken>         tokens;
+            std::size_t                      pos{0};
+            XLFormulaDiagnosticReporter*     reporter{nullptr};
+            bool                             panicMode{false};
 
             [[nodiscard]] const XLToken& current() const;
             [[nodiscard]] const XLToken& peek(std::size_t offset = 1) const;
             const XLToken&               consume();
             bool                         matchKind(XLTokenKind k);
+
+            void reportError(std::string message, std::size_t offset);
         };
 
         static std::unique_ptr<XLASTNode> parseExpr(ParseContext& ctx, int minPrec = 0);
@@ -333,7 +367,7 @@ namespace OpenXLSX
          *        contains no cell references.
          * @return The computed XLCellValue; an error value on evaluation failure.
          */
-        [[nodiscard]] XLCellValue evaluate(std::string_view formula, const XLCellResolver& resolver = {}) const;
+        [[nodiscard]] XLCellValue evaluate(std::string_view formula, const XLCellResolver& resolver = {}, XLFormulaDiagnosticReporter* reporter = nullptr) const;
 
         /**
          * @brief Create a CellResolver that reads live values from an XLWorksheet.

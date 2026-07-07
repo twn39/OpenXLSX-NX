@@ -906,3 +906,59 @@ TEST_CASE("XLFormulaEngineBugfixes3", "[Bugfixes3]")
     REQUIRE(eng.evaluate("=SLN(10000, 1000, 5)").get<double>() == Catch::Approx(1800.0));
     REQUIRE(eng.evaluate("=SYD(10000, 1000, 5, 1)").get<double>() == Catch::Approx(3000.0));
 }
+
+TEST_CASE("XLFormulaEngineDiagnosticsAndRecovery", "[Diagnostics]")
+{
+    XLFormulaEngine eng;
+
+    SECTION("Successful evaluation has no errors")
+    {
+        XLFormulaDiagnosticReporter reporter;
+        auto val = eng.evaluate("=1+2", {}, &reporter);
+        REQUIRE(val.get<double>() == Catch::Approx(3.0));
+        REQUIRE_FALSE(reporter.hasErrors());
+        REQUIRE(reporter.diagnostics().empty());
+    }
+
+    SECTION("Unmatched parenthesis error reporting and recovery")
+    {
+        XLFormulaDiagnosticReporter reporter;
+        auto val = eng.evaluate("=(1+2", {}, &reporter);
+        // It should recover and evaluate the inner expression
+        REQUIRE(val.get<double>() == Catch::Approx(3.0));
+        REQUIRE(reporter.hasErrors());
+        auto diags = reporter.diagnostics();
+        REQUIRE(diags.size() == 1);
+        REQUIRE(diags[0].message.find("Missing closing parenthesis") != std::string::npos);
+        
+        std::string report = reporter.getFullReport();
+        REQUIRE(report.find("(1+2") != std::string::npos);
+        REQUIRE(report.find("^") != std::string::npos);
+    }
+
+    SECTION("Unexpected trailing token error reporting")
+    {
+        XLFormulaDiagnosticReporter reporter;
+        (void)eng.evaluate("=1+2 3", {}, &reporter);
+        REQUIRE(reporter.hasErrors());
+        auto diags = reporter.diagnostics();
+        REQUIRE(diags.size() == 1);
+        REQUIRE(diags[0].message.find("Unexpected trailing token") != std::string::npos);
+    }
+
+    SECTION("Unexpected operator / missing operand")
+    {
+        XLFormulaDiagnosticReporter reporter;
+        (void)eng.evaluate("=1+*", {}, &reporter);
+        REQUIRE(reporter.hasErrors());
+        auto diags = reporter.diagnostics();
+        REQUIRE(diags.size() >= 1);
+        REQUIRE(diags[0].message.find("Expected operand") != std::string::npos);
+    }
+
+    SECTION("No exception when no reporter is passed")
+    {
+        auto val = eng.evaluate("=(1+2");
+        REQUIRE(val.get<double>() == Catch::Approx(3.0));
+    }
+}

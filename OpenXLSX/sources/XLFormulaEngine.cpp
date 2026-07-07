@@ -217,12 +217,15 @@ XLCellValue XLFormulaEngine::evalNode(const XLASTNode& node, const XLCellResolve
 // Evaluator – public evaluate()
 // =============================================================================
 
-XLCellValue XLFormulaEngine::evaluate(std::string_view formula, const XLCellResolver& resolver) const
+XLCellValue XLFormulaEngine::evaluate(std::string_view formula, const XLCellResolver& resolver, XLFormulaDiagnosticReporter* reporter) const
 {
     if (formula.empty()) return XLCellValue{};
     try {
+        if (reporter) {
+            *reporter = XLFormulaDiagnosticReporter(std::string(formula));
+        }
         auto tokens = XLFormulaLexer::tokenize(formula);
-        auto ast    = XLFormulaParser::parse(gsl::span<const XLToken>(tokens));
+        auto ast    = XLFormulaParser::parse(gsl::span<const XLToken>(tokens), reporter);
         return evalNode(*ast, resolver);
     }
     catch (const XLException&) {
