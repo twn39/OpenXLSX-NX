@@ -342,4 +342,66 @@ TEST_CASE("CommentsFluentandWorksheetDX", "[XLComments][Fluent]")
         // Keep file for human verification
         REQUIRE(std::filesystem::exists(filename));
     }
+
+    SECTION("Comprehensive Comments Demo Generation")
+    {
+        XLDocument doc;
+        std::string filename = "Comments_Comprehensive_Demo.xlsx";
+        doc.create(filename, XLForceOverwrite);
+        auto wks = doc.workbook().worksheet("Sheet1");
+
+        // Set column widths to look nice
+        wks.column(2).setWidth(25); // B
+        wks.column(4).setWidth(25); // D
+
+        // Title and description
+        wks.cell("A1").value() = "Comments Comprehensive Demo";
+
+        // 1. Basic Note (Legacy Comment)
+        wks.cell("B3").value() = "1. Basic Note";
+        wks.comments().set("B3", "This is a basic legacy note.", 0);
+
+        // 2. Custom Author Note
+        wks.cell("D3").value() = "2. Custom Author Note";
+        uint16_t authId = wks.comments().addAuthor("Chief Reviewer");
+        wks.comments().set("D3", "This note has a custom author name.", authId);
+
+        // 3. Visible & Resized Note
+        wks.cell("B5").value() = "3. Visible & Resized Note";
+        wks.comments().set("B5", "This note is configured to be visible by default and has custom width/height.", authId);
+        auto shape = wks.comments().shape("B5");
+        shape.style().show();
+        shape.style().setWidth(300);
+        shape.style().setHeight(150);
+
+        // 4. Rich Text Note
+        wks.cell("D5").value() = "4. Rich Text Note";
+        XLRichText rt;
+        XLRichTextRun run1("Bold Crimson. ");
+        run1.setBold(true);
+        run1.setFontColor(XLColor(220, 20, 60));
+        run1.setFontSize(13);
+        XLRichTextRun run2("Italic Navy.");
+        run2.setItalic(true);
+        run2.setFontColor(XLColor(0, 0, 128));
+        rt.addRun(run1);
+        rt.addRun(run2);
+        uint16_t rtAuthor = wks.comments().addAuthor("Designer");
+        wks.comments().setRichText("D5", rt, rtAuthor);
+
+        // 5. Modern Threaded Comment (Excel 365+)
+        wks.cell("B8").value() = "5. Threaded Comment";
+        wks.addComment("B8", "Could you review the formatting on this sheet?", "Alice Manager");
+
+        // 6. Threaded Comment with Replies
+        wks.cell("D8").value() = "6. Thread with Replies";
+        auto tcBase = wks.addComment("D8", "Initial comment by Alice", "Alice Manager");
+        wks.addReply(tcBase.id(), "Reply 1 by Bob", "Bob Data");
+        wks.addReply(tcBase.id(), "Reply 2 by Charlie", "Charlie Sales");
+
+        doc.save();
+        doc.close();
+
+        REQUIRE(std::filesystem::exists(filename));
+    }
 }
