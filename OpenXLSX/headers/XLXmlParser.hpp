@@ -367,7 +367,7 @@ namespace OpenXLSX
         using iterator_category = std::forward_iterator_tag;
 
         XMLNodeIterator();
-        XMLNodeIterator(pugi::xml_node_struct* node, pugi::xml_node_struct* parent, const char* filter = nullptr);
+        XMLNodeIterator(pugi::xml_node_struct* node, const char* filter = nullptr);
 
         XMLNode& operator*() const;
         XMLNode* operator->() const { return &m_wrap; }
@@ -375,9 +375,8 @@ namespace OpenXLSX
         bool operator==(const XMLNodeIterator& other) const;
         bool operator!=(const XMLNodeIterator& other) const;
 
-    private:
+     private:
         pugi::xml_node_struct* m_node{nullptr};
-        pugi::xml_node_struct* m_parent{nullptr};
         const char* m_filter{nullptr};
         mutable XMLNode m_wrap;
     };
@@ -385,12 +384,11 @@ namespace OpenXLSX
     class OPENXLSX_EXPORT XMLNodeRange
     {
     public:
-        XMLNodeRange(pugi::xml_node_struct* first, pugi::xml_node_struct* parent, const char* filter = nullptr);
+        XMLNodeRange(pugi::xml_node_struct* first, const char* filter = nullptr);
         XMLNodeIterator begin() const;
         XMLNodeIterator end() const;
     private:
         pugi::xml_node_struct* m_first{nullptr};
-        pugi::xml_node_struct* m_parent{nullptr};
         const char* m_filter{nullptr};
     };
 
@@ -405,7 +403,7 @@ namespace OpenXLSX
         using iterator_category = std::forward_iterator_tag;
 
         XMLAttributeIterator();
-        XMLAttributeIterator(pugi::xml_attribute_struct* attr, pugi::xml_node_struct* parent);
+        XMLAttributeIterator(pugi::xml_attribute_struct* attr);
 
         XMLAttribute& operator*() const;
         XMLAttribute* operator->() const { return &m_wrap; }
@@ -415,19 +413,17 @@ namespace OpenXLSX
 
     private:
         pugi::xml_attribute_struct* m_attr{nullptr};
-        pugi::xml_node_struct* m_parent{nullptr};
         mutable XMLAttribute m_wrap;
     };
 
     class OPENXLSX_EXPORT XMLAttributeRange
     {
     public:
-        XMLAttributeRange(pugi::xml_attribute_struct* first, pugi::xml_node_struct* parent);
+        XMLAttributeRange(pugi::xml_attribute_struct* first);
         XMLAttributeIterator begin() const;
         XMLAttributeIterator end() const;
     private:
         pugi::xml_attribute_struct* m_first{nullptr};
-        pugi::xml_node_struct* m_parent{nullptr};
     };
 
     // ===== Custom OpenXLSX_xml_document wrapper class =====

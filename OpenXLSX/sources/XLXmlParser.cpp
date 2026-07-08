@@ -476,19 +476,19 @@ namespace OpenXLSX
     XMLNodeRange OpenXLSX_xml_node::children() const
     {
         pugi::xml_node node(m_node);
-        return XMLNodeRange(node.first_child().internal_object(), m_node);
+        return XMLNodeRange(node.first_child().internal_object());
     }
 
     XMLNodeRange OpenXLSX_xml_node::children(const char* name_) const
     {
         pugi::xml_node node(m_node);
-        return XMLNodeRange(node.first_child().internal_object(), m_node, name_);
+        return XMLNodeRange(node.first_child().internal_object(), name_);
     }
 
     XMLAttributeRange OpenXLSX_xml_node::attributes() const
     {
         pugi::xml_node node(m_node);
-        return XMLAttributeRange(node.first_attribute().internal_object(), m_node);
+        return XMLAttributeRange(node.first_attribute().internal_object());
     }
 
     // ===== XMLAttribute implementation =====
@@ -755,9 +755,9 @@ namespace OpenXLSX
 
     // ===== XMLNodeIterator implementation =====
 
-    XMLNodeIterator::XMLNodeIterator() : m_node(nullptr), m_parent(nullptr), m_filter(nullptr), m_wrap(nullptr) {}
-    XMLNodeIterator::XMLNodeIterator(pugi::xml_node_struct* node, pugi::xml_node_struct* parent, const char* filter)
-        : m_node(node), m_parent(parent), m_filter(filter), m_wrap(nullptr)
+    XMLNodeIterator::XMLNodeIterator() : m_node(nullptr), m_filter(nullptr), m_wrap(nullptr) {}
+    XMLNodeIterator::XMLNodeIterator(pugi::xml_node_struct* node, const char* filter)
+        : m_node(node), m_filter(filter), m_wrap(nullptr)
     {
         if (m_node && m_filter) {
             pugi::xml_node n(m_node);
@@ -794,16 +794,16 @@ namespace OpenXLSX
     bool XMLNodeIterator::operator==(const XMLNodeIterator& other) const { return m_node == other.m_node; }
     bool XMLNodeIterator::operator!=(const XMLNodeIterator& other) const { return m_node != other.m_node; }
 
-    XMLNodeRange::XMLNodeRange(pugi::xml_node_struct* first, pugi::xml_node_struct* parent, const char* filter)
-        : m_first(first), m_parent(parent), m_filter(filter) {}
-    XMLNodeIterator XMLNodeRange::begin() const { return XMLNodeIterator(m_first, m_parent, m_filter); }
-    XMLNodeIterator XMLNodeRange::end() const { return XMLNodeIterator(nullptr, m_parent, m_filter); }
+    XMLNodeRange::XMLNodeRange(pugi::xml_node_struct* first, const char* filter)
+        : m_first(first), m_filter(filter) {}
+    XMLNodeIterator XMLNodeRange::begin() const { return XMLNodeIterator(m_first, m_filter); }
+    XMLNodeIterator XMLNodeRange::end() const { return XMLNodeIterator(nullptr, m_filter); }
 
     // ===== XMLAttributeIterator implementation =====
 
-    XMLAttributeIterator::XMLAttributeIterator() : m_attr(nullptr), m_parent(nullptr), m_wrap(nullptr) {}
-    XMLAttributeIterator::XMLAttributeIterator(pugi::xml_attribute_struct* attr, pugi::xml_node_struct* parent)
-        : m_attr(attr), m_parent(parent), m_wrap(nullptr)
+    XMLAttributeIterator::XMLAttributeIterator() : m_attr(nullptr), m_wrap(nullptr) {}
+    XMLAttributeIterator::XMLAttributeIterator(pugi::xml_attribute_struct* attr)
+        : m_attr(attr), m_wrap(nullptr)
     {
         m_wrap = XMLAttribute(m_attr);
     }
@@ -823,9 +823,9 @@ namespace OpenXLSX
     bool XMLAttributeIterator::operator==(const XMLAttributeIterator& other) const { return m_attr == other.m_attr; }
     bool XMLAttributeIterator::operator!=(const XMLAttributeIterator& other) const { return m_attr != other.m_attr; }
 
-    XMLAttributeRange::XMLAttributeRange(pugi::xml_attribute_struct* first, pugi::xml_node_struct* parent) : m_first(first), m_parent(parent) {}
-    XMLAttributeIterator XMLAttributeRange::begin() const { return XMLAttributeIterator(m_first, m_parent); }
-    XMLAttributeIterator XMLAttributeRange::end() const { return XMLAttributeIterator(nullptr, m_parent); }
+    XMLAttributeRange::XMLAttributeRange(pugi::xml_attribute_struct* first) : m_first(first) {}
+    XMLAttributeIterator XMLAttributeRange::begin() const { return XMLAttributeIterator(m_first); }
+    XMLAttributeIterator XMLAttributeRange::end() const { return XMLAttributeIterator(nullptr); }
 
     // ===== XMLDocument implementation =====
 

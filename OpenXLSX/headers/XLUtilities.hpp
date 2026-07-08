@@ -2,7 +2,6 @@
 #define OPENXLSX_XLUTILITIES_HPP
 
 #include <fstream>
-#include <pugixml.hpp>
 #include <string>         // 2024-04-25 needed for xml_node_type_string
 #include <string_view>    // std::string_view
 #include <vector>         // std::vector< std::string_view >
@@ -213,31 +212,31 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
     }
 
     /**
-     * @brief Get a string representation of pugi::xml_node_type
-     * @param t the pugi::xml_node_type of a node
+     * @brief Get a string representation of XMLNodeType
+     * @param t the XMLNodeType of a node
      * @return a std::string containing the descriptive name of the node type
      */
-    inline std::string xml_node_type_string(pugi::xml_node_type t)
+    inline std::string xml_node_type_string(XMLNodeType t)
     {
         using namespace std::literals::string_literals;
         switch (t) {
-            case pugi::node_null:
+            case node_null:
                 return "node_null"s;
-            case pugi::node_document:
+            case node_document:
                 return "node_document"s;
-            case pugi::node_element:
+            case node_element:
                 return "node_element"s;
-            case pugi::node_pcdata:
+            case node_pcdata:
                 return "node_pcdata"s;
-            case pugi::node_cdata:
+            case node_cdata:
                 return "node_cdata"s;
-            case pugi::node_comment:
+            case node_comment:
                 return "node_comment"s;
-            case pugi::node_pi:
+            case node_pi:
                 return "node_pi"s;
-            case pugi::node_declaration:
+            case node_declaration:
                 return "node_declaration"s;
-            case pugi::node_doctype:
+            case node_doctype:
                 return "node_doctype"s;
         }
         throw XLInternalError("Invalid XML node type.");
@@ -423,7 +422,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
         if (hintRowNumber && hintRowNode && !hintRowNode->empty() && rowNumber > *hintRowNumber) {
             result = *hintRowNode;
             while (!result.empty() && result.attribute("r").as_ullong() < rowNumber) {
-                result = result.next_sibling_of_type(pugi::node_element);
+                result = result.next_sibling_of_type(node_element);
             }
             if (result.empty() || result.attribute("r").as_ullong() > rowNumber) {
                 if (result.empty()) result = sheetDataNode.append_child("row");
@@ -434,7 +433,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
         else if (hintRowNumber && hintRowNode && !hintRowNode->empty() && rowNumber < *hintRowNumber) {
             result = *hintRowNode;
             while (!result.empty() && result.attribute("r").as_ullong() > rowNumber) {
-                result = result.previous_sibling_of_type(pugi::node_element);
+                result = result.previous_sibling_of_type(node_element);
             }
             if (result.empty() || result.attribute("r").as_ullong() < rowNumber) {
                 if (result.empty()) result = sheetDataNode.prepend_child("row");
@@ -444,7 +443,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
         }
         else {
             // ===== Original Binary/Edge crawling fallback
-            result = sheetDataNode.last_child_of_type(pugi::node_element);
+            result = sheetDataNode.last_child_of_type(node_element);
 
             if (result.empty() or (rowNumber > result.attribute("r").as_ullong())) {
                 result                       = sheetDataNode.append_child("row");
@@ -452,7 +451,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
             }
             else if (result.attribute("r").as_ullong() - rowNumber < rowNumber) {
                 while (not result.empty() and (result.attribute("r").as_ullong() > rowNumber))
-                    result = result.previous_sibling_of_type(pugi::node_element);
+                    result = result.previous_sibling_of_type(node_element);
                 if (result.empty() or (result.attribute("r").as_ullong() != rowNumber)) {
                     if (result.empty())
                         result = sheetDataNode.prepend_child("row");
@@ -462,8 +461,8 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
                 }
             }
             else {
-                result = sheetDataNode.first_child_of_type(pugi::node_element);
-                while (result.attribute("r").as_ullong() < rowNumber) result = result.next_sibling_of_type(pugi::node_element);
+                result = sheetDataNode.first_child_of_type(node_element);
+                while (result.attribute("r").as_ullong() < rowNumber) result = result.next_sibling_of_type(node_element);
                 if (result.attribute("r").as_ullong() > rowNumber) {
                     result = sheetDataNode.insert_child_before("row", result);
                     result.append_attribute("r") = rowNumber;
@@ -497,7 +496,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
         std::vector<XLStyleIndex> styles(count, XLDefaultCellFormat);
         XMLNode cols = rowNode.parent().parent().child("cols");
         if (not cols.empty()) {
-            XMLNode col = cols.first_child_of_type(pugi::node_element);
+            XMLNode col = cols.first_child_of_type(node_element);
             while (not col.empty()) {
                 int minCol = col.attribute("min").as_int(MAX_COLS + 1);
                 int maxCol = col.attribute("max").as_int(0);
@@ -506,7 +505,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
                 for (int i = minCol; i <= maxCol && i <= count; ++i) {
                     if (i > 0) styles[i - 1] = style;
                 }
-                col = col.next_sibling_of_type(pugi::node_element);
+                col = col.next_sibling_of_type(node_element);
             }
         }
         return styles;
@@ -516,11 +515,11 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
     {
         XMLNode cols = rowNode.parent().parent().child("cols");
         if (not cols.empty()) {
-            XMLNode col = cols.first_child_of_type(pugi::node_element);
+            XMLNode col = cols.first_child_of_type(node_element);
             while (not col.empty()) {
                 if (col.attribute("min").as_int(MAX_COLS + 1) <= colNo and col.attribute("max").as_int(0) >= colNo)    // found
                     return col.attribute("style").as_uint(XLDefaultCellFormat);
-                col = col.next_sibling_of_type(pugi::node_element);
+                col = col.next_sibling_of_type(node_element);
             }
         }
         return XLDefaultCellFormat;    // if no col style was found
@@ -623,7 +622,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
             if (columnNumber > *hintColNumber) {
                 uint16_t currentCol = *hintColNumber;
                 while (!cellNode.empty() && currentCol < columnNumber) {
-                    cellNode = cellNode.next_sibling_of_type(pugi::node_element);
+                    cellNode = cellNode.next_sibling_of_type(node_element);
                     currentCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
                 }
                 if (currentCol > columnNumber || cellNode.empty()) {
@@ -638,7 +637,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
             else if (columnNumber < *hintColNumber) {
                 uint16_t currentCol = *hintColNumber;
                 while (!cellNode.empty() && currentCol > columnNumber) {
-                    cellNode = cellNode.previous_sibling_of_type(pugi::node_element);
+                    cellNode = cellNode.previous_sibling_of_type(node_element);
                     currentCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
                 }
                 if (currentCol < columnNumber || cellNode.empty()) {
@@ -653,7 +652,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
         }
 
         // ===== Original Fallback Crawl
-        cellNode = rowNode.last_child_of_type(pugi::node_element);
+        cellNode = rowNode.last_child_of_type(node_element);
         {
             uint16_t lastCellCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
 
@@ -666,7 +665,7 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
             else if (lastCellCol - columnNumber < columnNumber) {
                 uint16_t currentCol = lastCellCol;
                 while (not cellNode.empty() and (currentCol > columnNumber)) {
-                    cellNode   = cellNode.previous_sibling_of_type(pugi::node_element);
+                    cellNode   = cellNode.previous_sibling_of_type(node_element);
                     currentCol = cellNode.empty() ? 0 : extractColumnFromCellRef(cellNode.attribute("r").value());
                 }
                 if (cellNode.empty() or (currentCol < columnNumber)) {
@@ -678,10 +677,10 @@ inline char* makeCellAddress(uint32_t row, uint16_t col, char* buffer) noexcept
                 }
             }
             else {
-                cellNode = rowNode.first_child_of_type(pugi::node_element);
+                cellNode = rowNode.first_child_of_type(node_element);
                 uint16_t currentCol = extractColumnFromCellRef(cellNode.attribute("r").value());
                 while (currentCol < columnNumber) {
-                    cellNode   = cellNode.next_sibling_of_type(pugi::node_element);
+                    cellNode   = cellNode.next_sibling_of_type(node_element);
                     currentCol = extractColumnFromCellRef(cellNode.attribute("r").value());
                 }
                 if (currentCol > columnNumber) {
@@ -729,8 +728,8 @@ update_hint:
     {
         fromNode = fromNode.previous_sibling();    // move to preceeding whitespace node, if any
         // loop from back to front, inserting in the same order before toNode
-        while (fromNode.type() == pugi::node_pcdata) {                         // loop ends on pugi::node_element or node_null
-            toNode = parent.insert_child_before(pugi::node_pcdata, toNode);    // prepend as toNode a new pcdata node
+        while (fromNode.type() == node_pcdata) {                         // loop ends on node_element or node_null
+            toNode = parent.insert_child_before(node_pcdata, toNode);    // prepend as toNode a new pcdata node
             toNode.set_value(fromNode.value());                                //  with the value of fromNode
             fromNode = fromNode.previous_sibling();
         }
@@ -753,7 +752,7 @@ update_hint:
     {
         if (parent.empty()) return XMLNode{};
 
-        XMLNode nextNode = parent.first_child_of_type(pugi::node_element);
+        XMLNode nextNode = parent.first_child_of_type(node_element);
         if (nextNode.empty())
             return parent.prepend_child(nodeName.c_str(), force_ns);    // nothing to sort, whitespaces "belong" to parent closing tag
 
@@ -764,7 +763,7 @@ update_hint:
             SORT_INDEX_NOT_FOUND) {    // can't sort anything if nodeOrder contains less than 2 entries or does not contain nodeName
             // ===== Find first node to follow nodeName per nodeOrder
             while (not nextNode.empty() and findStringInVector(nextNode.raw_name(), nodeOrder) < nodeSortIndex)
-                nextNode = nextNode.next_sibling_of_type(pugi::node_element);
+                nextNode = nextNode.next_sibling_of_type(node_element);
             // ===== Evaluate search result
             if (not nextNode.empty()) {             // found nodeName or a node before which nodeName should be inserted
                 if (std::string_view(nextNode.raw_name()) == nodeName)    // if nodeName was found
@@ -783,7 +782,7 @@ update_hint:
         if (node.empty()) {    // neither nodeName, nor a node following per nodeOrder was found
             // ===== There is no reference to perform an ordered insert for nodeName
             nextNode =
-                parent.last_child_of_type(pugi::node_element);    // at least one element node must exist, tested at begin of function
+                parent.last_child_of_type(node_element);    // at least one element node must exist, tested at begin of function
             node = parent.insert_child_after(nodeName.c_str(),
                                              nextNode,
                                              force_ns);        // append as the last element node, but before final whitespaces

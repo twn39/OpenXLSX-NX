@@ -4,6 +4,7 @@
 #include "XLDocument.hpp"
 #include "XLUtilities.hpp"
 #include "XLWorksheet.hpp"
+#include <pugixml.hpp>
 
 #include "XLChart.hpp"
 #include "XLComments.hpp"

@@ -2,6 +2,7 @@
 #include "XLUtilities.hpp"
 #include "XLWorkbook.hpp"
 #include "XLWorksheet.hpp"
+#include <pugixml.hpp>
 
 #include "XLChart.hpp"
 #include "XLComments.hpp"
