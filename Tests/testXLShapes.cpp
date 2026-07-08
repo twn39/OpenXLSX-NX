@@ -184,7 +184,7 @@ TEST_CASE("VectorShapeEnhancementsValidation")
     bool foundDashes = false;
 
     for (const auto& anchor : rootNode.children()) {
-        std::string anchorName = anchor.name();
+        std::string anchorName = anchor.raw_name();
         
         if (anchorName == "xdr:twoCellAnchor") {
             foundTwoCellAnchor = true;

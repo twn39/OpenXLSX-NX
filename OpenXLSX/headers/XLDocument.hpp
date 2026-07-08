@@ -40,7 +40,7 @@
 
 namespace OpenXLSX
 {
-    constexpr const unsigned int pugi_parse_settings = pugi::parse_default | pugi::parse_ws_pcdata;
+    constexpr const unsigned int pugi_parse_settings = 0x001e;
 
     constexpr const bool XLForceOverwrite = true;     // readability constant for 2nd parameter of XLDocument::saveAs
     constexpr const bool XLDoNotOverwrite = false;    //  "

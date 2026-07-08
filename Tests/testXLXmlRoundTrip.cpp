@@ -1,4 +1,5 @@
 #include <OpenXLSX.hpp>
+#include <pugixml.hpp>
 #include "XLConditionalFormatting.hpp"
 
 #include "XLDataValidation.hpp"

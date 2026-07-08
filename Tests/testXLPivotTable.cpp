@@ -249,7 +249,7 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
 
     bool foundSleChoice = false;
     for (auto anchor : drwRoot.children()) {
-        std::string anchorName = anchor.name();
+        std::string anchorName = anchor.raw_name();
         if (anchorName != "xdr:twoCellAnchor" && anchorName != "xdr:oneCellAnchor") {
             continue;
         }
