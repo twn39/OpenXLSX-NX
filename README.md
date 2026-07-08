@@ -60,15 +60,15 @@ int main() {
 
 | Operation | Time / Execution | Throughput | Description |
 | :--- | :--- | :--- | :--- |
-| **Write Integers** | **202 ms** | ~3.9M cells/sec | Direct integer-to-XML serialization without string intermediates. |
-| **Write Booleans** | **229 ms** | ~3.5M cells/sec | High-speed boolean state serialization. |
-| **Write Strings** | **276 ms** | ~2.9M cells/sec | Zero-copy `SharedStrings` aggregation using O(1) hash maps. |
-| **Write Floats** | **282 ms** | ~2.8M cells/sec | Fast double formatting via `std::to_chars` and `{fmt}`. |
-| **Read Strings** | **177 ms** | ~4.5M cells/sec | Parsing and lookup via `ankerl::unordered_dense`. |
-| **Read Integers** | **144 ms** | ~5.5M cells/sec | Rapid DOM extraction and value parsing. |
-| **Random DOM Access** | **3.4 ms** | N/A | Backward column/row traversal via O(1) XML Hint Cache. |
-| **Style Deduplication** | **136 ms** | N/A | Generating, hashing, and deduping thousands of complex nested styles. |
-| **Formula Engine** | **12.9 ms** | N/A | `XLFormulaEngine` AST parsing and execution. |
+| **Write Integers** | **262 ms** | ~3.05M cells/sec | Direct integer-to-XML serialization without string intermediates. |
+| **Write Booleans** | **378 ms** | ~2.11M cells/sec | High-speed boolean state serialization. |
+| **Write Strings** | **347 ms** | ~2.30M cells/sec | Zero-copy `SharedStrings` aggregation using O(1) hash maps. |
+| **Write Floats** | **494 ms** | ~1.62M cells/sec | Fast double formatting via `std::to_chars` and `{fmt}`. |
+| **Read Strings** | **220 ms** | ~3.62M cells/sec | Parsing and lookup via `ankerl::unordered_dense`. |
+| **Read Integers** | **176 ms** | ~4.54M cells/sec | Rapid DOM extraction and value parsing. |
+| **Random DOM Access** | **4.7 ms** | N/A | Backward column/row traversal via O(1) XML Hint Cache. |
+| **Style Deduplication** | **171 ms** | N/A | Generating, hashing, and deduping thousands of complex nested styles. |
+| **Formula Engine** | **16.3 ms** | N/A | `XLFormulaEngine` AST parsing and execution. |
 
 ### 🛠 Core Architectural Optimizations
 The unmatched throughput of OpenXLSX is achieved through continuous low-level C++17 optimizations:
@@ -187,18 +187,18 @@ OpenXLSX-NX is engineered for extreme performance. Below are the benchmark resul
 ### Basic I/O (800,000 Cells: 100,000 rows × 8 columns)
 | Operation | Data Type | Average Time | Throughput |
 | :--- | :--- | :--- | :--- |
-| **Write** | Strings (`std::string`) | ~685 ms | **1,167,000 cells/sec** |
-| **Write** | Integers (`int64_t`) | ~546 ms | **1,465,000 cells/sec** |
-| **Write** | Floats (`double`) | ~814 ms | **982,000 cells/sec** |
-| **Write** | Booleans (`bool`) | ~590 ms | **1,355,000 cells/sec** |
-| **Read** | Strings | ~486 ms | **1,646,000 cells/sec** |
-| **Read** | Integers | ~345 ms | **2,318,000 cells/sec** |
+| **Write** | Strings (`std::string`) | ~347 ms | **2,305,000 cells/sec** |
+| **Write** | Integers (`int64_t`) | ~262 ms | **3,053,000 cells/sec** |
+| **Write** | Floats (`double`) | ~494 ms | **1,619,000 cells/sec** |
+| **Write** | Booleans (`bool`) | ~378 ms | **2,111,000 cells/sec** |
+| **Read** | Strings | ~220 ms | **3,621,000 cells/sec** |
+| **Read** | Integers | ~176 ms | **4,542,000 cells/sec** |
 
 ### Advanced Engine Capabilities
 | Component | Test Description | Average Time | Operations/sec |
 | :--- | :--- | :--- | :--- |
-| **Formula Engine** | Lexing, parsing, and evaluating `SUM(A1:A3)` **10,000 times**. | ~39 ms | **256,000 evals/sec** |
-| **Style Pool** | Invoking `findOrCreateStyle(s)` **50,000 times** to deduplicate identical complex styles. | ~584 ms | **85,000 lookups/sec** |
+| **Formula Engine** | Lexing, parsing, and evaluating `SUM(A1:A3)` **10,000 times**. | ~16.3 ms | **613,000 evals/sec** |
+| **Style Pool** | Invoking `findOrCreateStyle(s)` **50,000 times** to deduplicate identical complex styles. | ~171.6 ms | **291,000 lookups/sec** |
 
 *Note: Benchmarks can be compiled by setting `-DOPENXLSX_BUILD_BENCHMARKS=ON` in CMake.*
 
