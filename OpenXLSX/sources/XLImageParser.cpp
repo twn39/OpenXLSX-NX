@@ -79,4 +79,65 @@ namespace OpenXLSX
 
         return size;
     }
+
+    XLImageSize XLImageParser::parseDimensions(gsl::span<const uint8_t> data)
+    {
+        XLImageSize size;
+        if (data.size() < 8) return size;
+
+        // Check PNG
+        if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) {
+            size.extension = "png";
+            if (data.size() >= 24) {
+                uint32_t w = (static_cast<uint32_t>(data[16]) << 24) |
+                             (static_cast<uint32_t>(data[17]) << 16) |
+                             (static_cast<uint32_t>(data[18]) << 8)  |
+                             static_cast<uint32_t>(data[19]);
+                uint32_t h = (static_cast<uint32_t>(data[20]) << 24) |
+                             (static_cast<uint32_t>(data[21]) << 16) |
+                             (static_cast<uint32_t>(data[22]) << 8)  |
+                             static_cast<uint32_t>(data[23]);
+                size.width  = w;
+                size.height = h;
+                size.valid  = true;
+            }
+            return size;
+        }
+
+        // Check JPG
+        if (data[0] == 0xFF && data[1] == 0xD8) {
+            size.extension = "jpeg";
+            size_t offset = 2;
+            while (offset + 4 <= data.size()) {
+                if (data[offset] != 0xFF) break;    // Not a valid marker
+
+                unsigned char marker = data[offset + 1];
+                if (marker >= 0xC0 && marker <= 0xC3) {    // SOF markers
+                    if (offset + 9 > data.size()) break;
+                    size.height = (static_cast<uint32_t>(data[offset + 5]) << 8) | static_cast<uint32_t>(data[offset + 6]);
+                    size.width  = (static_cast<uint32_t>(data[offset + 7]) << 8) | static_cast<uint32_t>(data[offset + 8]);
+                    size.valid  = true;
+                    break;
+                }
+                else {
+                    uint16_t len = (static_cast<uint16_t>(data[offset + 2]) << 8) | static_cast<uint16_t>(data[offset + 3]);
+                    offset += 2 + len;
+                }
+            }
+            return size;
+        }
+
+        // Check GIF
+        if (data[0] == 'G' && data[1] == 'I' && data[2] == 'F') {
+            size.extension = "gif";
+            if (data.size() >= 10) {
+                size.width  = data[6] | (data[7] << 8);
+                size.height = data[8] | (data[9] << 8);
+                size.valid  = true;
+            }
+            return size;
+        }
+
+        return size;
+    }
 }    // namespace OpenXLSX

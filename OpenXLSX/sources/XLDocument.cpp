@@ -1005,6 +1005,25 @@ std::string XLDocument::addImage(std::string_view name, std::string_view data)
     return internalPath;
 }
 
+std::string XLDocument::addImage(std::string_view name, gsl::span<const uint8_t> data)
+{
+    using namespace std::literals::string_literals;
+    std::string internalPath = "xl/media/"s + std::string(name);
+    if (!m_archive.hasEntry(internalPath)) {
+        m_archive.addEntry(internalPath, std::string(reinterpret_cast<const char*>(data.data()), data.size()));
+
+        size_t dotPos = name.find_last_of('.');
+        if (dotPos != std::string_view::npos) {
+            std::string_view ext = name.substr(dotPos + 1);
+            if (ext == "png")
+                m_contentTypes.addDefault("png", "image/png");
+            else if (ext == "jpg" or ext == "jpeg")
+                m_contentTypes.addDefault(std::string(ext), "image/jpeg");
+        }
+    }
+    return internalPath;
+}
+
 /**
  * @details Retrieves the raw binary payload of an embedded image, enabling external rendering or extraction of worksheet media.
  */

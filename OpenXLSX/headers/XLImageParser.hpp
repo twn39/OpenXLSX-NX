@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <string>
 
+#include <gsl/span>
+
 namespace OpenXLSX
 {
 
@@ -23,6 +25,7 @@ namespace OpenXLSX
     {
     public:
         static XLImageSize parseDimensions(const std::string& path);
+        static XLImageSize parseDimensions(gsl::span<const uint8_t> data);
     };
 
 }    // namespace OpenXLSX

@@ -347,6 +347,7 @@ namespace OpenXLSX
          * @return The internal package path to the image.
          */
         std::string addImage(std::string_view name, std::string_view data);
+        std::string addImage(std::string_view name, gsl::span<const uint8_t> data);
 
         /**
          * @brief Fetch raw image data from the document archive (xl/media/).

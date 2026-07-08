@@ -118,5 +118,40 @@ TEST_CASE("ImageInsertAdvancedAPITests", "[XLImageInsert]")
         doc2.close();
     }
 
+    SECTION("Memory Stream Insertion and Deduplication")
+    {
+        // Read file bytes into a vector
+        std::ifstream file("Tests/test.png", std::ios::binary);
+        REQUIRE(file.is_open());
+        std::vector<uint8_t> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        REQUIRE(buffer.size() > 0);
+
+        // Insert memory image at C5 and identical image at E10
+        REQUIRE_NOTHROW(wks.insertImage("C5", gsl::make_span(buffer)));
+        REQUIRE_NOTHROW(wks.insertImage("E10", gsl::make_span(buffer)));
+
+        doc.save();
+        doc.close();
+
+        // Verification
+        XLDocument doc2;
+        REQUIRE_NOTHROW(doc2.open(__global_unique_testXLImageInsert_0()));
+        auto wks2 = doc2.workbook().worksheet("Sheet1");
+        
+        // Both images should exist on drawing
+        auto images = wks2.images();
+        REQUIRE(images.size() == 2);
+
+        // Verify that there is exactly ONE PNG file inside media folder in ZIP archive (meaning deduplication works!)
+        int pngCount = 0;
+        for (const auto& entry : doc2.archive().entryNames()) {
+            if (entry.find("xl/media/image_") != std::string::npos && entry.find(".png") != std::string::npos) {
+                pngCount++;
+            }
+        }
+        REQUIRE(pngCount == 1);
+        doc2.close();
+    }
+
     std::filesystem::remove(__global_unique_testXLImageInsert_0());
 }

@@ -28,6 +28,19 @@
 
 using namespace OpenXLSX;
 
+namespace
+{
+    uint64_t fnv1a_hash(gsl::span<const uint8_t> data)
+    {
+        uint64_t hash = 0xcbf29ce484222325ULL;
+        for (uint8_t byte : data) {
+            hash ^= byte;
+            hash *= 0x100000001b3ULL;
+        }
+        return hash;
+    }
+}
+
 bool XLWorksheet::hasRelationships() const { return parentDoc().hasSheetRelationships(sheetXmlNumber()); }
 bool XLWorksheet::hasDrawing() const { return parentDoc().hasSheetDrawing(sheetXmlNumber()); }
 bool XLWorksheet::hasVmlDrawing() const { return parentDoc().hasSheetVmlDrawing(sheetXmlNumber()); }
@@ -74,6 +87,28 @@ XLDrawing& XLWorksheet::drawing()
 
 void XLWorksheet::addImage(const std::string&    name,
                            const std::string&    data,
+                           uint32_t              row,
+                           uint32_t              col,
+                           uint32_t              width,
+                           uint32_t              height,
+                           const XLImageOptions& options)
+{
+    std::string internalPath      = parentDoc().addImage(name, data);
+    XLDrawing&  drw               = drawing();
+    std::string drawingPath       = drw.getXmlPath();
+    std::string imageRelativePath = getPathARelativeToPathB(internalPath, drawingPath);
+
+    XLRelationshipItem imgRel;
+    if (!drw.relationships().targetExists(imageRelativePath))
+        imgRel = drw.relationships().addRelationship(XLRelationshipType::Image, imageRelativePath);
+    else
+        imgRel = drw.relationships().relationshipByTarget(imageRelativePath);
+
+    drw.addImage(imgRel.id(), name, "", row, col, width, height, options);
+}
+
+void XLWorksheet::addImage(const std::string&    name,
+                           gsl::span<const uint8_t> data,
                            uint32_t              row,
                            uint32_t              col,
                            uint32_t              width,
@@ -482,8 +517,9 @@ void XLWorksheet::insertImage(const std::string& cellReference, const std::strin
     ss << file.rdbuf();
     std::string data = ss.str();
 
-    // Generate internal name
-    std::string name = "image_openxlsx." + size.extension;
+    // Generate internal name using FNV-1a hash to avoid collisions and enable deduplication
+    uint64_t hashVal = fnv1a_hash(gsl::make_span(reinterpret_cast<const uint8_t*>(data.data()), data.size()));
+    std::string name = "image_" + std::to_string(hashVal) + "." + size.extension;
 
     // Parse coordinate
     XLCellReference ref{std::string(cellReference)};
@@ -496,6 +532,28 @@ void XLWorksheet::insertImage(const std::string& cellReference, const std::strin
 
     // Call addImage with options to correctly generate TwoCell or Absolute anchors
     addImage(name, data, row, col, scaledWidth, scaledHeight, options);
+}
+
+void XLWorksheet::insertImage(const std::string& cellReference, gsl::span<const uint8_t> imageData, const XLImageOptions& options)
+{
+    XLImageSize size = XLImageParser::parseDimensions(imageData);
+    if (!size.valid) throw XLInputError("Invalid or unsupported image file");
+
+    // Generate internal name using FNV-1a hash to avoid collisions and enable deduplication
+    uint64_t hashVal = fnv1a_hash(imageData);
+    std::string name = "image_" + std::to_string(hashVal) + "." + size.extension;
+
+    // Parse coordinate
+    XLCellReference ref{std::string(cellReference)};
+    uint32_t        row = ref.row() - 1;    // 0-indexed for addImage
+    uint16_t        col = ref.column() - 1;
+
+    // Scaled dimensions
+    uint32_t scaledWidth  = static_cast<uint32_t>(size.width * options.scaleX);
+    uint32_t scaledHeight = static_cast<uint32_t>(size.height * options.scaleY);
+
+    // Call span-based addImage to avoid temporary string copies
+    addImage(name, imageData, row, col, scaledWidth, scaledHeight, options);
 }
 
 void XLWorksheet::addShape(std::string_view cellReference, const XLVectorShapeOptions& options)

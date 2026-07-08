@@ -10,6 +10,7 @@
 #    include <string>
 #    include <string_view>
 #    include <vector>
+#    include <gsl/span>
 
 #    include "XLCell.hpp"
 #    include "XLCellRange.hpp"
@@ -417,6 +418,13 @@ namespace OpenXLSX
                             uint32_t              width,
                             uint32_t              height,
                             const XLImageOptions& options = XLImageOptions());
+        void       addImage(const std::string&    name,
+                            gsl::span<const uint8_t> data,
+                            uint32_t              row,
+                            uint32_t              col,
+                            uint32_t              width,
+                            uint32_t              height,
+                            const XLImageOptions& options = XLImageOptions());
 
         /**
          * @brief Insert an image at the specified cell with original dimensions (automatic parsing).
@@ -489,6 +497,7 @@ namespace OpenXLSX
          * @param options An XLImageOptions struct specifying formatting and behavior.
          */
         void insertImage(const std::string& cellReference, const std::string& imagePath, const XLImageOptions& options);
+        void insertImage(const std::string& cellReference, gsl::span<const uint8_t> imageData, const XLImageOptions& options = XLImageOptions{});
         void addScaledImage(const std::string& name, const std::string& data, uint32_t row, uint32_t col, double scalingFactor = 1.0);
         std::vector<XLDrawingItem> images();
 
