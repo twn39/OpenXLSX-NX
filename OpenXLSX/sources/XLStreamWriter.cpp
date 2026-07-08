@@ -13,16 +13,19 @@
 namespace OpenXLSX
 {
 
-    XLStreamWriter::XLStreamWriter(XLWorksheet* worksheet)
+    XLStreamWriter::XLStreamWriter(XLWorksheet* worksheet, bool useSharedStrings, size_t maxUniqueStrings)
         : m_tempPath(std::filesystem::temp_directory_path() /
                      (std::string("openxlsx_stream_") + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "_" +
                           []() -> std::string {
-                         std::mt19937 rng(std::random_device{}());
-                         return std::to_string(rng());
-                     }() + ".xml")),
+                          std::mt19937 rng(std::random_device{}());
+                          return std::to_string(rng());
+                      }() + ".xml")),
           m_stream(m_tempPath, std::ios::binary),
           m_currentRow(worksheet ? worksheet->rowCount() + 1 : 1),
-          m_active(true)
+          m_active(true),
+          m_worksheet(worksheet),
+          m_useSharedStrings(useSharedStrings),
+          m_maxUniqueStrings(maxUniqueStrings)
     {
         if (!m_stream.is_open()) throw XLInternalError("Failed to open temporary stream file: " + m_tempPath.string());
 
@@ -41,19 +44,27 @@ namespace OpenXLSX
           m_currentRow(other.m_currentRow),
           m_active(other.m_active),
           m_bottomHalf(std::move(other.m_bottomHalf)),
-          m_writeBuffer(std::move(other.m_writeBuffer))
+          m_writeBuffer(std::move(other.m_writeBuffer)),
+          m_worksheet(other.m_worksheet),
+          m_useSharedStrings(other.m_useSharedStrings),
+          m_maxUniqueStrings(other.m_maxUniqueStrings),
+          m_localCache(std::move(other.m_localCache))
     { other.m_active = false; }
 
     XLStreamWriter& XLStreamWriter::operator=(XLStreamWriter&& other) noexcept
     {
         if (this != &other) {
             if (m_active) flushSheetDataClose();
-            m_tempPath     = std::move(other.m_tempPath);
-            m_stream       = std::move(other.m_stream);
-            m_currentRow   = other.m_currentRow;
-            m_active       = other.m_active;
-            m_bottomHalf   = std::move(other.m_bottomHalf);
-            m_writeBuffer  = std::move(other.m_writeBuffer);
+            m_tempPath         = std::move(other.m_tempPath);
+            m_stream           = std::move(other.m_stream);
+            m_currentRow       = other.m_currentRow;
+            m_active           = other.m_active;
+            m_bottomHalf       = std::move(other.m_bottomHalf);
+            m_writeBuffer      = std::move(other.m_writeBuffer);
+            m_worksheet        = other.m_worksheet;
+            m_useSharedStrings = other.m_useSharedStrings;
+            m_maxUniqueStrings = other.m_maxUniqueStrings;
+            m_localCache       = std::move(other.m_localCache);
             other.m_active = false;
         }
         return *this;
@@ -108,12 +119,52 @@ namespace OpenXLSX
                 }
 
                 switch (valPtr->type()) {
-                    case XLValueType::String:
-                        m_writeBuffer += R"( t="inlineStr"><is><t xml:space="preserve">)";
-                        appendEscaped(m_writeBuffer, valPtr->get<std::string>());
-                        m_writeBuffer += "</t></is></c>";
+                    case XLValueType::String: {
+                        std::string strVal = valPtr->get<std::string>();
+                        bool writtenAsShared = false;
+                        int32_t sstIdx = -1;
+
+                        if (m_useSharedStrings && m_worksheet) {
+                            // 1. 查找局部缓存
+                            auto it = m_localCache.find(strVal);
+                            if (it != m_localCache.end()) {
+                                sstIdx = it->second;
+                                writtenAsShared = true;
+                            }
+                            else {
+                                // 2. 未命中局部缓存，检查全局 SST 容量
+                                const auto& sst = m_worksheet->parentDoc().sharedStrings();
+                                if (sst.stringExists(strVal)) {
+                                    sstIdx = sst.getStringIndex(strVal);
+                                    writtenAsShared = true;
+                                }
+                                else if (static_cast<size_t>(sst.stringCount()) < m_maxUniqueStrings) {
+                                    sstIdx = sst.getOrCreateStringIndex(strVal);
+                                    
+                                    // 3. 零拷贝存入局部缓存
+                                    if (m_localCache.size() >= kLocalCacheLimit) {
+                                        m_localCache.clear();
+                                    }
+                                    m_localCache.emplace(sst.getStringView(sstIdx), sstIdx);
+                                    writtenAsShared = true;
+                                }
+                            }
+                        }
+
+                        if (writtenAsShared) {
+                            char idxBuf[12];
+                            auto [idxPtr, _] = std::to_chars(idxBuf, idxBuf + sizeof(idxBuf), sstIdx);
+                            m_writeBuffer += R"( t="s"><v>)";
+                            m_writeBuffer.append(idxBuf, idxPtr);
+                            m_writeBuffer += "</v></c>";
+                        }
+                        else {
+                            m_writeBuffer += R"( t="inlineStr"><is><t xml:space="preserve">)";
+                            appendEscaped(m_writeBuffer, std::string(strVal));
+                            m_writeBuffer += "</t></is></c>";
+                        }
                         break;
-                        
+                    }
                     case XLValueType::RichText: {
                         m_writeBuffer += R"( t="inlineStr"><is>)";
                         const auto& rt = valPtr->get<XLRichText>();

@@ -145,7 +145,7 @@ namespace OpenXLSX
          * @brief Starts a high-performance, low-memory stream writer for this worksheet.
          * @warning Initiating a stream writer locks the DOM for this sheet.
          */
-        XLStreamWriter streamWriter();
+        XLStreamWriter streamWriter(bool useSharedStrings = false, size_t maxUniqueStrings = 100000);
 
         /**
          * @brief Create a stream reader for memory efficient reading of large documents

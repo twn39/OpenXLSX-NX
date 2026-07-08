@@ -662,7 +662,7 @@ void XLWorksheet::addSparkline(const std::string& location, const std::string& d
 
 XLStreamReader XLWorksheet::streamReader() const { return XLStreamReader(this); }
 
-XLStreamWriter XLWorksheet::streamWriter()
+XLStreamWriter XLWorksheet::streamWriter(bool useSharedStrings, size_t maxUniqueStrings)
 {
     if (m_xmlData->m_isStreamed && !m_xmlData->m_streamFilePath.empty()) {
         std::error_code ec;
@@ -717,7 +717,7 @@ XLStreamWriter XLWorksheet::streamWriter()
         }
     }
 
-    XLStreamWriter writer(this);
+    XLStreamWriter writer(this, useSharedStrings, maxUniqueStrings);
     writer.m_bottomHalf = bottomHalf;
 
     if (writer.m_stream.is_open()) {

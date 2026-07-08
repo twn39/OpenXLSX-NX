@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+#include "XLSharedStrings.hpp"
+
 namespace OpenXLSX
 {
 
@@ -73,7 +75,7 @@ namespace OpenXLSX
     private:
         friend class XLWorksheet;
 
-        explicit XLStreamWriter(XLWorksheet* worksheet);
+        explicit XLStreamWriter(XLWorksheet* worksheet, bool useSharedStrings = false, size_t maxUniqueStrings = 100000);
 
         template<typename T>
         void appendRowImpl(const std::vector<T>& items);
@@ -94,6 +96,14 @@ namespace OpenXLSX
         // Write buffer — avoids one syscall per cell by coalescing multiple
         // small writes into a single fstream::write() call.
         std::string m_writeBuffer;
+
+        XLWorksheet* m_worksheet{nullptr};
+        bool         m_useSharedStrings{false};
+        size_t       m_maxUniqueStrings{100000};
+
+        // Bounded zero-copy local cache
+        mutable FlatHashMap<std::string_view, int32_t> m_localCache{};
+        static constexpr size_t                       kLocalCacheLimit = 5000;
     };
 
 }    // namespace OpenXLSX
