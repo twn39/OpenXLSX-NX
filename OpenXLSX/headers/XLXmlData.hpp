@@ -8,6 +8,7 @@
 #endif    // _MSC_VER
 
 // ===== External Includes ===== //
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -215,6 +216,11 @@ namespace OpenXLSX
     public:
         bool        m_isStreamed{false};
         std::string m_streamFilePath;
+        /** True while an XLStreamWriter object for this part is still open (not yet close()/destroyed). */
+        bool        m_streamWriterOpen{false};
+        /** Filled by XLStreamWriter::close() for diagnostics / dimension awareness. */
+        uint32_t    m_streamLastRow{0};
+        uint16_t    m_streamMaxCol{0};
     };
 }    // namespace OpenXLSX
 

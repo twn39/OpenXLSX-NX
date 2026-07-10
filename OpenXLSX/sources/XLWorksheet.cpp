@@ -527,6 +527,21 @@ void XLWorksheet::updateDimension()
     }
 }
 
+void XLWorksheet::setStreamWriterOpen(bool open) noexcept
+{
+    if (m_xmlData) m_xmlData->m_streamWriterOpen = open;
+}
+
+void XLWorksheet::setStreamExtents(uint32_t lastRow, uint16_t maxCol) noexcept
+{
+    if (m_xmlData) {
+        m_xmlData->m_streamLastRow = lastRow;
+        m_xmlData->m_streamMaxCol  = maxCol;
+    }
+}
+
+bool XLWorksheet::isStreamedSheet() const noexcept { return m_xmlData && m_xmlData->m_isStreamed; }
+
 std::string XLWorksheet::makeInternalLocation(std::string_view sheetName, std::string_view cellRef)
 {
     std::string result;
@@ -651,15 +666,21 @@ void XLWorksheet::addSparkline(const std::string& location, const std::string& d
     sparkline.setDataRange(formattedRange);
 }
 
-XLStreamReader XLWorksheet::streamReader() const { return XLStreamReader(this); }
+XLStreamReader XLWorksheet::streamReader(const XLStreamReadOptions& options) const { return XLStreamReader(this, options); }
 
 XLStreamWriter XLWorksheet::streamWriter(bool useSharedStrings, size_t maxUniqueStrings)
 {
+    if (m_xmlData->m_streamWriterOpen) {
+        throw XLInputError("XLWorksheet::streamWriter: a stream writer is already active on this worksheet; call close() first");
+    }
+
     if (m_xmlData->m_isStreamed && !m_xmlData->m_streamFilePath.empty()) {
         std::error_code ec;
         if (std::filesystem::exists(m_xmlData->m_streamFilePath, ec)) { std::filesystem::remove(m_xmlData->m_streamFilePath, ec); }
         m_xmlData->m_streamFilePath.clear();
         m_xmlData->m_isStreamed = false;
+        m_xmlData->m_streamLastRow = 0;
+        m_xmlData->m_streamMaxCol  = 0;
     }
 
     XMLDocument& doc       = xmlDocument();

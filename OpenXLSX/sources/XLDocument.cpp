@@ -505,6 +505,16 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
     }
 
     m_filePath = std::string(fileName);
+
+    // Refuse to save while any worksheet still has an open XLStreamWriter (footer / dimension not finalized).
+    for (const auto& item : m_data) {
+        if (item.m_streamWriterOpen) {
+            throw XLInputError(
+                "XLDocument::save: worksheet still has an active XLStreamWriter (" + item.getXmlPath() +
+                "); call XLStreamWriter::close() (or let it go out of scope) before save()");
+        }
+    }
+
     workbook().updateWorksheetDimensions();
 
     // Auto-apply calculation enforcement if any formula was written during this session

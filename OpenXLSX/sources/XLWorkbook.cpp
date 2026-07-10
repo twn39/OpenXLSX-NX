@@ -13,6 +13,7 @@
 #include "XLSheet.hpp"
 #include "XLUtilities.hpp"
 #include "XLWorkbook.hpp"
+#include "XLXmlData.hpp"
 
 using namespace OpenXLSX;
 
@@ -593,7 +594,13 @@ void XLWorkbook::updateSheetReferences(std::string_view oldName, std::string_vie
 
 void XLWorkbook::updateWorksheetDimensions()
 {
-    for (const auto& name : worksheetNames()) { worksheet(name).updateDimension(); }
+    for (const auto& name : worksheetNames()) {
+        auto wks = worksheet(name);
+        // Streamed worksheets pack from a temp file; DOM dimension would be stale / empty.
+        // XLStreamWriter::close() already patches <dimension> in the temp XML.
+        if (wks.isStreamedSheet()) continue;
+        wks.updateDimension();
+    }
 }
 
 void XLWorkbook::setFullCalculationOnLoad()

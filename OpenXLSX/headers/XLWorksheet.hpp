@@ -21,6 +21,7 @@
 #    include "XLPageSetup.hpp"
 #    include "XLRow.hpp"
 #    include "XLSparkline.hpp"
+#    include "XLStreamReader.hpp"
 
 namespace OpenXLSX
 {
@@ -36,7 +37,6 @@ namespace OpenXLSX
     struct XLSlicerOptions;
     class XLSlicerCollection;
     class XLRelationships;
-    class XLStreamReader;
     class XLStreamWriter;
     class XLTableCollection;
     class XLThreadedComments;
@@ -149,9 +149,10 @@ namespace OpenXLSX
 
         /**
          * @brief Create a stream reader for memory efficient reading of large documents
+         * @param options Empty-row policy and optional number-format application.
          * @return An XLStreamReader object.
          */
-        XLStreamReader streamReader() const;
+        XLStreamReader streamReader(const XLStreamReadOptions& options = {}) const;
 
         XLCellAssignable findCell(const std::string& ref) const;
         XLCellAssignable findCell(const XLCellReference& ref) const;
@@ -268,6 +269,14 @@ namespace OpenXLSX
         bool deleteColumn(uint16_t colNumber, uint16_t count = 1);
         void updateSheetName(const std::string& oldName, const std::string& newName);
         void updateDimension();
+
+        /**
+         * @brief Internal: mark whether an XLStreamWriter for this sheet is still open (save guard).
+         * @note Used only by XLStreamWriter (friend).
+         */
+        void setStreamWriterOpen(bool open) noexcept;
+        void setStreamExtents(uint32_t lastRow, uint16_t maxCol) noexcept;
+        bool isStreamedSheet() const noexcept;
 
         XLMergeCells&      merges();
         XLDataValidations& dataValidations();
