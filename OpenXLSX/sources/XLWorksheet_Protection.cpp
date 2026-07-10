@@ -30,10 +30,10 @@ bool XLWorksheet::protect(const XLSheetProtectionOptions& options, std::string_v
 
     XMLNode protNode = sheetNode.insert_child_before("sheetProtection", sheetNode.child("protectedRanges"));
     if (protNode.empty()) {    // If protectedRanges is missing, try inserting before sheetData or something valid... but m_nodeOrder handles appending.
-        protNode = sheetNode.append_child("sheetProtection"); // Temporarily, we will use appendAndSetNodeAttribute to fix order
+        protNode = sheetNode.append_child("sheetProtection"); // Temporarily, we will use setChildAttr to fix order
     }
     
-    // We will build attributes dynamically, but simpler is to use the existing `appendAndSetNodeAttribute` utility
+    // We will build attributes dynamically, but simpler is to use the existing `setChildAttr` utility
     // to guarantee correct node placement according to `m_nodeOrder`.
     
     sheetNode.remove_child("sheetProtection"); // ensure it's clean
@@ -63,9 +63,9 @@ bool XLWorksheet::protect(const XLSheetProtectionOptions& options, std::string_v
     // `(!set ? "true" : "false")` -> if set=true (allowed), the attribute is "false" (not restricted).
     // So the XML attribute means "is_restricted".
     
-    // To keep it clean, let's just use appendAndSetNodeAttribute.
+    // To keep it clean, let's just use setChildAttr.
     auto setAttr = [&](const char* name, bool restricted) {
-        appendAndSetNodeAttribute(sheetNode, "sheetProtection", name, restricted ? "1" : "0", XLKeepAttributes, m_nodeOrder);
+        setChildAttr(sheetNode, "sheetProtection", name, restricted ? "1" : "0", XLKeepAttributes, m_nodeOrder);
     };
 
     // For sheet, objects, scenarios: true means protected (restricted)
@@ -92,7 +92,7 @@ bool XLWorksheet::protect(const XLSheetProtectionOptions& options, std::string_v
 
     if (!password.empty()) {
         std::string hash = ExcelPasswordHashAsString(password);
-        appendAndSetNodeAttribute(sheetNode, "sheetProtection", "password", hash, XLKeepAttributes, m_nodeOrder);
+        setChildAttr(sheetNode, "sheetProtection", "password", hash, XLKeepAttributes, m_nodeOrder);
     }
 
     return true;
@@ -101,26 +101,26 @@ bool XLWorksheet::protect(const XLSheetProtectionOptions& options, std::string_v
 bool XLWorksheet::protectSheet(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "sheet", (set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "sheet", (set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::protectObjects(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "objects", (set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "objects", (set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::protectScenarios(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "scenarios", (set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "scenarios", (set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 
 bool XLWorksheet::allowInsertColumns(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode,
+    return setChildAttr(sheetNode,
                                      "sheetProtection",
                                      "insertColumns",
                                      (!set ? "true" : "false"),
@@ -131,13 +131,13 @@ bool XLWorksheet::allowInsertColumns(bool set)
 bool XLWorksheet::allowInsertRows(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "insertRows", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "insertRows", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::allowDeleteColumns(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode,
+    return setChildAttr(sheetNode,
                                      "sheetProtection",
                                      "deleteColumns",
                                      (!set ? "true" : "false"),
@@ -148,19 +148,19 @@ bool XLWorksheet::allowDeleteColumns(bool set)
 bool XLWorksheet::allowDeleteRows(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "deleteRows", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "deleteRows", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::allowFormatCells(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "formatCells", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "formatCells", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::allowFormatColumns(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode,
+    return setChildAttr(sheetNode,
                                      "sheetProtection",
                                      "formatColumns",
                                      (!set ? "true" : "false"),
@@ -171,13 +171,13 @@ bool XLWorksheet::allowFormatColumns(bool set)
 bool XLWorksheet::allowFormatRows(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "formatRows", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "formatRows", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::allowInsertHyperlinks(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode,
+    return setChildAttr(sheetNode,
                                      "sheetProtection",
                                      "insertHyperlinks",
                                      (!set ? "true" : "false"),
@@ -188,25 +188,25 @@ bool XLWorksheet::allowInsertHyperlinks(bool set)
 bool XLWorksheet::allowSort(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "sort", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "sort", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::allowAutoFilter(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "autoFilter", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "autoFilter", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::allowPivotTables(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "pivotTables", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
+    return setChildAttr(sheetNode, "sheetProtection", "pivotTables", (!set ? "true" : "false"), XLKeepAttributes, m_nodeOrder)
                .empty() == false;
 }
 bool XLWorksheet::allowSelectLockedCells(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode,
+    return setChildAttr(sheetNode,
                                      "sheetProtection",
                                      "selectLockedCells",
                                      (!set ? "true" : "false"),
@@ -217,7 +217,7 @@ bool XLWorksheet::allowSelectLockedCells(bool set)
 bool XLWorksheet::allowSelectUnlockedCells(bool set)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode,
+    return setChildAttr(sheetNode,
                                      "sheetProtection",
                                      "selectUnlockedCells",
                                      (!set ? "true" : "false"),
@@ -229,7 +229,7 @@ bool XLWorksheet::allowSelectUnlockedCells(bool set)
 bool XLWorksheet::setPasswordHash(std::string hash)
 {
     XMLNode sheetNode = xmlDocument().document_element();
-    return appendAndSetNodeAttribute(sheetNode, "sheetProtection", "password", hash, XLKeepAttributes, m_nodeOrder).empty() == false;
+    return setChildAttr(sheetNode, "sheetProtection", "password", hash, XLKeepAttributes, m_nodeOrder).empty() == false;
 }
 
 bool XLWorksheet::setPassword(std::string password)

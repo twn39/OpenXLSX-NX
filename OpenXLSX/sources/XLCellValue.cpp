@@ -16,6 +16,7 @@
 #include "XLCell.hpp"
 #include "XLCellValue.hpp"
 #include "XLException.hpp"
+#include "XLXmlHelpers.hpp"
 
 using namespace OpenXLSX;
 
@@ -390,7 +391,7 @@ void XLCellValueProxy::setInteger(int64_t numberValue)    // NOLINT
     assert(not m_cellNode->empty());    // NOLINT
 
     // ===== If the cell node doesn't have a value child node, create it.
-    if (m_cellNode->child("v").empty()) m_cellNode->append_child("v");
+    ensureChild(*m_cellNode, "v");
 
     // ===== The type ("t") attribute is not required for number values.
     m_cellNode->remove_attribute("t");
@@ -424,14 +425,8 @@ void XLCellValueProxy::setBoolean(bool numberValue)    // NOLINT
     assert(m_cellNode != nullptr);      // NOLINT
     assert(not m_cellNode->empty());    // NOLINT
 
-    // ===== If the cell node doesn't have a type child node, create it.
-    if (m_cellNode->attribute("t").empty()) m_cellNode->append_attribute("t");
-
-    // ===== If the cell node doesn't have a value child node, create it.
-    if (m_cellNode->child("v").empty()) m_cellNode->append_child("v");
-
-    // ===== Set the type attribute.
-    m_cellNode->attribute("t").set_value("b");
+    setAttr(*m_cellNode, "t", "b");
+    ensureChild(*m_cellNode, "v");
 
     // ===== Set the text of the value node.
     m_cellNode->child("v").text().set(numberValue ? "1" : "0");
@@ -458,7 +453,7 @@ void XLCellValueProxy::setFloat(double numberValue)
         assert(not m_cellNode->empty());    // NOLINT
 
         // ===== If the cell node doesn't have a value child node, create it.
-        if (m_cellNode->child("v").empty()) m_cellNode->append_child("v");
+        ensureChild(*m_cellNode, "v");
 
         // ===== The type ("t") attribute is not required for number values.
         m_cellNode->remove_attribute("t");
@@ -493,14 +488,8 @@ void XLCellValueProxy::setString(std::string_view stringValue)    // NOLINT
     assert(m_cellNode != nullptr);      // NOLINT
     assert(not m_cellNode->empty());    // NOLINT
 
-    // ===== If the cell node doesn't have a type child node, create it.
-    if (m_cellNode->attribute("t").empty()) m_cellNode->append_attribute("t");
-
-    // ===== If the cell node doesn't have a value child node, create it.
-    if (m_cellNode->child("v").empty()) m_cellNode->append_child("v");
-
-    // ===== Set the type attribute.
-    m_cellNode->attribute("t").set_value("s");
+    setAttr(*m_cellNode, "t", "s");
+    ensureChild(*m_cellNode, "v");
 
     // ===== Get or create the index in the XLSharedStrings object.
     // OPTIMIZED: Use getOrCreateStringIndex() for O(1) lookup instead of separate stringExists() + getStringIndex()/appendString()

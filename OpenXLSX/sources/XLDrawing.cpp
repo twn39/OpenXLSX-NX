@@ -121,7 +121,7 @@ bool elementTextAsBool(XMLNode const& node)
     return false;
 }
 
-std::string       XLShapeClientData::objectType() const { return appendAndGetAttribute(m_clientDataNode, "ObjectType", "Note").value(); }
+std::string       XLShapeClientData::objectType() const { return ensureAttr(m_clientDataNode, "ObjectType", "Note").value(); }
 bool              XLShapeClientData::moveWithCells() const { return elementTextAsBool(m_clientDataNode.child("x:MoveWithCells")); }
 bool              XLShapeClientData::sizeWithCells() const { return elementTextAsBool(m_clientDataNode.child("x:SizeWithCells")); }
 std::string       XLShapeClientData::anchor() const { return m_clientDataNode.child("x:Anchor").value(); }
@@ -131,44 +131,44 @@ XLShapeTextVAlign XLShapeClientData::textVAlign() const
 XLShapeTextHAlign XLShapeClientData::textHAlign() const
 { return XLShapeTextHAlignFromString(m_clientDataNode.child("x:TextHAlign").text().get()); }
 uint32_t XLShapeClientData::row() const
-{ return appendAndGetNode(m_clientDataNode, "x:Row", m_nodeOrder, XLForceNamespace).text().as_uint(0); }
+{ return ensureChild(m_clientDataNode, "x:Row", m_nodeOrder, XLForceNamespace).text().as_uint(0); }
 uint16_t XLShapeClientData::column() const
-{ return static_cast<uint16_t>(appendAndGetNode(m_clientDataNode, "x:Column", m_nodeOrder, XLForceNamespace).text().as_uint(0)); }
+{ return static_cast<uint16_t>(ensureChild(m_clientDataNode, "x:Column", m_nodeOrder, XLForceNamespace).text().as_uint(0)); }
 
 bool XLShapeClientData::setObjectType(std::string_view newObjectType)
-{ return appendAndSetAttribute(m_clientDataNode, "ObjectType", std::string(newObjectType)).empty() == false; }
+{ return setAttr(m_clientDataNode, "ObjectType", std::string(newObjectType)).empty() == false; }
 
 bool XLShapeClientData::setMoveWithCells(bool set)
-{ return appendAndGetNode(m_clientDataNode, "x:MoveWithCells", m_nodeOrder, XLForceNamespace).text().set(set ? "" : "False"); }
+{ return ensureChild(m_clientDataNode, "x:MoveWithCells", m_nodeOrder, XLForceNamespace).text().set(set ? "" : "False"); }
 
 bool XLShapeClientData::setSizeWithCells(bool set)
-{ return appendAndGetNode(m_clientDataNode, "x:SizeWithCells", m_nodeOrder, XLForceNamespace).text().set(set ? "" : "False"); }
+{ return ensureChild(m_clientDataNode, "x:SizeWithCells", m_nodeOrder, XLForceNamespace).text().set(set ? "" : "False"); }
 
 bool XLShapeClientData::setAnchor(std::string_view newAnchor)
-{ return appendAndGetNode(m_clientDataNode, "x:Anchor", m_nodeOrder, XLForceNamespace).text().set(std::string(newAnchor).c_str()); }
+{ return ensureChild(m_clientDataNode, "x:Anchor", m_nodeOrder, XLForceNamespace).text().set(std::string(newAnchor).c_str()); }
 
 bool XLShapeClientData::setAutoFill(bool set)
-{ return appendAndGetNode(m_clientDataNode, "x:AutoFill", m_nodeOrder, XLForceNamespace).text().set(set ? "True" : "False"); }
+{ return ensureChild(m_clientDataNode, "x:AutoFill", m_nodeOrder, XLForceNamespace).text().set(set ? "True" : "False"); }
 
 bool XLShapeClientData::setTextVAlign(XLShapeTextVAlign newTextVAlign)
 {
-    return appendAndGetNode(m_clientDataNode, "x:TextVAlign", m_nodeOrder, XLForceNamespace)
+    return ensureChild(m_clientDataNode, "x:TextVAlign", m_nodeOrder, XLForceNamespace)
         .text()
         .set(XLShapeTextVAlignToString(newTextVAlign).c_str());
 }
 
 bool XLShapeClientData::setTextHAlign(XLShapeTextHAlign newTextHAlign)
 {
-    return appendAndGetNode(m_clientDataNode, "x:TextHAlign", m_nodeOrder, XLForceNamespace)
+    return ensureChild(m_clientDataNode, "x:TextHAlign", m_nodeOrder, XLForceNamespace)
         .text()
         .set(XLShapeTextHAlignToString(newTextHAlign).c_str());
 }
 
 bool XLShapeClientData::setRow(uint32_t newRow)
-{ return appendAndGetNode(m_clientDataNode, "x:Row", m_nodeOrder, XLForceNamespace).text().set(newRow); }
+{ return ensureChild(m_clientDataNode, "x:Row", m_nodeOrder, XLForceNamespace).text().set(newRow); }
 
 bool XLShapeClientData::setColumn(uint16_t newColumn)
-{ return appendAndGetNode(m_clientDataNode, "x:Column", m_nodeOrder, XLForceNamespace).text().set(newColumn); }
+{ return ensureChild(m_clientDataNode, "x:Column", m_nodeOrder, XLForceNamespace).text().set(newColumn); }
 
 XLShapeStyle::XLShapeStyle() : m_style(""), m_styleAttribute(XMLAttribute())
 {
@@ -329,23 +329,23 @@ XLShape::XLShape() : m_shapeNode() {}
 XLShape::XLShape(const XMLNode& node) : m_shapeNode(node) {}
 
 std::string  XLShape::shapeId() const { return m_shapeNode.attribute("id").value(); }
-std::string  XLShape::fillColor() const { return appendAndGetAttribute(m_shapeNode, "fillcolor", "#ffffc0").value(); }
-bool         XLShape::stroked() const { return appendAndGetAttribute(m_shapeNode, "stroked", "t").as_bool(); }
-std::string  XLShape::type() const { return appendAndGetAttribute(m_shapeNode, "type", "").value(); }
-bool         XLShape::allowInCell() const { return appendAndGetAttribute(m_shapeNode, "o:allowincell", "f").as_bool(); }
-XLShapeStyle XLShape::style() { return XLShapeStyle(appendAndGetAttribute(m_shapeNode, "style", "")); }
+std::string  XLShape::fillColor() const { return ensureAttr(m_shapeNode, "fillcolor", "#ffffc0").value(); }
+bool         XLShape::stroked() const { return ensureAttr(m_shapeNode, "stroked", "t").as_bool(); }
+std::string  XLShape::type() const { return ensureAttr(m_shapeNode, "type", "").value(); }
+bool         XLShape::allowInCell() const { return ensureAttr(m_shapeNode, "o:allowincell", "f").as_bool(); }
+XLShapeStyle XLShape::style() { return XLShapeStyle(ensureAttr(m_shapeNode, "style", "")); }
 
 XLShapeClientData XLShape::clientData()
-{ return XLShapeClientData(appendAndGetNode(m_shapeNode, "x:ClientData", m_nodeOrder, XLForceNamespace)); }
+{ return XLShapeClientData(ensureChild(m_shapeNode, "x:ClientData", m_nodeOrder, XLForceNamespace)); }
 
 bool XLShape::setFillColor(std::string_view newFillColor)
-{ return appendAndSetAttribute(m_shapeNode, "fillcolor", std::string(newFillColor)).empty() == false; }
-bool XLShape::setStroked(bool set) { return appendAndSetAttribute(m_shapeNode, "stroked", (set ? "t" : "f")).empty() == false; }
+{ return setAttr(m_shapeNode, "fillcolor", std::string(newFillColor)).empty() == false; }
+bool XLShape::setStroked(bool set) { return setAttr(m_shapeNode, "stroked", (set ? "t" : "f")).empty() == false; }
 bool XLShape::setType(std::string_view newType)
-{ return appendAndSetAttribute(m_shapeNode, "type", std::string(newType)).empty() == false; }
-bool XLShape::setAllowInCell(bool set) { return appendAndSetAttribute(m_shapeNode, "o:allowincell", (set ? "t" : "f")).empty() == false; }
+{ return setAttr(m_shapeNode, "type", std::string(newType)).empty() == false; }
+bool XLShape::setAllowInCell(bool set) { return setAttr(m_shapeNode, "o:allowincell", (set ? "t" : "f")).empty() == false; }
 bool XLShape::setStyle(std::string_view newStyle)
-{ return appendAndSetAttribute(m_shapeNode, "style", std::string(newStyle)).empty() == false; }
+{ return setAttr(m_shapeNode, "style", std::string(newStyle)).empty() == false; }
 bool XLShape::setStyle(XLShapeStyle const& newStyle) { return setStyle(newStyle.raw()); }
 
 XLVmlDrawing::XLVmlDrawing(gsl::not_null<XLXmlData*> xmlData) : XLXmlFile(xmlData)
@@ -424,25 +424,25 @@ XLVmlDrawing::XLVmlDrawing(gsl::not_null<XLXmlData*> xmlData) : XLXmlFile(xmlDat
         shapeTypeNode.append_child(pugi::node_pcdata).set_value("\n\t");    // insert indentation if node was empty
 
     // ===== Ensure that attributes exist for first shapetype node, default-initialize if needed:
-    m_defaultShapeTypeId = appendAndGetAttribute(shapeTypeNode, "id", "_x0000_t202").value();
-    appendAndGetAttribute(shapeTypeNode, "coordsize", "21600,21600");
-    appendAndGetAttribute(shapeTypeNode, "o:spt", "202");
-    appendAndGetAttribute(shapeTypeNode, "path", "m,l,21600l21600,21600l21600,xe");
+    m_defaultShapeTypeId = ensureAttr(shapeTypeNode, "id", "_x0000_t202").value();
+    ensureAttr(shapeTypeNode, "coordsize", "21600,21600");
+    ensureAttr(shapeTypeNode, "o:spt", "202");
+    ensureAttr(shapeTypeNode, "path", "m,l,21600l21600,21600l21600,xe");
 
     XMLNode strokeNode = shapeTypeNode.child("v:stroke");
     if (strokeNode.empty()) {
         strokeNode = shapeTypeNode.prepend_child("v:stroke", XLForceNamespace);
         shapeTypeNode.prepend_child(pugi::node_pcdata).set_value("\n\t\t");
     }
-    appendAndGetAttribute(strokeNode, "joinstyle", "miter");
+    ensureAttr(strokeNode, "joinstyle", "miter");
 
     XMLNode pathNode = shapeTypeNode.child("v:path");
     if (pathNode.empty()) {
         pathNode = shapeTypeNode.insert_child_after("v:path", strokeNode, XLForceNamespace);
         copyLeadingWhitespaces(shapeTypeNode, strokeNode, pathNode);
     }
-    appendAndGetAttribute(pathNode, "gradientshapeok", "t");
-    appendAndGetAttribute(pathNode, "o:connecttype", "rect");
+    ensureAttr(pathNode, "gradientshapeok", "t");
+    ensureAttr(pathNode, "o:connecttype", "rect");
 }
 
 XMLNode XLVmlDrawing::firstShapeNode() const

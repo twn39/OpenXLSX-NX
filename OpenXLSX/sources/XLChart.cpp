@@ -749,10 +749,7 @@ namespace OpenXLSX
         XMLNode styleNode = rootNode.child("c:style");
         if (styleNode.empty()) { styleNode = rootNode.insert_child_after("c:style", rootNode.child("c:chart")); }
 
-        if (styleNode.attribute("val").empty()) { styleNode.append_attribute("val").set_value(styleId); }
-        else {
-            styleNode.attribute("val").set_value(styleId);
-        }
+        setAttr(styleNode, "val", styleId);
     }
 
     void XLChart::setLegendPosition(XLLegendPosition position)
@@ -790,7 +787,7 @@ namespace OpenXLSX
                 break;
         }
 
-        if (legendNode.child("c:overlay").empty()) { legendNode.append_child("c:overlay").append_attribute("val").set_value("0"); }
+        setChildVal(legendNode, "c:overlay", "0");
     }
 
 }    // namespace OpenXLSX
@@ -847,7 +844,7 @@ void XLAxis::setTitle(std::string_view title)
 {
     if (m_node.empty() || title.empty()) return;
     m_node.remove_child("c:title");
-    XMLNode titleNode = appendAndGetNode(m_node, "c:title", XLAxisNodeOrder);
+    XMLNode titleNode = ensureChild(m_node, "c:title", XLAxisNodeOrder);
 
     XMLNode txNode   = titleNode.append_child("c:tx");
     XMLNode richNode = txNode.append_child("c:rich");
@@ -864,9 +861,9 @@ void XLAxis::setMinBounds(double min)
 {
     if (m_node.empty()) return;
     XMLNode scaling = m_node.child("c:scaling");
-    if (scaling.empty()) scaling = appendAndGetNode(m_node, "c:scaling", XLAxisNodeOrder);
-    XMLNode minNode = appendAndGetNode(scaling, "c:min", XLScalingNodeOrder);
-    minNode.attribute("val") ? minNode.attribute("val").set_value(min) : minNode.append_attribute("val").set_value(min);
+    if (scaling.empty()) scaling = ensureChild(m_node, "c:scaling", XLAxisNodeOrder);
+    XMLNode minNode = ensureChild(scaling, "c:min", XLScalingNodeOrder);
+    setAttr(minNode, "val", min);
 }
 
 void XLAxis::clearMinBounds()
@@ -879,9 +876,9 @@ void XLAxis::setMaxBounds(double max)
 {
     if (m_node.empty()) return;
     XMLNode scaling = m_node.child("c:scaling");
-    if (scaling.empty()) scaling = appendAndGetNode(m_node, "c:scaling", XLAxisNodeOrder);
-    XMLNode maxNode = appendAndGetNode(scaling, "c:max", XLScalingNodeOrder);
-    maxNode.attribute("val") ? maxNode.attribute("val").set_value(max) : maxNode.append_attribute("val").set_value(max);
+    if (scaling.empty()) scaling = ensureChild(m_node, "c:scaling", XLAxisNodeOrder);
+    XMLNode maxNode = ensureChild(scaling, "c:max", XLScalingNodeOrder);
+    setAttr(maxNode, "val", max);
 }
 
 void XLAxis::clearMaxBounds()
@@ -893,30 +890,30 @@ void XLAxis::clearMaxBounds()
 void XLAxis::setMajorUnit(double unit)
 {
     if (m_node.empty()) return;
-    XMLNode node = appendAndGetNode(m_node, "c:majorUnit", XLAxisNodeOrder);
-    node.attribute("val") ? node.attribute("val").set_value(unit) : node.append_attribute("val").set_value(unit);
+    XMLNode node = ensureChild(m_node, "c:majorUnit", XLAxisNodeOrder);
+    setAttr(node, "val", unit);
 }
 
 void XLAxis::setMinorUnit(double unit)
 {
     if (m_node.empty()) return;
-    XMLNode node = appendAndGetNode(m_node, "c:minorUnit", XLAxisNodeOrder);
-    node.attribute("val") ? node.attribute("val").set_value(unit) : node.append_attribute("val").set_value(unit);
+    XMLNode node = ensureChild(m_node, "c:minorUnit", XLAxisNodeOrder);
+    setAttr(node, "val", unit);
 }
 
 void XLAxis::setLogScale(double base)
 {
     if (m_node.empty()) return;
     XMLNode scaling = m_node.child("c:scaling");
-    if (scaling.empty()) scaling = appendAndGetNode(m_node, "c:scaling", XLAxisNodeOrder);
+    if (scaling.empty()) scaling = ensureChild(m_node, "c:scaling", XLAxisNodeOrder);
 
     if (base <= 1.0) {
         scaling.remove_child("c:logBase");
         return;
     }
 
-    XMLNode logBase = appendAndGetNode(scaling, "c:logBase", XLScalingNodeOrder);
-    logBase.attribute("val") ? logBase.attribute("val").set_value(base) : logBase.append_attribute("val").set_value(base);
+    XMLNode logBase = ensureChild(scaling, "c:logBase", XLScalingNodeOrder);
+    setAttr(logBase, "val", base);
 }
 
 void XLAxis::setDateAxis(bool isDateAxis)
@@ -938,18 +935,17 @@ void XLAxis::setOrientation(XLAxisOrientation orientation)
 {
     if (m_node.empty()) return;
     XMLNode scaling = m_node.child("c:scaling");
-    if (scaling.empty()) scaling = appendAndGetNode(m_node, "c:scaling", XLAxisNodeOrder);
-    XMLNode orientationNode = appendAndGetNode(scaling, "c:orientation", XLScalingNodeOrder);
+    if (scaling.empty()) scaling = ensureChild(m_node, "c:scaling", XLAxisNodeOrder);
+    XMLNode orientationNode = ensureChild(scaling, "c:orientation", XLScalingNodeOrder);
 
-    orientationNode.attribute("val") ? orientationNode.attribute("val").set_value(orientation == XLAxisOrientation::MinMax ? "minMax" : "maxMin")
-                                    : orientationNode.append_attribute("val").set_value(orientation == XLAxisOrientation::MinMax ? "minMax" : "maxMin");
+    setAttr(orientationNode, "val", orientation == XLAxisOrientation::MinMax ? "minMax" : "maxMin");
 }
 
 void XLAxis::setCrosses(XLAxisCrosses crosses)
 {
     if (m_node.empty()) return;
     m_node.remove_child("c:crossesAt");
-    XMLNode crossesNode = appendAndGetNode(m_node, "c:crosses", XLAxisNodeOrder);
+    XMLNode crossesNode = ensureChild(m_node, "c:crosses", XLAxisNodeOrder);
 
     const char* val = "autoZero";
     switch (crosses) {
@@ -963,22 +959,22 @@ void XLAxis::setCrosses(XLAxisCrosses crosses)
             val = "max";
             break;
     }
-    crossesNode.attribute("val") ? crossesNode.attribute("val").set_value(val) : crossesNode.append_attribute("val").set_value(val);
+    setAttr(crossesNode, "val", val);
 }
 
 void XLAxis::setCrossesAt(double value)
 {
     if (m_node.empty()) return;
     m_node.remove_child("c:crosses");
-    XMLNode crossesAtNode = appendAndGetNode(m_node, "c:crossesAt", XLAxisNodeOrder);
-    crossesAtNode.attribute("val") ? crossesAtNode.attribute("val").set_value(value) : crossesAtNode.append_attribute("val").set_value(value);
+    XMLNode crossesAtNode = ensureChild(m_node, "c:crossesAt", XLAxisNodeOrder);
+    setAttr(crossesAtNode, "val", value);
 }
 
 void XLAxis::setMajorGridlines(bool show)
 {
     if (m_node.empty()) return;
     if (show) {
-        if (m_node.child("c:majorGridlines").empty()) { appendAndGetNode(m_node, "c:majorGridlines", XLAxisNodeOrder); }
+        if (m_node.child("c:majorGridlines").empty()) { ensureChild(m_node, "c:majorGridlines", XLAxisNodeOrder); }
     }
     else {
         m_node.remove_child("c:majorGridlines");
@@ -989,7 +985,7 @@ void XLAxis::setMinorGridlines(bool show)
 {
     if (m_node.empty()) return;
     if (show) {
-        if (m_node.child("c:minorGridlines").empty()) { appendAndGetNode(m_node, "c:minorGridlines", XLAxisNodeOrder); }
+        if (m_node.child("c:minorGridlines").empty()) { ensureChild(m_node, "c:minorGridlines", XLAxisNodeOrder); }
     }
     else {
         m_node.remove_child("c:minorGridlines");
@@ -1044,9 +1040,8 @@ void XLChart::setSeriesSmooth(uint32_t seriesIndex, bool smooth)
     XMLNode serNode = getSeriesNode(xmlDocument(), seriesIndex);
     if (serNode.empty()) return;
 
-    XMLNode smoothNode = appendAndGetNode(serNode, "c:smooth", XLSeriesNodeOrder);
-    smoothNode.attribute("val") ? smoothNode.attribute("val").set_value(smooth ? "1" : "0")
-                                : smoothNode.append_attribute("val").set_value(smooth ? "1" : "0");
+    XMLNode smoothNode = ensureChild(serNode, "c:smooth", XLSeriesNodeOrder);
+    setAttr(smoothNode, "val", smooth ? "1" : "0");
 }
 
 void XLChart::setSeriesMarker(uint32_t seriesIndex, XLMarkerStyle style)
@@ -1059,9 +1054,8 @@ void XLChart::setSeriesMarker(uint32_t seriesIndex, XLMarkerStyle style)
         return;
     }
 
-    XMLNode markerNode = appendAndGetNode(serNode, "c:marker", XLSeriesNodeOrder);
-    XMLNode symbolNode = markerNode.child("c:symbol");
-    if (symbolNode.empty()) symbolNode = markerNode.append_child("c:symbol");
+    XMLNode markerNode = ensureChild(serNode, "c:marker", XLSeriesNodeOrder);
+    XMLNode symbolNode = ensureChild(markerNode, "c:symbol");
 
     std::string val = "none";
     switch (style) {
@@ -1100,8 +1094,7 @@ void XLChart::setSeriesMarker(uint32_t seriesIndex, XLMarkerStyle style)
             val = "none";
             break;
     }
-    symbolNode.attribute("val") ? symbolNode.attribute("val").set_value(val.c_str())
-                                : symbolNode.append_attribute("val").set_value(val.c_str());
+    setAttr(symbolNode, "val", val.c_str());
 }
 
 XLChartSeries::XLChartSeries(const XMLNode& node) : m_node(node) {}
@@ -1109,7 +1102,7 @@ XLChartSeries::XLChartSeries(const XMLNode& node) : m_node(node) {}
 XLChartSeries& XLChartSeries::setTitle(std::string_view title)
 {
     if (m_node.empty()) return *this;
-    XMLNode txNode = appendAndGetNode(m_node, "c:tx", XLSeriesNodeOrder);
+    XMLNode txNode = ensureChild(m_node, "c:tx", XLSeriesNodeOrder);
 
     txNode.remove_child("c:v");
     txNode.remove_child("c:strRef");
@@ -1126,9 +1119,8 @@ XLChartSeries& XLChartSeries::setTitle(std::string_view title)
 XLChartSeries& XLChartSeries::setSmooth(bool smooth)
 {
     if (m_node.empty()) return *this;
-    XMLNode smoothNode = appendAndGetNode(m_node, "c:smooth", XLSeriesNodeOrder);
-    smoothNode.attribute("val") ? smoothNode.attribute("val").set_value(smooth ? "1" : "0")
-                                : smoothNode.append_attribute("val").set_value(smooth ? "1" : "0");
+    XMLNode smoothNode = ensureChild(m_node, "c:smooth", XLSeriesNodeOrder);
+    setAttrBool01(smoothNode, "val", smooth);
     return *this;
 }
 
@@ -1141,9 +1133,8 @@ XLChartSeries& XLChartSeries::setMarkerStyle(XLMarkerStyle style)
         return *this;
     }
 
-    XMLNode markerNode = appendAndGetNode(m_node, "c:marker", XLSeriesNodeOrder);
-    XMLNode symbolNode = markerNode.child("c:symbol");
-    if (symbolNode.empty()) symbolNode = markerNode.append_child("c:symbol");
+    XMLNode markerNode = ensureChild(m_node, "c:marker", XLSeriesNodeOrder);
+    XMLNode symbolNode = ensureChild(markerNode, "c:symbol");
 
     std::string val = "none";
     switch (style) {
@@ -1183,8 +1174,7 @@ XLChartSeries& XLChartSeries::setMarkerStyle(XLMarkerStyle style)
             break;
     }
 
-    symbolNode.attribute("val") ? symbolNode.attribute("val").set_value(val.c_str())
-                                : symbolNode.append_attribute("val").set_value(val.c_str());
+    setAttr(symbolNode, "val", val.c_str());
     return *this;
 }
 
@@ -1193,7 +1183,7 @@ XLChartSeries& XLChartSeries::setDataLabels(bool showValue, bool showCategoryNam
     if (m_node.empty()) return *this;
 
     XMLNode dLblsNode = m_node.child("c:dLbls");
-    if (dLblsNode.empty()) { dLblsNode = appendAndGetNode(m_node, "c:dLbls", XLSeriesNodeOrder); }
+    if (dLblsNode.empty()) { dLblsNode = ensureChild(m_node, "c:dLbls", XLSeriesNodeOrder); }
 
     // Clean up old configuration to overwrite cleanly
     dLblsNode.remove_children();
@@ -1314,17 +1304,13 @@ XLChartSeries& XLChartSeries::setDataLabelsFromRange(const XLWorksheet& wks, con
     if (m_node.empty()) return *this;
 
     XMLNode dLblsNode = m_node.child("c:dLbls");
-    if (dLblsNode.empty()) { dLblsNode = appendAndGetNode(m_node, "c:dLbls", XLSeriesNodeOrder); }
+    if (dLblsNode.empty()) { dLblsNode = ensureChild(m_node, "c:dLbls", XLSeriesNodeOrder); }
 
     // Ensure we don't show standard values if using range labels
-    if (dLblsNode.child("c:showVal").empty()) { dLblsNode.append_child("c:showVal").append_attribute("val").set_value("0"); }
-    else {
-        dLblsNode.child("c:showVal").attribute("val").set_value("0");
-    }
+    setChildVal(dLblsNode, "c:showVal", "0");
 
     // Add Excel 2013 extension for "Value from Cells"
-    XMLNode extLst = dLblsNode.child("c:extLst");
-    if (extLst.empty()) extLst = dLblsNode.append_child("c:extLst");
+    XMLNode extLst = ensureChild(dLblsNode, "c:extLst");
 
     XMLNode extNode;
     const char* uri = "{02D1E70F-994E-4017-B221-5B3F49A6E1E4}";
@@ -1483,7 +1469,7 @@ void XLAxis::setNumberFormat(std::string_view formatCode, bool sourceLinked)
     XMLNode numFmt = m_node.child("c:numFmt");
     if (numFmt.empty()) {
         // Insert after axPos/delete but before other elements
-        numFmt = appendAndGetNode(m_node, "c:numFmt", XLAxisNodeOrder);
+        numFmt = ensureChild(m_node, "c:numFmt", XLAxisNodeOrder);
     }
 
     // Set or overwrite attributes
@@ -1576,13 +1562,8 @@ void XLChart::setRotation(uint16_t x, uint16_t y, uint16_t perspective)
     }
 
     auto setVal = [](XMLNode parent, const char* name, uint16_t val) {
-        XMLNode node = parent.child(name);
-        if (node.empty()) node = parent.append_child(name);
-        XMLAttribute attr = node.attribute("val");
-        if (attr.empty())
-            node.append_attribute("val").set_value(val);
-        else
-            attr.set_value(val);
+        XMLNode node = ensureChild(parent, name);
+        setAttr(node, "val", val);
     };
 
     setVal(view3D, "c:rotX", x);
@@ -1703,16 +1684,10 @@ XLChartSeries& XLChartSeries::setLineWidth(double points)
             spPr = m_node.append_child("c:spPr");
     }
 
-    XMLNode ln = spPr.child("a:ln");
-    if (ln.empty()) ln = spPr.append_child("a:ln");
+    XMLNode ln = ensureChild(spPr, "a:ln");
 
     uint64_t emus = static_cast<uint64_t>(points * 12700.0);
-    XMLAttribute wAttr = ln.attribute("w");
-    if (wAttr.empty()) {
-        ln.append_attribute("w").set_value(emus);
-    } else {
-        wAttr.set_value(emus);
-    }
+    setAttr(ln, "w", emus);
 
     return *this;
 }
@@ -1737,8 +1712,7 @@ XLChartSeries& XLChartSeries::setLineDash(XLLineDashType dashType)
             spPr = m_node.append_child("c:spPr");
     }
 
-    XMLNode ln = spPr.child("a:ln");
-    if (ln.empty()) ln = spPr.append_child("a:ln");
+    XMLNode ln = ensureChild(spPr, "a:ln");
 
     if (dashType == XLLineDashType::Unset) {
         ln.remove_child("a:prstDash");
@@ -1760,14 +1734,7 @@ XLChartSeries& XLChartSeries::setLineDash(XLLineDashType dashType)
         default:                           val = "solid"; break;
     }
 
-    XMLNode prstDash = ln.child("a:prstDash");
-    if (prstDash.empty()) prstDash = ln.append_child("a:prstDash");
-    XMLAttribute valAttr = prstDash.attribute("val");
-    if (valAttr.empty()) {
-        prstDash.append_attribute("val").set_value(val);
-    } else {
-        valAttr.set_value(val);
-    }
+    setChildAttr(ln, "a:prstDash", "val", val);
 
     return *this;
 }
@@ -1778,7 +1745,7 @@ void XLAxis::setTickLabelPosition(XLAxisTickLabelPosition position)
 
     XMLNode tickLblPosNode = m_node.child("c:tickLblPos");
     if (tickLblPosNode.empty()) {
-        tickLblPosNode = appendAndGetNode(m_node, "c:tickLblPos", XLAxisNodeOrder);
+        tickLblPosNode = ensureChild(m_node, "c:tickLblPos", XLAxisNodeOrder);
     }
 
     const char* val = "nextTo";

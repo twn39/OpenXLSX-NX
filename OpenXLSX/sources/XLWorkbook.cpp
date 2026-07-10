@@ -196,7 +196,7 @@ XLDefinedNames XLWorkbook::definedNames()
 {
     auto    rootNode = xmlDocument().document_element();
     XMLNode dnNode   = rootNode.child("definedNames");
-    if (dnNode.empty()) { dnNode = appendAndGetNode(rootNode, "definedNames", XLWorkbookNodeOrder); }
+    if (dnNode.empty()) { dnNode = ensureChild(rootNode, "definedNames", XLWorkbookNodeOrder); }
     return XLDefinedNames(dnNode);
 }
 
@@ -600,7 +600,7 @@ void XLWorkbook::setFullCalculationOnLoad()
 {
     auto    root   = xmlDocument().document_element();
     XMLNode calcPr = root.child("calcPr");
-    if (calcPr.empty()) { calcPr = appendAndGetNode(root, "calcPr", XLWorkbookNodeOrder); }
+    if (calcPr.empty()) { calcPr = ensureChild(root, "calcPr", XLWorkbookNodeOrder); }
 
     auto setAttr = [&](const char* name, bool val) {
         auto attr = calcPr.attribute(name);
@@ -616,7 +616,7 @@ void XLWorkbook::protect(bool lockStructure, bool lockWindows, std::string_view 
 {
     auto    root        = xmlDocument().document_element();
     XMLNode protectNode = root.child("workbookProtection");
-    if (protectNode.empty()) { protectNode = appendAndGetNode(root, "workbookProtection", XLWorkbookNodeOrder); }
+    if (protectNode.empty()) { protectNode = ensureChild(root, "workbookProtection", XLWorkbookNodeOrder); }
 
     auto setAttr = [&](const char* name, std::string_view val) {
         auto attr = protectNode.attribute(std::string(name).c_str());

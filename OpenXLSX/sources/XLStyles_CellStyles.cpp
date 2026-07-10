@@ -42,17 +42,17 @@ bool         XLCellStyle::hidden() const { return m_cellStyleNode->attribute("hi
 bool         XLCellStyle::customBuiltin() const { return m_cellStyleNode->attribute("customBuiltin").as_bool(); }
 
 bool XLCellStyle::setName(std::string_view newName)
-{ return appendAndSetAttribute(*m_cellStyleNode, "name", std::string(newName)).empty() == false; }
+{ return setAttr(*m_cellStyleNode, "name", std::string(newName)).empty() == false; }
 bool XLCellStyle::setXfId(XLStyleIndex newXfId)
-{ return appendAndSetAttribute(*m_cellStyleNode, "xfId", std::to_string(newXfId)).empty() == false; }
+{ return setAttr(*m_cellStyleNode, "xfId", std::to_string(newXfId)).empty() == false; }
 bool XLCellStyle::setBuiltinId(uint32_t newBuiltinId)
-{ return appendAndSetAttribute(*m_cellStyleNode, "builtinId", std::to_string(newBuiltinId)).empty() == false; }
+{ return setAttr(*m_cellStyleNode, "builtinId", std::to_string(newBuiltinId)).empty() == false; }
 bool XLCellStyle::setOutlineStyle(uint32_t newOutlineStyle)
-{ return appendAndSetAttribute(*m_cellStyleNode, "iLevel", std::to_string(newOutlineStyle)).empty() == false; }
+{ return setAttr(*m_cellStyleNode, "iLevel", std::to_string(newOutlineStyle)).empty() == false; }
 bool XLCellStyle::setHidden(bool set)
-{ return appendAndSetAttribute(*m_cellStyleNode, "hidden", (set ? "true" : "false")).empty() == false; }
+{ return setAttr(*m_cellStyleNode, "hidden", (set ? "true" : "false")).empty() == false; }
 bool XLCellStyle::setCustomBuiltin(bool set)
-{ return appendAndSetAttribute(*m_cellStyleNode, "customBuiltin", (set ? "true" : "false")).empty() == false; }
+{ return setAttr(*m_cellStyleNode, "customBuiltin", (set ? "true" : "false")).empty() == false; }
 
 /**
  * @brief Unsupported setter function
@@ -152,6 +152,6 @@ XLStyleIndex XLCellStyles::create(XLCellStyle copyFrom, std::string_view styleEn
         copyXMLNode(newNode, *copyFrom.m_cellStyleNode);
 
     m_cellStyles.push_back(newCellStyle);
-    appendAndSetAttribute(*m_cellStylesNode, "count", std::to_string(m_cellStyles.size()));
+    setAttr(*m_cellStylesNode, "count", std::to_string(m_cellStyles.size()));
     return index;
 }

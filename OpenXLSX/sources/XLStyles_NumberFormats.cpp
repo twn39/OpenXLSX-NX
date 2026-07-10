@@ -36,9 +36,9 @@ uint32_t XLNumberFormat::numberFormatId() const { return m_numberFormatNode->att
 std::string XLNumberFormat::formatCode() const { return m_numberFormatNode->attribute("formatCode").value(); }
 
 bool XLNumberFormat::setNumberFormatId(uint32_t newNumberFormatId)
-{ return appendAndSetAttribute(*m_numberFormatNode, "numFmtId", std::to_string(newNumberFormatId)).empty() == false; }
+{ return setAttr(*m_numberFormatNode, "numFmtId", std::to_string(newNumberFormatId)).empty() == false; }
 bool XLNumberFormat::setFormatCode(std::string_view newFormatCode)
-{ return appendAndSetAttribute(*m_numberFormatNode, "formatCode", std::string(newFormatCode).c_str()).empty() == false; }
+{ return setAttr(*m_numberFormatNode, "formatCode", std::string(newFormatCode).c_str()).empty() == false; }
 
 std::string XLNumberFormat::summary() const { return fmt::format("numFmtId={}, formatCode={}", numberFormatId(), formatCode()); }
 
@@ -136,11 +136,7 @@ uint32_t XLNumberFormats::createNumberFormat(std::string_view formatCode)
     m_numberFormats.emplace_back(newNode);
 
     // Update count attribute on <numFmts>
-    auto countAttr = m_numberFormatsNode->attribute("count");
-    if (countAttr.empty()) { m_numberFormatsNode->append_attribute("count").set_value(m_numberFormats.size()); }
-    else {
-        countAttr.set_value(m_numberFormats.size());
-    }
+    setAttr(*m_numberFormatsNode, "count", static_cast<unsigned long>(m_numberFormats.size()));
 
     return newId;
 }
@@ -175,6 +171,6 @@ XLStyleIndex XLNumberFormats::create(XLNumberFormat copyFrom, std::string_view s
     }
 
     m_numberFormats.push_back(newNumberFormat);
-    appendAndSetAttribute(*m_numberFormatsNode, "count", std::to_string(m_numberFormats.size()));
+    setAttr(*m_numberFormatsNode, "count", std::to_string(m_numberFormats.size()));
     return index;
 }

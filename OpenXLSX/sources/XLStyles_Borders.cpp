@@ -73,7 +73,7 @@ XLLine& XLLine::operator=(const XLLine& other)
 XLLineStyle XLLine::style() const
 {
     if (m_lineNode->empty()) return XLLineStyleNone;
-    XMLAttribute attr = appendAndGetAttribute(*m_lineNode, "style", OpenXLSX::XLDefaultLineStyle);
+    XMLAttribute attr = ensureAttr(*m_lineNode, "style", OpenXLSX::XLDefaultLineStyle);
     return XLLineStyleFromString(attr.value());
 }
 
@@ -81,7 +81,7 @@ XLLine::operator bool() const { return (style() != XLLineStyleNone); }
 
 XLDataBarColor XLLine::color() const
 {
-    XMLNode color = appendAndGetNode(*m_lineNode, "color");
+    XMLNode color = ensureChild(*m_lineNode, "color");
     if (color.empty()) return XLDataBarColor{};
     return XLDataBarColor(color);
 }
@@ -118,33 +118,33 @@ XLLine XLBorder::horizontal() const { return XLLine(m_borderNode->child("horizon
 
 XLBorder& XLBorder::setDiagonalUp(bool set)
 {
-    appendAndSetAttribute(*m_borderNode, "diagonalUp", (set ? "true" : "false")).empty();
+    setAttr(*m_borderNode, "diagonalUp", (set ? "true" : "false")).empty();
     return *this;
 }
 XLBorder& XLBorder::setDiagonalDown(bool set)
 {
-    appendAndSetAttribute(*m_borderNode, "diagonalDown", (set ? "true" : "false")).empty();
+    setAttr(*m_borderNode, "diagonalDown", (set ? "true" : "false")).empty();
     return *this;
 }
 XLBorder& XLBorder::setOutline(bool set)
 {
-    appendAndSetAttribute(*m_borderNode, "outline", (set ? "true" : "false")).empty();
+    setAttr(*m_borderNode, "outline", (set ? "true" : "false")).empty();
     return *this;
 }
 bool XLBorder::setLine(XLLineType lineType, XLLineStyle lineStyle, XLColor lineColor, double lineTint)
 {
-    XMLNode lineNode = appendAndGetNode(*m_borderNode, XLLineTypeToString(lineType), m_nodeOrder);
+    XMLNode lineNode = ensureChild(*m_borderNode, XLLineTypeToString(lineType), m_nodeOrder);
     // 2024-12-19: non-existing lines are added using an ordered insert to address issue #304
     bool success = (lineNode.empty() == false);
     if (success) {
         const char* styleStr = XLLineStyleToString(lineStyle);
         if (styleStr && *styleStr)
-            success = (appendAndSetAttribute(lineNode, "style", styleStr).empty() == false);
+            success = (setAttr(lineNode, "style", styleStr).empty() == false);
         else
             lineNode.remove_attribute("style");
     }
     XMLNode colorNode{};
-    if (success) colorNode = appendAndGetNode(lineNode, "color");
+    if (success) colorNode = ensureChild(lineNode, "color");
     XLDataBarColor colorObject{colorNode};
     success = (colorNode.empty() == false);
     if (success) success = colorObject.setRgb(lineColor);
@@ -256,7 +256,7 @@ XLStyleIndex XLBorders::create(XLBorder copyFrom, std::string_view styleEntriesP
         copyXMLNode(newNode, *copyFrom.m_borderNode);
 
     m_borders.push_back(newBorder);
-    appendAndSetAttribute(*m_bordersNode, "count", std::to_string(m_borders.size()));
+    setAttr(*m_bordersNode, "count", std::to_string(m_borders.size()));
     return index;
 }
 

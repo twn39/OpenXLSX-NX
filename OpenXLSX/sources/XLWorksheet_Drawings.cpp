@@ -78,8 +78,8 @@ XLDrawing& XLWorksheet::drawing()
         if (drawingRelationship.empty()) throw XLException("XLWorksheet::drawing(): could not add sheet relationship for Drawing");
 
         if (docElement.child("drawing").empty()) {
-            XMLNode drawingNode = appendAndGetNode(docElement, "drawing", m_nodeOrder);
-            appendAndSetAttribute(drawingNode, "r:id", drawingRelationship.id());
+            XMLNode drawingNode = ensureChild(docElement, "drawing", m_nodeOrder);
+            setAttr(drawingNode, "r:id", drawingRelationship.id());
         }
     }
 
@@ -208,9 +208,9 @@ XLVmlDrawing& XLWorksheet::vmlDrawing()
             vmlDrawingRelationship = m_impl->m_relationships.relationshipByTarget(drawingRelativePath);
         if (vmlDrawingRelationship.empty())
             throw XLException("XLWorksheet::vmlDrawing(): could not add determine sheet relationship for VML Drawing");
-        XMLNode legacyDrawing = appendAndGetNode(docElement, "legacyDrawing", m_nodeOrder);
+        XMLNode legacyDrawing = ensureChild(docElement, "legacyDrawing", m_nodeOrder);
         if (legacyDrawing.empty()) throw XLException("XLWorksheet::vmlDrawing(): could not add <legacyDrawing> element to worksheet XML");
-        appendAndSetAttribute(legacyDrawing, "r:id", vmlDrawingRelationship.id());
+        setAttr(legacyDrawing, "r:id", vmlDrawingRelationship.id());
     }
 
     return m_impl->m_vmlDrawing;
@@ -266,7 +266,7 @@ void XLWorksheet::addHyperlink(std::string_view cellRef, std::string_view url, s
     const auto rel            = m_impl->m_relationships.addRelationship(XLRelationshipType::Hyperlink, std::string(url), true);
     XMLNode    docElement     = xmlDocument().document_element();
     XMLNode    hyperlinksNode = docElement.child("hyperlinks");
-    if (hyperlinksNode.empty()) { hyperlinksNode = appendAndGetNode(docElement, "hyperlinks", m_nodeOrder); }
+    if (hyperlinksNode.empty()) { hyperlinksNode = ensureChild(docElement, "hyperlinks", m_nodeOrder); }
     XMLNode hyperlinkNode = hyperlinksNode.append_child("hyperlink");
     hyperlinkNode.append_attribute("ref").set_value(std::string(cellRef).c_str());
     hyperlinkNode.append_attribute("r:id").set_value(rel.id().c_str());
@@ -278,7 +278,7 @@ void XLWorksheet::addInternalHyperlink(std::string_view cellRef, std::string_vie
     removeHyperlink(cellRef);
     XMLNode docElement     = xmlDocument().document_element();
     XMLNode hyperlinksNode = docElement.child("hyperlinks");
-    if (hyperlinksNode.empty()) { hyperlinksNode = appendAndGetNode(docElement, "hyperlinks", m_nodeOrder); }
+    if (hyperlinksNode.empty()) { hyperlinksNode = ensureChild(docElement, "hyperlinks", m_nodeOrder); }
     XMLNode hyperlinkNode = hyperlinksNode.append_child("hyperlink");
     hyperlinkNode.append_attribute("ref").set_value(std::string(cellRef).c_str());
     hyperlinkNode.append_attribute("location").set_value(std::string(location).c_str());
@@ -372,18 +372,10 @@ XLThreadedComment XLWorksheet::addComment(std::string_view cellRef, std::string_
 
     // Register revisions namespaces on worksheet root node
     XMLNode root = xmlDocument().document_element();
-    if (root.attribute("xmlns:xr").empty()) {
-        root.append_attribute("xmlns:xr") = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
-    }
-    if (root.attribute("xmlns:xr2").empty()) {
-        root.append_attribute("xmlns:xr2") = "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2";
-    }
-    if (root.attribute("xmlns:xr3").empty()) {
-        root.append_attribute("xmlns:xr3") = "http://schemas.microsoft.com/office/spreadsheetml/2016/revision3";
-    }
-    if (root.attribute("xr:uid").empty()) {
-        root.append_attribute("xr:uid") = "{00000000-0001-0000-0000-000000000000}";
-    }
+    ensureAttr(root, "xmlns:xr", "http://schemas.microsoft.com/office/spreadsheetml/2014/revision");
+    ensureAttr(root, "xmlns:xr2", "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2");
+    ensureAttr(root, "xmlns:xr3", "http://schemas.microsoft.com/office/spreadsheetml/2016/revision3");
+    ensureAttr(root, "xr:uid", "{00000000-0001-0000-0000-000000000000}");
     auto worksheetIgnorableAttr = root.attribute("mc:Ignorable");
     if (!worksheetIgnorableAttr.empty()) {
         std::string ignorable = worksheetIgnorableAttr.value();
@@ -392,30 +384,18 @@ XLThreadedComment XLWorksheet::addComment(std::string_view cellRef, std::string_
         }
     }
     else {
-        root.append_attribute("mc:Ignorable") = "x14ac xr xr2 xr3";
+        setAttr(root, "mc:Ignorable", "x14ac xr xr2 xr3");
     }
 
     // Ensure workbook has co-authoring & revisions registered
     {
         XMLNode wbkRoot = parentDoc().workbook().xmlDocument().document_element();
-        if (wbkRoot.attribute("xmlns:mc").empty()) {
-            wbkRoot.append_attribute("xmlns:mc") = "http://schemas.openxmlformats.org/markup-compatibility/2006";
-        }
-        if (wbkRoot.attribute("xmlns:x15").empty()) {
-            wbkRoot.append_attribute("xmlns:x15") = "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main";
-        }
-        if (wbkRoot.attribute("xmlns:xr").empty()) {
-            wbkRoot.append_attribute("xmlns:xr") = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
-        }
-        if (wbkRoot.attribute("xmlns:xr6").empty()) {
-            wbkRoot.append_attribute("xmlns:xr6") = "http://schemas.microsoft.com/office/spreadsheetml/2016/revision6";
-        }
-        if (wbkRoot.attribute("xmlns:xr10").empty()) {
-            wbkRoot.append_attribute("xmlns:xr10") = "http://schemas.microsoft.com/office/spreadsheetml/2016/revision10";
-        }
-        if (wbkRoot.attribute("xmlns:xr2").empty()) {
-            wbkRoot.append_attribute("xmlns:xr2") = "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2";
-        }
+        ensureAttr(wbkRoot, "xmlns:mc", "http://schemas.openxmlformats.org/markup-compatibility/2006");
+        ensureAttr(wbkRoot, "xmlns:x15", "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main");
+        ensureAttr(wbkRoot, "xmlns:xr", "http://schemas.microsoft.com/office/spreadsheetml/2014/revision");
+        ensureAttr(wbkRoot, "xmlns:xr6", "http://schemas.microsoft.com/office/spreadsheetml/2016/revision6");
+        ensureAttr(wbkRoot, "xmlns:xr10", "http://schemas.microsoft.com/office/spreadsheetml/2016/revision10");
+        ensureAttr(wbkRoot, "xmlns:xr2", "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2");
 
         auto wbkIgnorable = wbkRoot.attribute("mc:Ignorable");
         if (!wbkIgnorable.empty()) {
@@ -424,7 +404,7 @@ XLThreadedComment XLWorksheet::addComment(std::string_view cellRef, std::string_
                 wbkIgnorable.set_value((ignorable + " x15 xr xr6 xr10 xr2").c_str());
             }
         } else {
-            wbkRoot.append_attribute("mc:Ignorable") = "x15 xr xr6 xr10 xr2";
+            setAttr(wbkRoot, "mc:Ignorable", "x15 xr xr6 xr10 xr2");
         }
 
         // Insert <xr:revisionPtr> in the correct order in workbook.xml
@@ -439,19 +419,19 @@ XLThreadedComment XLWorksheet::addComment(std::string_view cellRef, std::string_
                 revPtr = wbkRoot.append_child("xr:revisionPtr");
             }
 
-            revPtr.append_attribute("revIDLastSave") = "0";
-            revPtr.append_attribute("documentId") = "8_{9D879BB4-8C31-734F-9A02-992F49050029}";
-            revPtr.append_attribute("xr6:coauthVersionLast") = "47";
-            revPtr.append_attribute("xr6:coauthVersionMax") = "47";
-            revPtr.append_attribute("xr10:uidLastSave") = "{00000000-0000-0000-0000-000000000000}";
+            setAttr(revPtr, "revIDLastSave", "0");
+            setAttr(revPtr, "documentId", "8_{9D879BB4-8C31-734F-9A02-992F49050029}");
+            setAttr(revPtr, "xr6:coauthVersionLast", "47");
+            setAttr(revPtr, "xr6:coauthVersionMax", "47");
+            setAttr(revPtr, "xr10:uidLastSave", "{00000000-0000-0000-0000-000000000000}");
         }
 
         // Add xr2:uid to workbookView if exists
         XMLNode bookViews = wbkRoot.child("bookViews");
         if (!bookViews.empty()) {
             XMLNode workbookView = bookViews.child("workbookView");
-            if (!workbookView.empty() && workbookView.attribute("xr2:uid").empty()) {
-                workbookView.append_attribute("xr2:uid") = "{0C52AA12-D58F-7D4C-86DF-F1B519ACB25B}";
+            if (!workbookView.empty()) {
+                ensureAttr(workbookView, "xr2:uid", "{0C52AA12-D58F-7D4C-86DF-F1B519ACB25B}");
             }
         }
     }
@@ -657,7 +637,7 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     if (!sheetNode.attribute("xmlns:mc"))
         sheetNode.append_attribute("xmlns:mc").set_value("http://schemas.openxmlformats.org/markup-compatibility/2006");
 
-    if (extLst.empty()) extLst = appendAndGetNode(sheetNode, "extLst", m_nodeOrder);
+    if (extLst.empty()) extLst = ensureChild(sheetNode, "extLst", m_nodeOrder);
 
     // URI {3A4CF648-6AED-40f4-86FF-DC5316D8AED3}: table slicer list reference in worksheet extLst
     // Excel puts uri first, then xmlns:x15 on ext; x14:slicerList must declare xmlns:x14 inline
@@ -946,7 +926,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     // 3. Add extLst to worksheet.xml
     XMLNode sheetNode = xmlDocument().document_element();
     XMLNode extLst    = sheetNode.child("extLst");
-    if (extLst.empty()) extLst = appendAndGetNode(sheetNode, "extLst", m_nodeOrder);
+    if (extLst.empty()) extLst = ensureChild(sheetNode, "extLst", m_nodeOrder);
 
     XMLNode ext = extLst.find_child_by_attribute("uri", "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}");
     if (ext.empty()) {

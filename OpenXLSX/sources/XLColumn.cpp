@@ -4,6 +4,7 @@
 // ===== OpenXLSX Includes ===== //
 #include "XLColumn.hpp"
 #include "XLStyles.hpp"    // XLDefaultCellFormat
+#include "XLXmlHelpers.hpp"
 
 using namespace OpenXLSX;
 
@@ -14,9 +15,7 @@ XLColumn::XLColumn(XMLNode columnNode) : m_columnNode(columnNode) {}
 
 XMLAttribute XLColumn::getOrCreateAttribute(const char* attrName)
 {
-    auto attr = m_columnNode.attribute(attrName);
-    if (attr.empty()) attr = m_columnNode.append_attribute(attrName);
-    return attr;
+    return ensureAttr(m_columnNode, attrName, "");
 }
 
 /**
@@ -29,8 +28,8 @@ float XLColumn::width() const { return m_columnNode.attribute("width").as_float(
  */
 void XLColumn::setWidth(float width)    // NOLINT
 {
-    getOrCreateAttribute("width").set_value(width);
-    getOrCreateAttribute("customWidth").set_value(1);
+    setAttr(m_columnNode, "width", width);
+    setAttr(m_columnNode, "customWidth", 1);
 }
 
 /**

@@ -189,9 +189,9 @@ XLProperties::~XLProperties() = default;
 void XLProperties::setProperty(std::string_view name, std::string_view value)
 {
     if (m_xmlData == nullptr) return;
-    XMLNode node = xmlDocument().document_element().child(std::string(name).c_str());
-    if (node.empty()) node = xmlDocument().document_element().append_child(std::string(name).c_str());
-
+    const std::string nameStr(name);
+    XMLNode           root = xmlDocument().document_element();
+    XMLNode           node = ensureChild(root, nameStr.c_str());
     node.text().set(std::string(value).c_str());
 }
 
@@ -260,9 +260,9 @@ XLDateTime XLProperties::created() const
 }
 void XLProperties::setCreated(const XLDateTime& date)
 {
-    auto node = xmlDocument().document_element().child("dcterms:created");
-    if (node.empty()) node = xmlDocument().document_element().append_child("dcterms:created");
-    appendAndSetAttribute(node, "xsi:type", "dcterms:W3CDTF");
+    auto root = xmlDocument().document_element();
+    auto node = ensureChild(root, "dcterms:created");
+    setAttr(node, "xsi:type", "dcterms:W3CDTF");
     node.text().set(date.toString("%Y-%m-%dT%H:%M:%SZ").c_str());
 }
 
@@ -274,9 +274,9 @@ XLDateTime XLProperties::modified() const
 }
 void XLProperties::setModified(const XLDateTime& date)
 {
-    auto node = xmlDocument().document_element().child("dcterms:modified");
-    if (node.empty()) node = xmlDocument().document_element().append_child("dcterms:modified");
-    appendAndSetAttribute(node, "xsi:type", "dcterms:W3CDTF");
+    auto root = xmlDocument().document_element();
+    auto node = ensureChild(root, "dcterms:modified");
+    setAttr(node, "xsi:type", "dcterms:W3CDTF");
     node.text().set(date.toString("%Y-%m-%dT%H:%M:%SZ").c_str());
 }
 
@@ -529,8 +529,9 @@ void XLAppProperties::setHeadingPair(std::string_view name, int newValue)
 void XLAppProperties::setProperty(std::string_view name, std::string_view value)
 {
     if (m_xmlData == nullptr) return;
-    auto property = xmlDocument().document_element().child(std::string(name).c_str());
-    if (property.empty()) property = xmlDocument().document_element().append_child(std::string(name).c_str());
+    const std::string nameStr(name);
+    XMLNode           root     = xmlDocument().document_element();
+    XMLNode           property = ensureChild(root, nameStr.c_str());
     property.text().set(std::string(value).c_str());
 }
 

@@ -66,31 +66,31 @@ bool XLDxf::empty() const { return m_dxfNode.empty(); }
 
 XLFont XLDxf::font() const
 {
-    XMLNode fontNode = appendAndGetNode(m_dxfNode, "font");
+    XMLNode fontNode = ensureChild(m_dxfNode, "font");
     if (fontNode.empty()) return XLFont{};
     return XLFont(fontNode);
 }
 XLNumberFormat XLDxf::numFmt() const
 {
-    XMLNode numFmtNode = appendAndGetNode(m_dxfNode, "numFmt");
+    XMLNode numFmtNode = ensureChild(m_dxfNode, "numFmt");
     if (numFmtNode.empty()) return XLNumberFormat{};
     return XLNumberFormat(numFmtNode);
 }
 XLFill XLDxf::fill() const
 {
-    XMLNode fillNode = appendAndGetNode(m_dxfNode, "fill");
+    XMLNode fillNode = ensureChild(m_dxfNode, "fill");
     if (fillNode.empty()) return XLFill{};
     return XLFill(fillNode);
 }
 XLAlignment XLDxf::alignment() const
 {
-    XMLNode alignmentNode = appendAndGetNode(m_dxfNode, "alignment");
+    XMLNode alignmentNode = ensureChild(m_dxfNode, "alignment");
     if (alignmentNode.empty()) return XLAlignment{};
     return XLAlignment(alignmentNode);
 }
 XLBorder XLDxf::border() const
 {
-    XMLNode borderNode = appendAndGetNode(m_dxfNode, "border");
+    XMLNode borderNode = ensureChild(m_dxfNode, "border");
     if (borderNode.empty()) return XLBorder{};
     return XLBorder(borderNode);
 }
@@ -202,6 +202,6 @@ XLStyleIndex XLDxfs::create(XLDxf copyFrom, std::string_view styleEntriesPrefix)
         copyXMLNode(newNode, copyFrom.node());
 
     m_dxfs.push_back(newDxf);
-    appendAndSetAttribute(m_dxfsNode, "count", std::to_string(m_dxfs.size()));
+    setAttr(m_dxfsNode, "count", std::to_string(m_dxfs.size()));
     return index;
 }

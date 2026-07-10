@@ -59,12 +59,8 @@ XLDrawing& XLChartsheet::drawing()
             drawingRelationship = m_relationships.addRelationship(XLRelationshipType::Drawing, drawingRelativePath);
             if (drawingRelationship.empty()) throw XLException("XLChartsheet::drawing(): could not add sheet relationship for Drawing");
 
-            XMLNode drawingNode = docElement.child("drawing");
-            if (drawingNode.empty()) { drawingNode = docElement.append_child("drawing"); }
-            if (drawingNode.attribute("r:id").empty()) { drawingNode.append_attribute("r:id").set_value(drawingRelationship.id().c_str()); }
-            else {
-                drawingNode.attribute("r:id").set_value(drawingRelationship.id().c_str());
-            }
+            XMLNode drawingNode = ensureChild(docElement, "drawing");
+            setAttr(drawingNode, "r:id", drawingRelationship.id().c_str());
         }
         else {
             // Load existing drawing

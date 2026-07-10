@@ -86,23 +86,23 @@ bool XLAlignment::shrinkToFit() const { return m_alignmentNode->attribute("shrin
 uint32_t XLAlignment::readingOrder() const { return m_alignmentNode->attribute("readingOrder").as_uint(); }
 
 bool XLAlignment::setHorizontal(XLAlignmentStyle newStyle)
-{ return appendAndSetAttribute(*m_alignmentNode, "horizontal", XLAlignmentStyleToString(newStyle)).empty() == false; }
+{ return setAttr(*m_alignmentNode, "horizontal", XLAlignmentStyleToString(newStyle)).empty() == false; }
 bool XLAlignment::setVertical(XLAlignmentStyle newStyle)
-{ return appendAndSetAttribute(*m_alignmentNode, "vertical", XLAlignmentStyleToString(newStyle)).empty() == false; }
+{ return setAttr(*m_alignmentNode, "vertical", XLAlignmentStyleToString(newStyle)).empty() == false; }
 bool XLAlignment::setTextRotation(uint16_t newRotation)
-{ return appendAndSetAttribute(*m_alignmentNode, "textRotation", std::to_string(newRotation)).empty() == false; }
+{ return setAttr(*m_alignmentNode, "textRotation", std::to_string(newRotation)).empty() == false; }
 bool XLAlignment::setWrapText(bool set)
-{ return appendAndSetAttribute(*m_alignmentNode, "wrapText", (set ? "true" : "false")).empty() == false; }
+{ return setAttr(*m_alignmentNode, "wrapText", (set ? "true" : "false")).empty() == false; }
 bool XLAlignment::setIndent(uint32_t newIndent)
-{ return appendAndSetAttribute(*m_alignmentNode, "indent", std::to_string(newIndent)).empty() == false; }
+{ return setAttr(*m_alignmentNode, "indent", std::to_string(newIndent)).empty() == false; }
 bool XLAlignment::setRelativeIndent(int32_t newRelativeIndent)
-{ return appendAndSetAttribute(*m_alignmentNode, "relativeIndent", std::to_string(newRelativeIndent)).empty() == false; }
+{ return setAttr(*m_alignmentNode, "relativeIndent", std::to_string(newRelativeIndent)).empty() == false; }
 bool XLAlignment::setJustifyLastLine(bool set)
-{ return appendAndSetAttribute(*m_alignmentNode, "justifyLastLine", (set ? "true" : "false")).empty() == false; }
+{ return setAttr(*m_alignmentNode, "justifyLastLine", (set ? "true" : "false")).empty() == false; }
 bool XLAlignment::setShrinkToFit(bool set)
-{ return appendAndSetAttribute(*m_alignmentNode, "shrinkToFit", (set ? "true" : "false")).empty() == false; }
+{ return setAttr(*m_alignmentNode, "shrinkToFit", (set ? "true" : "false")).empty() == false; }
 bool XLAlignment::setReadingOrder(uint32_t newReadingOrder)
-{ return appendAndSetAttribute(*m_alignmentNode, "readingOrder", std::to_string(newReadingOrder)).empty() == false; }
+{ return setAttr(*m_alignmentNode, "readingOrder", std::to_string(newReadingOrder)).empty() == false; }
 
 std::string XLAlignment::summary() const
 {
@@ -190,81 +190,81 @@ XLAlignment XLCellFormat::alignment(bool createIfMissing) const
     XMLNode nodeAlignment = m_cellFormatNode->child("alignment");
     if (nodeAlignment.empty() and createIfMissing)
         nodeAlignment =
-            appendAndGetNode(*m_cellFormatNode, "alignment", m_nodeOrder);    // 2024-12-19: ordered insert to address issue #305
+            ensureChild(*m_cellFormatNode, "alignment", m_nodeOrder);    // 2024-12-19: ordered insert to address issue #305
     return XLAlignment(nodeAlignment);
 }
 
 XLCellFormat& XLCellFormat::setNumberFormatId(uint32_t newNumFmtId)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "numFmtId", std::to_string(newNumFmtId)).empty();
+    setAttr(*m_cellFormatNode, "numFmtId", std::to_string(newNumFmtId)).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setFontIndex(XLStyleIndex newXfIndex)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "fontId", std::to_string(newXfIndex)).empty();
+    setAttr(*m_cellFormatNode, "fontId", std::to_string(newXfIndex)).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setFillIndex(XLStyleIndex newFillIndex)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "fillId", std::to_string(newFillIndex)).empty();
+    setAttr(*m_cellFormatNode, "fillId", std::to_string(newFillIndex)).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setBorderIndex(XLStyleIndex newBorderIndex)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "borderId", std::to_string(newBorderIndex)).empty();
+    setAttr(*m_cellFormatNode, "borderId", std::to_string(newBorderIndex)).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setXfId(XLStyleIndex newXfId)
 {
     if (m_permitXfId) {
-        appendAndSetAttribute(*m_cellFormatNode, "xfId", std::to_string(newXfId)).empty();
+        setAttr(*m_cellFormatNode, "xfId", std::to_string(newXfId)).empty();
         return *this;
     }
     throw XLException("XLCellFormat::setXfId not permitted when m_permitXfId is false");
 }
 XLCellFormat& XLCellFormat::setApplyNumberFormat(bool set)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "applyNumberFormat", (set ? "true" : "false")).empty();
+    setAttr(*m_cellFormatNode, "applyNumberFormat", (set ? "true" : "false")).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setApplyFont(bool set)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "applyFont", (set ? "true" : "false")).empty();
+    setAttr(*m_cellFormatNode, "applyFont", (set ? "true" : "false")).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setApplyFill(bool set)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "applyFill", (set ? "true" : "false")).empty();
+    setAttr(*m_cellFormatNode, "applyFill", (set ? "true" : "false")).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setApplyBorder(bool set)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "applyBorder", (set ? "true" : "false")).empty();
+    setAttr(*m_cellFormatNode, "applyBorder", (set ? "true" : "false")).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setApplyAlignment(bool set)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "applyAlignment", (set ? "true" : "false")).empty();
+    setAttr(*m_cellFormatNode, "applyAlignment", (set ? "true" : "false")).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setApplyProtection(bool set)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "applyProtection", (set ? "true" : "false")).empty();
+    setAttr(*m_cellFormatNode, "applyProtection", (set ? "true" : "false")).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setQuotePrefix(bool set)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "quotePrefix", (set ? "true" : "false")).empty();
+    setAttr(*m_cellFormatNode, "quotePrefix", (set ? "true" : "false")).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setPivotButton(bool set)
 {
-    appendAndSetAttribute(*m_cellFormatNode, "pivotButton", (set ? "true" : "false")).empty();
+    setAttr(*m_cellFormatNode, "pivotButton", (set ? "true" : "false")).empty();
     return *this;
 }
 XLCellFormat& XLCellFormat::setLocked(bool set)
 {
-    appendAndSetNodeAttribute(*m_cellFormatNode,
+    setChildAttr(*m_cellFormatNode,
                               "protection",
                               "locked",
                               (set ? "true" : "false"),
@@ -275,7 +275,7 @@ XLCellFormat& XLCellFormat::setLocked(bool set)
 }
 XLCellFormat& XLCellFormat::setHidden(bool set)
 {
-    appendAndSetNodeAttribute(*m_cellFormatNode,
+    setChildAttr(*m_cellFormatNode,
                               "protection",
                               "hidden",
                               (set ? "true" : "false"),
@@ -416,7 +416,7 @@ XLStyleIndex XLCellFormats::create(XLCellFormat copyFrom, std::string_view style
         copyXMLNode(newNode, *copyFrom.m_cellFormatNode);
 
     m_cellFormats.push_back(newCellFormat);
-    appendAndSetAttribute(*m_cellFormatsNode, "count", std::to_string(m_cellFormats.size()));
+    setAttr(*m_cellFormatsNode, "count", std::to_string(m_cellFormats.size()));
     return index;
 }
 

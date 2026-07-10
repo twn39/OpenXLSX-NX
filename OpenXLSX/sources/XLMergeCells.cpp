@@ -174,7 +174,7 @@ XLMergeIndex XLMergeCells::appendMerge(const std::string& reference)
                                entry.reference + "\""s);
     }
 
-    if (m_mergeCellsNode.empty()) m_mergeCellsNode = appendAndGetNode(m_rootNode, "mergeCells", m_nodeOrder);
+    if (m_mergeCellsNode.empty()) m_mergeCellsNode = ensureChild(m_rootNode, "mergeCells", m_nodeOrder);
 
     XMLNode insertAfter = m_mergeCellsNode.last_child_of_type(pugi::node_element);
     XMLNode newMerge{};

@@ -85,7 +85,7 @@ double   XLDataBarColor::tint() const { return m_colorNode->attribute("tint").as
 bool     XLDataBarColor::automatic() const { return m_colorNode->attribute("auto").as_bool(); }
 uint32_t XLDataBarColor::indexed() const { return m_colorNode->attribute("indexed").as_uint(); }
 uint32_t XLDataBarColor::theme() const { return m_colorNode->attribute("theme").as_uint(); }
-bool     XLDataBarColor::setRgb(XLColor newColor) { return appendAndSetAttribute(*m_colorNode, "rgb", newColor.hex()).empty() == false; }
+bool     XLDataBarColor::setRgb(XLColor newColor) { return setAttr(*m_colorNode, "rgb", newColor.hex()).empty() == false; }
 bool     XLDataBarColor::setTint(double newTint)
 {
     std::string tintString = "";
@@ -98,16 +98,16 @@ bool     XLDataBarColor::setTint(double newTint)
     }
     if (tintString.length() == 0) return m_colorNode->remove_attribute("tint");    // remove tint attribute for a value 0
 
-    return (appendAndSetAttribute(*m_colorNode, "tint", tintString).empty() == false);    // else: set tint attribute
+    return (setAttr(*m_colorNode, "tint", tintString).empty() == false);    // else: set tint attribute
 }
 bool XLDataBarColor::setAutomatic(bool set)
-{ return appendAndSetAttribute(*m_colorNode, "auto", (set ? "true" : "false")).empty() == false; }
+{ return setAttr(*m_colorNode, "auto", (set ? "true" : "false")).empty() == false; }
 bool XLDataBarColor::setIndexed(uint32_t newIndex)
-{ return appendAndSetAttribute(*m_colorNode, "indexed", std::to_string(newIndex)).empty() == false; }
+{ return setAttr(*m_colorNode, "indexed", std::to_string(newIndex)).empty() == false; }
 bool XLDataBarColor::setTheme(uint32_t newTheme)
 {
     if (newTheme == XLDeleteProperty) return m_colorNode->remove_attribute("theme");
-    return appendAndSetAttribute(*m_colorNode, "theme", std::to_string(newTheme)).empty() == false;
+    return setAttr(*m_colorNode, "theme", std::to_string(newTheme)).empty() == false;
 }
 
 std::string XLDataBarColor::summary() const
@@ -134,7 +134,7 @@ XLGradientStop& XLGradientStop::operator=(const XLGradientStop& other)
 
 XLDataBarColor XLGradientStop::color() const
 {
-    XMLNode color = appendAndGetNode(*m_stopNode, "color");
+    XMLNode color = ensureChild(*m_stopNode, "color");
     if (color.empty()) return XLDataBarColor{};
     return XLDataBarColor(color);
 }
@@ -145,7 +145,7 @@ double XLGradientStop::position() const
 }
 
 bool XLGradientStop::setPosition(double newPosition)
-{ return appendAndSetAttribute(*m_stopNode, "position", formatDoubleAsString(newPosition)).empty() == false; }
+{ return setAttr(*m_stopNode, "position", formatDoubleAsString(newPosition)).empty() == false; }
 
 std::string XLGradientStop::summary() const
 { return fmt::format("stop position is {}, {}", formatDoubleAsString(position()), color().summary()); }
@@ -226,7 +226,7 @@ XLStyleIndex XLGradientStops::create(XLGradientStop copyFrom, std::string_view s
         copyXMLNode(newNode, *copyFrom.m_stopNode);
 
     m_gradientStops.push_back(newStop);
-    appendAndSetAttribute(*m_gradientNode, "count", std::to_string(m_gradientStops.size()));
+    setAttr(*m_gradientNode, "count", std::to_string(m_gradientStops.size()));
     return index;
 }
 
@@ -318,7 +318,7 @@ XLPatternType XLFill::patternType()
 {
     XMLNode fillDescription = getValidFillDescription(XLPatternFill, __func__);
     if (fillDescription.empty()) return XLDefaultPatternType;    // if no description could be fetched: fail
-    XMLAttribute attr = appendAndGetNodeAttribute(*m_fillNode,
+    XMLAttribute attr = ensureChildAttr(*m_fillNode,
                                                   XLFillTypeToString(XLPatternFill),
                                                   "patternType",
                                                   XLPatternTypeToString(XLDefaultPatternType));
@@ -329,21 +329,21 @@ XLColor XLFill::color()
 {
     XMLNode fillDescription = getValidFillDescription(XLPatternFill, __func__);
     if (fillDescription.empty()) return XLColor{};    // if no description could be fetched: fail
-    XMLAttribute fgColorRGB = appendAndGetNodeAttribute(fillDescription, "fgColor", "rgb", XLDefaultPatternFgColor);
+    XMLAttribute fgColorRGB = ensureChildAttr(fillDescription, "fgColor", "rgb", XLDefaultPatternFgColor);
     return XLColor(fgColorRGB.value());
 }
 XLColor XLFill::backgroundColor()
 {
     XMLNode fillDescription = getValidFillDescription(XLPatternFill, __func__);
     if (fillDescription.empty()) return XLColor{};    // if no description could be fetched: fail
-    XMLAttribute bgColorRGB = appendAndGetNodeAttribute(fillDescription, "bgColor", "rgb", XLDefaultPatternBgColor);
+    XMLAttribute bgColorRGB = ensureChildAttr(fillDescription, "bgColor", "rgb", XLDefaultPatternBgColor);
     return XLColor(bgColorRGB.value());
 }
 
 bool XLFill::setGradientType(XLGradientType newType)
 {
     XMLNode fillDescription = getValidFillDescription(XLGradientFill, __func__);
-    return appendAndSetAttribute(fillDescription, "type", XLGradientTypeToString(newType)).empty() == false;
+    return setAttr(fillDescription, "type", XLGradientTypeToString(newType)).empty() == false;
 }
 bool XLFill::setDegree(double newDegree)
 {
@@ -354,34 +354,34 @@ bool XLFill::setDegree(double newDegree)
                           " is not in range [0.0;360.0]"s);
     }
     XMLNode fillDescription = getValidFillDescription(XLGradientFill, __func__);
-    return appendAndSetAttribute(fillDescription, "degree", degreeString).empty() == false;
+    return setAttr(fillDescription, "degree", degreeString).empty() == false;
 }
 bool XLFill::setLeft(double newLeft)
 {
     XMLNode fillDescription = getValidFillDescription(XLGradientFill, __func__);
-    return appendAndSetAttribute(fillDescription, "left", formatDoubleAsString(newLeft).c_str()).empty() == false;
+    return setAttr(fillDescription, "left", formatDoubleAsString(newLeft).c_str()).empty() == false;
 }
 bool XLFill::setRight(double newRight)
 {
     XMLNode fillDescription = getValidFillDescription(XLGradientFill, __func__);
-    return appendAndSetAttribute(fillDescription, "right", formatDoubleAsString(newRight).c_str()).empty() == false;
+    return setAttr(fillDescription, "right", formatDoubleAsString(newRight).c_str()).empty() == false;
 }
 bool XLFill::setTop(double newTop)
 {
     XMLNode fillDescription = getValidFillDescription(XLGradientFill, __func__);
-    return appendAndSetAttribute(fillDescription, "top", formatDoubleAsString(newTop).c_str()).empty() == false;
+    return setAttr(fillDescription, "top", formatDoubleAsString(newTop).c_str()).empty() == false;
 }
 bool XLFill::setBottom(double newBottom)
 {
     XMLNode fillDescription = getValidFillDescription(XLGradientFill, __func__);
-    return appendAndSetAttribute(fillDescription, "bottom", formatDoubleAsString(newBottom).c_str()).empty() == false;
+    return setAttr(fillDescription, "bottom", formatDoubleAsString(newBottom).c_str()).empty() == false;
 }
 
 XLFill& XLFill::setPatternType(XLPatternType newFillPattern)
 {
     XMLNode fillDescription = getValidFillDescription(XLPatternFill, __func__);
     if (fillDescription.empty()) return *this;
-    appendAndSetAttribute(fillDescription, "patternType", XLPatternTypeToString(newFillPattern));
+    setAttr(fillDescription, "patternType", XLPatternTypeToString(newFillPattern));
     return *this;
 }
 XLFill& XLFill::setColor(XLColor newColor)
@@ -389,9 +389,9 @@ XLFill& XLFill::setColor(XLColor newColor)
     XMLNode fillDescription = getValidFillDescription(XLPatternFill, __func__);
     if (fillDescription.empty()) return *this;
     std::vector<std::string_view> nodeOrder = {"fgColor", "bgColor"};
-    appendAndSetNodeAttribute(fillDescription, "fgColor", "rgb", newColor.hex(), XLRemoveAttributes, nodeOrder);
+    setChildAttr(fillDescription, "fgColor", "rgb", newColor.hex(), XLRemoveAttributes, nodeOrder);
     if (patternType() == XLPatternSolid)
-        appendAndSetNodeAttribute(fillDescription, "bgColor", "rgb", newColor.hex(), XLRemoveAttributes, nodeOrder);
+        setChildAttr(fillDescription, "bgColor", "rgb", newColor.hex(), XLRemoveAttributes, nodeOrder);
     return *this;
 }
 XLFill& XLFill::setBackgroundColor(XLColor newBgColor)
@@ -399,7 +399,7 @@ XLFill& XLFill::setBackgroundColor(XLColor newBgColor)
     XMLNode fillDescription = getValidFillDescription(XLPatternFill, __func__);
     if (fillDescription.empty()) return *this;
     std::vector<std::string_view> nodeOrder = {"fgColor", "bgColor"};
-    appendAndSetNodeAttribute(fillDescription, "bgColor", "rgb", newBgColor.hex(), XLRemoveAttributes, nodeOrder);
+    setChildAttr(fillDescription, "bgColor", "rgb", newBgColor.hex(), XLRemoveAttributes, nodeOrder);
     return *this;
 }
 
@@ -499,7 +499,7 @@ XLStyleIndex XLFills::create(XLFill copyFrom, std::string_view styleEntriesPrefi
         copyXMLNode(newNode, *copyFrom.m_fillNode);
 
     m_fills.push_back(newFill);
-    appendAndSetAttribute(*m_fillsNode, "count", std::to_string(m_fills.size()));
+    setAttr(*m_fillsNode, "count", std::to_string(m_fills.size()));
     return index;
 }
 

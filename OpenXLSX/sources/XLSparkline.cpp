@@ -33,11 +33,7 @@ void XLSparkline::setType(XLSparklineType type)
             break;
     }
 
-    // Setting attribute on the sparklineGroup node
-    if (m_node.attribute("type").empty())
-        m_node.append_attribute("type") = typeStr.c_str();
-    else
-        m_node.attribute("type") = typeStr.c_str();
+    setAttr(m_node, "type", typeStr.c_str());
 }
 
 std::string XLSparkline::location() const
@@ -49,16 +45,9 @@ std::string XLSparkline::location() const
 
 void XLSparkline::setLocation(const std::string& sqref)
 {
-    XMLNode slsNode = m_node.child("x14:sparklines");
-    if (slsNode.empty()) { slsNode = m_node.append_child("x14:sparklines"); }
-
-    XMLNode slNode = slsNode.child("x14:sparkline");
-    if (slNode.empty()) { slNode = slsNode.append_child("x14:sparkline"); }
-
-    XMLNode sqrefNode = slNode.child("xm:sqref");
-    if (sqrefNode.empty()) { sqrefNode = slNode.append_child("xm:sqref"); }
-
-    sqrefNode.text().set(sqref.c_str());
+    XMLNode slsNode   = ensureChild(m_node, "x14:sparklines");
+    XMLNode slNode    = ensureChild(slsNode, "x14:sparkline");
+    setChildText(slNode, "xm:sqref", sqref);
 }
 
 std::string XLSparkline::dataRange() const
@@ -70,16 +59,11 @@ std::string XLSparkline::dataRange() const
 
 void XLSparkline::setDataRange(const std::string& formula)
 {
-    XMLNode slsNode = m_node.child("x14:sparklines");
-    if (slsNode.empty()) { slsNode = m_node.append_child("x14:sparklines"); }
+    XMLNode slsNode = ensureChild(m_node, "x14:sparklines");
+    XMLNode slNode  = ensureChild(slsNode, "x14:sparkline");
 
-    XMLNode slNode = slsNode.child("x14:sparkline");
-    if (slNode.empty()) { slNode = slsNode.append_child("x14:sparkline"); }
-
+    // xm:f must appear before xm:sqref per OOXML sparkline schema
     XMLNode fNode = slNode.child("xm:f");
-    if (fNode.empty()) {
-        fNode = slNode.prepend_child("xm:f");    // Must be before sqref
-    }
-
+    if (fNode.empty()) fNode = slNode.prepend_child("xm:f");
     fNode.text().set(formula.c_str());
 }

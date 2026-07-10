@@ -12,7 +12,7 @@ namespace OpenXLSX
 
     uint32_t    XLTableColumn::id() const { return m_node.attribute("id").as_uint(); }
     std::string XLTableColumn::name() const { return m_node.attribute("name").value(); }
-    void        XLTableColumn::setName(std::string_view name) { appendAndSetAttribute(m_node, "name", std::string(name)); }
+    void        XLTableColumn::setName(std::string_view name) { setAttr(m_node, "name", std::string(name)); }
 
     XLTotalsRowFunction XLTableColumn::totalsRowFunction() const
     {
@@ -50,7 +50,7 @@ namespace OpenXLSX
         if (funcStr.empty())
             m_node.remove_attribute("totalsRowFunction");
         else
-            appendAndSetAttribute(m_node, "totalsRowFunction", funcStr);
+            setAttr(m_node, "totalsRowFunction", funcStr);
     }
 
     std::string XLTableColumn::totalsRowLabel() const { return m_node.attribute("totalsRowLabel").value(); }
@@ -59,7 +59,7 @@ namespace OpenXLSX
         if (label.empty())
             m_node.remove_attribute("totalsRowLabel");
         else
-            appendAndSetAttribute(m_node, "totalsRowLabel", std::string(label));
+            setAttr(m_node, "totalsRowLabel", std::string(label));
     }
 
     const std::vector<std::string_view> ColumnNodeOrder = {"calculatedColumnFormula", "totalsRowFormula", "xmlColumnPr", "extLst"};
@@ -77,7 +77,7 @@ namespace OpenXLSX
             if (!node.empty()) m_node.remove_child(node);
         }
         else {
-            auto node = appendAndGetNode(m_node, "totalsRowFormula", ColumnNodeOrder);
+            auto node = ensureChild(m_node, "totalsRowFormula", ColumnNodeOrder);
             node.text().set(std::string(formula).c_str());
         }
     }

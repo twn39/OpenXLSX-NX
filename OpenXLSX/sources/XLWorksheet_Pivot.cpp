@@ -209,7 +209,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     XMLNode ptRelPathNode = xmlDocument().document_element().child("pivotTables");
     if (ptRelPathNode.empty()) {
         XMLNode docElement = xmlDocument().document_element();
-        ptRelPathNode      = appendAndGetNode(docElement, "pivotTables", m_nodeOrder);
+        ptRelPathNode      = ensureChild(docElement, "pivotTables", m_nodeOrder);
     }
 
     XLRelationshipItem ptRel;

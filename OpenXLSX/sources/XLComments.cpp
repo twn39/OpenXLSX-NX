@@ -6,7 +6,7 @@
 // ===== OpenXLSX Includes ===== //
 #include "XLComments.hpp"
 #include "XLDocument.hpp"     // pugi_parse_settings
-#include "XLUtilities.hpp"    // OpenXLSX::ignore, appendAndGetNode
+#include "XLUtilities.hpp"    // OpenXLSX::ignore, ensureChild
 
 using namespace OpenXLSX;
 
@@ -187,7 +187,7 @@ XLComment& XLComment::setRichText(const XLRichText& richText)
 }
 XLComment& XLComment::setAuthorId(uint16_t newAuthorId)
 {
-    appendAndSetAttribute(m_commentNode, "authorId", std::to_string(newAuthorId));
+    setAttr(m_commentNode, "authorId", std::to_string(newAuthorId));
     return *this;
 }
 
@@ -210,12 +210,12 @@ XLComments::XLComments(XLXmlData* xmlData) : XLXmlFile(xmlData), m_vmlDrawing()
 
     XMLNode rootNode = doc.document_element();
     bool    docNew   = rootNode.first_child_of_type(pugi::node_element).empty();    // check and store status: was document empty?
-    m_authors        = appendAndGetNode(rootNode, "authors", m_nodeOrder);          // (insert and) get authors node
+    m_authors        = ensureChild(rootNode, "authors", m_nodeOrder);          // (insert and) get authors node
     if (docNew)
         rootNode.prepend_child(pugi::node_pcdata)
             .set_value("\n\t");    // if document was empty: prefix the newly inserted authors node with a single tab
     m_commentList =
-        appendAndGetNode(rootNode,
+        ensureChild(rootNode,
                          "commentList",
                          m_nodeOrder);    // (insert and) get commentList node -> this should now copy the whitespace prefix of m_authors
 
@@ -452,19 +452,19 @@ void XLComments::setupVmlShape(const std::string& cellRef,
         textbox = shapeNode.prepend_child("v:textbox");
         shapeNode.insert_child_before(pugi::node_pcdata, textbox).set_value("\n\t\t");
     }
-    appendAndSetAttribute(textbox, "style", "mso-direction-alt:auto");
+    setAttr(textbox, "style", "mso-direction-alt:auto");
     if (static_cast<pugi::xml_node>(textbox).child("div").empty()) {
         XMLNode div = textbox.append_child("div", XLForceNamespace);
-        appendAndSetAttribute(div, "style", "text-align:left");
+        setAttr(div, "style", "text-align:left");
         div.append_child(pugi::node_pcdata).set_value(" ");
     }
 
     // Standard Excel styling for comments
-    if (shapeNode.attribute("o:insetmode").empty()) shapeNode.append_attribute("o:insetmode").set_value("auto");
+    ensureAttr(shapeNode, "o:insetmode", "auto");
 
     if (shapeNode.child("v:path").empty()) {
         XMLNode path = shapeNode.append_child("v:path");
-        path.append_attribute("o:connecttype").set_value("rect");
+        setAttr(path, "o:connecttype", "rect");
     }
 }
 bool XLComments::set(std::string const& cellRef,
@@ -527,9 +527,8 @@ bool XLComments::set(std::string const& cellRef,
     m_commentMap[cellRef] = comment;    // update cache
 
     // now that we have a valid comment node: update attributes and content
-    if (comment.attribute("ref").empty())                                        // if ref has to be created
-        comment.append_attribute("ref").set_value(destRef.address().c_str());    // then do so - otherwise it can remain untouched
-    appendAndSetAttribute(comment, "authorId", std::to_string(authorId_));       // update authorId
+    ensureAttr(comment, "ref", destRef.address().c_str());                       // create ref only if missing
+    setAttr(comment, "authorId", std::to_string(authorId_).c_str());             // update authorId
 
 
 
@@ -600,8 +599,8 @@ bool XLComments::setRichText(std::string const& cellRef,
 
     m_commentMap[cellRef] = comment;    // update cache
 
-    if (comment.attribute("ref").empty()) comment.append_attribute("ref").set_value(destRef.address().c_str());
-    appendAndSetAttribute(comment, "authorId", std::to_string(authorId_));
+    ensureAttr(comment, "ref", destRef.address().c_str());
+    setAttr(comment, "authorId", std::to_string(authorId_).c_str());
 
 
 

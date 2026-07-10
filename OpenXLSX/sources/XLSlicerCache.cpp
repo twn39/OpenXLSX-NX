@@ -47,8 +47,8 @@ void XLSlicerCache::syncWithPivotCache(const XLPivotCacheDefinition& pivotCache,
     }
 
     std::string targetFieldName = sourceName();
-    pugi::xml_node targetField;
-    auto cacheFields = pivotCache.xmlDocument().document_element().child("cacheFields");
+    XMLNode     targetField;
+    auto        cacheFields = pivotCache.xmlDocument().document_element().child("cacheFields");
     for (auto field : cacheFields.children("cacheField")) {
         if (targetFieldName == field.attribute("name").value()) {
             targetField = field;

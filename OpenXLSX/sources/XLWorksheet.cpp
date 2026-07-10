@@ -286,8 +286,8 @@ void XLWorksheet::setAutoFilter(const XLCellRange& range)
 {
     XMLNode docElement     = xmlDocument().document_element();
     XMLNode autoFilterNode = docElement.child("autoFilter");
-    if (autoFilterNode.empty()) { autoFilterNode = appendAndGetNode(docElement, "autoFilter", m_nodeOrder); }
-    appendAndSetAttribute(autoFilterNode, "ref", range.address());
+    if (autoFilterNode.empty()) { autoFilterNode = ensureChild(docElement, "autoFilter", m_nodeOrder); }
+    setAttr(autoFilterNode, "ref", range.address());
 }
 
 void XLWorksheet::clearAutoFilter() { xmlDocument().document_element().remove_child("autoFilter"); }
@@ -311,18 +311,12 @@ void XLWorksheet::addSortCondition(const std::string& ref, uint16_t colId, bool 
     XMLNode rootNode       = xmlDocument().document_element();
     XMLNode autoFilterNode = rootNode.child("autoFilter");
     if (autoFilterNode.empty()) {
-        autoFilterNode                         = appendAndGetNode(rootNode, "autoFilter", m_nodeOrder);
+        autoFilterNode                         = ensureChild(rootNode, "autoFilter", m_nodeOrder);
         autoFilterNode.append_attribute("ref") = ref.c_str();
     }
 
-    XMLNode sortStateNode = autoFilterNode.child("sortState");
-    if (sortStateNode.empty()) { sortStateNode = autoFilterNode.append_child("sortState"); }
-
-    // Set or update the ref attribute on sortState
-    if (sortStateNode.attribute("ref").empty()) { sortStateNode.append_attribute("ref") = ref.c_str(); }
-    else {
-        sortStateNode.attribute("ref") = ref.c_str();
-    }
+    XMLNode sortStateNode = ensureChild(autoFilterNode, "sortState");
+    setAttr(sortStateNode, "ref", ref.c_str());
 
     // The ref string for a specific column should be just that column in the range, excluding the header
     std::string colRef = XLCellReference::columnAsString(XLCellReference(ref.substr(0, ref.find(':'))).column() + colId) +
@@ -591,9 +585,7 @@ void XLWorksheet::addSparkline(const std::string& location, const std::string& d
     XMLNode rootNode = xmlDocument().document_element();
 
     // Ensure x14 namespace is registered at the root worksheet level
-    if (rootNode.attribute("xmlns:x14").empty()) {
-        rootNode.append_attribute("xmlns:x14") = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main";
-    }
+    ensureAttr(rootNode, "xmlns:x14", "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
 
     // Add x14 to mc:Ignorable attribute
     auto ignorableAttr = rootNode.attribute("mc:Ignorable");
@@ -604,11 +596,10 @@ void XLWorksheet::addSparkline(const std::string& location, const std::string& d
         }
     }
     else {
-        rootNode.append_attribute("mc:Ignorable") = "x14ac x14";
+        setAttr(rootNode, "mc:Ignorable", "x14ac x14");
     }
 
-    XMLNode extLst = rootNode.child("extLst");
-    if (extLst.empty()) { extLst = appendAndGetNode(rootNode, "extLst", m_nodeOrder); }
+    XMLNode extLst = ensureChild(rootNode, "extLst", m_nodeOrder);
 
     XMLNode extNode = extLst.find_child_by_attribute("ext", "uri", "{05C60535-1F16-4fd2-B633-F4F36F0B64E0}");
     if (extNode.empty()) {
@@ -675,7 +666,7 @@ XLStreamWriter XLWorksheet::streamWriter(bool useSharedStrings, size_t maxUnique
     XMLNode      root      = doc.document_element();
     XMLNode      sheetData = root.child("sheetData");
 
-    if (sheetData.empty()) { sheetData = appendAndGetNode(root, "sheetData", m_nodeOrder); }
+    if (sheetData.empty()) { sheetData = ensureChild(root, "sheetData", m_nodeOrder); }
 
     struct StringWriter : pugi::xml_writer
     {

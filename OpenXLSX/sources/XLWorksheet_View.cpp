@@ -27,7 +27,7 @@ XLPageMargins XLWorksheet::pageMargins() const
 {
     XMLNode rootNode = xmlDocument().document_element();
     XMLNode node     = rootNode.child("pageMargins");
-    if (node.empty()) node = appendAndGetNode(rootNode, "pageMargins", m_nodeOrder);
+    if (node.empty()) node = ensureChild(rootNode, "pageMargins", m_nodeOrder);
     return XLPageMargins(node);
 }
 
@@ -35,7 +35,7 @@ XLPrintOptions XLWorksheet::printOptions() const
 {
     XMLNode rootNode = xmlDocument().document_element();
     XMLNode node     = rootNode.child("printOptions");
-    if (node.empty()) node = appendAndGetNode(rootNode, "printOptions", m_nodeOrder);
+    if (node.empty()) node = ensureChild(rootNode, "printOptions", m_nodeOrder);
     return XLPrintOptions(node);
 }
 
@@ -43,7 +43,7 @@ XLPageSetup XLWorksheet::pageSetup() const
 {
     XMLNode rootNode = xmlDocument().document_element();
     XMLNode node     = rootNode.child("pageSetup");
-    if (node.empty()) node = appendAndGetNode(rootNode, "pageSetup", m_nodeOrder);
+    if (node.empty()) node = ensureChild(rootNode, "pageSetup", m_nodeOrder);
     return XLPageSetup(node);
 }
 
@@ -100,7 +100,7 @@ XMLNode XLWorksheet::prepareSheetViewForPanes()
 {
     auto docElement = xmlDocument().document_element();
     auto sheetViews = docElement.child("sheetViews");
-    if (sheetViews.empty()) { sheetViews = appendAndGetNode(docElement, "sheetViews", m_nodeOrder); }
+    if (sheetViews.empty()) { sheetViews = ensureChild(docElement, "sheetViews", m_nodeOrder); }
     auto sheetView = sheetViews.child("sheetView");
     if (sheetView.empty()) {
         sheetView = sheetViews.append_child("sheetView");
@@ -115,7 +115,7 @@ void XLWorksheet::freezePanes(uint16_t column, uint32_t row)
 {
     XMLNode sheetView = prepareSheetViewForPanes();
     if (column == 0 && row == 0) return;
-    auto pane = appendAndGetNode(sheetView, "pane", XLSheetViewNodeOrder);
+    auto pane = ensureChild(sheetView, "pane", XLSheetViewNodeOrder);
     if (column > 0) pane.append_attribute("xSplit").set_value(column);
     if (row > 0) pane.append_attribute("ySplit").set_value(row);
     const std::string address = XLCellReference(row + 1, static_cast<uint16_t>(column + 1)).address();
@@ -151,7 +151,7 @@ void XLWorksheet::splitPanes(double xSplit, double ySplit, std::string_view topL
 {
     XMLNode sheetView = prepareSheetViewForPanes();
     if (xSplit == 0 && ySplit == 0) return;
-    auto pane = appendAndGetNode(sheetView, "pane", XLSheetViewNodeOrder);
+    auto pane = ensureChild(sheetView, "pane", XLSheetViewNodeOrder);
     if (xSplit > 0) pane.append_attribute("xSplit").set_value(xSplit);
     if (ySplit > 0) pane.append_attribute("ySplit").set_value(ySplit);
     if (!topLeftCell.empty()) pane.append_attribute("topLeftCell").set_value(std::string(topLeftCell).c_str());
@@ -177,14 +177,14 @@ void XLWorksheet::setZoom(uint16_t scale)
     if (scale < 10 || scale > 400) throw XLInputError("XLWorksheet::setZoom: scale must be between 10 and 400");
     auto docElement = xmlDocument().document_element();
     auto sheetViews = docElement.child("sheetViews");
-    if (sheetViews.empty()) { sheetViews = appendAndGetNode(docElement, "sheetViews", m_nodeOrder); }
+    if (sheetViews.empty()) { sheetViews = ensureChild(docElement, "sheetViews", m_nodeOrder); }
     auto sheetView = sheetViews.child("sheetView");
     if (sheetView.empty()) {
         sheetView = sheetViews.append_child("sheetView");
         sheetView.append_attribute("workbookViewId").set_value(0);
     }
-    appendAndSetAttribute(sheetView, "zoomScale", std::to_string(scale));
-    appendAndSetAttribute(sheetView, "zoomScaleNormal", std::to_string(scale));
+    setAttr(sheetView, "zoomScale", std::to_string(scale));
+    setAttr(sheetView, "zoomScaleNormal", std::to_string(scale));
 }
 
 uint16_t XLWorksheet::zoom() const
@@ -204,7 +204,7 @@ void XLWorksheet::insertRowBreak(uint32_t row)
     auto docElement = xmlDocument().document_element();
     auto rowBreaks  = docElement.child("rowBreaks");
     if (rowBreaks.empty()) {
-        rowBreaks = appendAndGetNode(docElement, "rowBreaks", m_nodeOrder);
+        rowBreaks = ensureChild(docElement, "rowBreaks", m_nodeOrder);
         rowBreaks.append_attribute("count").set_value(0);
         rowBreaks.append_attribute("manualBreakCount").set_value(0);
     }
@@ -239,12 +239,12 @@ void XLWorksheet::removeRowBreak(uint32_t row)
 }
 void XLWorksheet::groupRows(uint32_t rowFirst, uint32_t rowLast, uint8_t outlineLevel, bool collapsed)
 {
-    auto sheetPr = xmlDocument().document_element().child("sheetPr");
-    if (sheetPr.empty()) sheetPr = xmlDocument().document_element().prepend_child("sheetPr");
-    auto outlinePr = sheetPr.child("outlinePr");
-    if (outlinePr.empty()) outlinePr = sheetPr.append_child("outlinePr");
-    if (outlinePr.attribute("summaryBelow").empty()) outlinePr.append_attribute("summaryBelow").set_value("1");
-    if (outlinePr.attribute("summaryRight").empty()) outlinePr.append_attribute("summaryRight").set_value("1");
+    auto docElement = xmlDocument().document_element();
+    auto sheetPr    = docElement.child("sheetPr");
+    if (sheetPr.empty()) sheetPr = docElement.prepend_child("sheetPr");
+    auto outlinePr = ensureChild(sheetPr, "outlinePr");
+    ensureAttr(outlinePr, "summaryBelow", "1");
+    ensureAttr(outlinePr, "summaryRight", "1");
 
     for (uint32_t r = rowFirst; r <= rowLast; ++r) {
         auto rowObj = row(r);
@@ -259,12 +259,12 @@ void XLWorksheet::groupRows(uint32_t rowFirst, uint32_t rowLast, uint8_t outline
 
 void XLWorksheet::groupColumns(uint16_t colFirst, uint16_t colLast, uint8_t outlineLevel, bool collapsed)
 {
-    auto sheetPr = xmlDocument().document_element().child("sheetPr");
-    if (sheetPr.empty()) sheetPr = xmlDocument().document_element().prepend_child("sheetPr");
-    auto outlinePr = sheetPr.child("outlinePr");
-    if (outlinePr.empty()) outlinePr = sheetPr.append_child("outlinePr");
-    if (outlinePr.attribute("summaryBelow").empty()) outlinePr.append_attribute("summaryBelow").set_value("1");
-    if (outlinePr.attribute("summaryRight").empty()) outlinePr.append_attribute("summaryRight").set_value("1");
+    auto docElement = xmlDocument().document_element();
+    auto sheetPr    = docElement.child("sheetPr");
+    if (sheetPr.empty()) sheetPr = docElement.prepend_child("sheetPr");
+    auto outlinePr = ensureChild(sheetPr, "outlinePr");
+    ensureAttr(outlinePr, "summaryBelow", "1");
+    ensureAttr(outlinePr, "summaryRight", "1");
 
     for (uint16_t c = colFirst; c <= colLast; ++c) {
         auto colObj = column(c);
@@ -281,7 +281,7 @@ XLHeaderFooter XLWorksheet::headerFooter() const
 {
     XMLNode rootNode = xmlDocument().document_element();
     XMLNode node     = rootNode.child("headerFooter");
-    if (node.empty()) node = appendAndGetNode(rootNode, "headerFooter", m_nodeOrder);
+    if (node.empty()) node = ensureChild(rootNode, "headerFooter", m_nodeOrder);
     return XLHeaderFooter(node);
 }
 
@@ -290,7 +290,7 @@ void XLWorksheet::insertColBreak(uint16_t col)
     auto docElement = xmlDocument().document_element();
     auto colBreaks  = docElement.child("colBreaks");
     if (colBreaks.empty()) {
-        colBreaks = appendAndGetNode(docElement, "colBreaks", m_nodeOrder);
+        colBreaks = ensureChild(docElement, "colBreaks", m_nodeOrder);
         colBreaks.append_attribute("count").set_value(0);
         colBreaks.append_attribute("manualBreakCount").set_value(0);
     }
@@ -328,13 +328,13 @@ void XLWorksheet::setSheetViewMode(std::string_view mode)
 {
     auto docElement = xmlDocument().document_element();
     auto sheetViews = docElement.child("sheetViews");
-    if (sheetViews.empty()) { sheetViews = appendAndGetNode(docElement, "sheetViews", m_nodeOrder); }
+    if (sheetViews.empty()) { sheetViews = ensureChild(docElement, "sheetViews", m_nodeOrder); }
     auto sheetView = sheetViews.child("sheetView");
     if (sheetView.empty()) {
         sheetView = sheetViews.append_child("sheetView");
         sheetView.append_attribute("workbookViewId").set_value(0);
     }
-    appendAndSetAttribute(sheetView, "view", std::string(mode));
+    setAttr(sheetView, "view", std::string(mode));
 }
 
 std::string XLWorksheet::sheetViewMode() const
@@ -349,13 +349,13 @@ void XLWorksheet::setShowGridLines(bool show)
 {
     auto docElement = xmlDocument().document_element();
     auto sheetViews = docElement.child("sheetViews");
-    if (sheetViews.empty()) { sheetViews = appendAndGetNode(docElement, "sheetViews", m_nodeOrder); }
+    if (sheetViews.empty()) { sheetViews = ensureChild(docElement, "sheetViews", m_nodeOrder); }
     auto sheetView = sheetViews.child("sheetView");
     if (sheetView.empty()) {
         sheetView = sheetViews.append_child("sheetView");
         sheetView.append_attribute("workbookViewId").set_value(0);
     }
-    appendAndSetAttribute(sheetView, "showGridLines", show ? "1" : "0");
+    setAttr(sheetView, "showGridLines", show ? "1" : "0");
 }
 
 bool XLWorksheet::showGridLines() const
@@ -369,13 +369,13 @@ void XLWorksheet::setShowRowColHeaders(bool show)
 {
     auto docElement = xmlDocument().document_element();
     auto sheetViews = docElement.child("sheetViews");
-    if (sheetViews.empty()) { sheetViews = appendAndGetNode(docElement, "sheetViews", m_nodeOrder); }
+    if (sheetViews.empty()) { sheetViews = ensureChild(docElement, "sheetViews", m_nodeOrder); }
     auto sheetView = sheetViews.child("sheetView");
     if (sheetView.empty()) {
         sheetView = sheetViews.append_child("sheetView");
         sheetView.append_attribute("workbookViewId").set_value(0);
     }
-    appendAndSetAttribute(sheetView, "showRowColHeaders", show ? "1" : "0");
+    setAttr(sheetView, "showRowColHeaders", show ? "1" : "0");
 }
 
 bool XLWorksheet::showRowColHeaders() const
@@ -392,9 +392,8 @@ void XLWorksheet::fitToPages(uint32_t fitToWidth, uint32_t fitToHeight)
     // Enable fitToPage in sheetPr -> pageSetUpPr
     auto sheetPr = docElement.child("sheetPr");
     if (sheetPr.empty()) { sheetPr = docElement.prepend_child("sheetPr"); }
-    auto pageSetUpPr = sheetPr.child("pageSetUpPr");
-    if (pageSetUpPr.empty()) { pageSetUpPr = sheetPr.append_child("pageSetUpPr"); }
-    appendAndSetAttribute(pageSetUpPr, "fitToPage", "1");
+    auto pageSetUpPr = ensureChild(sheetPr, "pageSetUpPr");
+    setAttr(pageSetUpPr, "fitToPage", "1");
     
     // Set actual values in pageSetup and remove scale to prevent conflict
     auto ps = pageSetup();

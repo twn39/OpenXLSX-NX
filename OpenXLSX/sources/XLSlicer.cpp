@@ -161,14 +161,14 @@ void XLSlicer::setName(std::string_view n)
 {
     auto node = slicerNode();
     if (!node) return;
-    appendAndSetAttribute(node, "name", std::string(n));
+    setAttr(node, "name", std::string(n));
 }
 
 XLSlicer& XLSlicer::setCaption(std::string_view c)
 {
     auto node = slicerNode();
     if (!node) return *this;
-    appendAndSetAttribute(node, "caption", std::string(c));
+    setAttr(node, "caption", std::string(c));
     return *this;
 }
 
@@ -181,7 +181,7 @@ XLSlicer& XLSlicer::setStyleRaw(std::string_view rawName)
 {
     auto node = slicerNode();
     if (!node) return *this;
-    appendAndSetAttribute(node, "style", std::string(rawName));
+    setAttr(node, "style", std::string(rawName));
     return *this;
 }
 
@@ -189,7 +189,7 @@ XLSlicer& XLSlicer::setShowCaption(bool show)
 {
     auto node = slicerNode();
     if (!node) return *this;
-    appendAndSetAttribute(node, "showCaption", show ? "1" : "0");
+    setAttr(node, "showCaption", show ? "1" : "0");
     return *this;
 }
 
@@ -197,7 +197,7 @@ XLSlicer& XLSlicer::setColumnCount(int cols)
 {
     auto node = slicerNode();
     if (!node) return *this;
-    appendAndSetAttribute(node, "columnCount", std::to_string(cols));
+    setAttr(node, "columnCount", std::to_string(cols));
     return *this;
 }
 
@@ -205,7 +205,7 @@ XLSlicer& XLSlicer::setLockedPosition(bool locked)
 {
     auto node = slicerNode();
     if (!node) return *this;
-    appendAndSetAttribute(node, "lockedPosition", locked ? "1" : "0");
+    setAttr(node, "lockedPosition", locked ? "1" : "0");
     return *this;
 }
 
@@ -213,7 +213,7 @@ XLSlicer& XLSlicer::setRowHeight(int emuHeight)
 {
     auto node = slicerNode();
     if (!node) return *this;
-    appendAndSetAttribute(node, "rowHeight", std::to_string(emuHeight));
+    setAttr(node, "rowHeight", std::to_string(emuHeight));
     return *this;
 }
 
@@ -472,8 +472,8 @@ XLSlicer& XLSlicer::resize(uint32_t widthPx, uint32_t heightPx)
     // Update oneCellAnchor ext
     XMLNode ext = anchorExt(m_anchorNode);
     if (ext) {
-        appendAndSetAttribute(ext, "cx", std::to_string(cx));
-        appendAndSetAttribute(ext, "cy", std::to_string(cy));
+        setAttr(ext, "cx", std::to_string(cx));
+        setAttr(ext, "cy", std::to_string(cy));
     }
 
     // Also update the fallback <xdr:sp> shape in AlternateContent/Fallback

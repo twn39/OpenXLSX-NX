@@ -10,6 +10,7 @@
 #include "XLDocument.hpp"
 #include "XLException.hpp"
 #include "XLFormula.hpp"
+#include "XLXmlHelpers.hpp"
 
 using namespace OpenXLSX;
 
@@ -263,8 +264,8 @@ void XLFormulaProxy::setFormulaString(const char* formulaString, bool resetValue
     }
 
     // ===== If the cell node doesn't have formula or value child nodes, create them.
-    if (m_cellNode->child("f").empty()) m_cellNode->append_child("f");
-    if (m_cellNode->child("v").empty()) m_cellNode->append_child("v");
+    ensureChild(*m_cellNode, "f");
+    ensureChild(*m_cellNode, "v");
 
     // ===== Remove the formula type and shared index attributes, if they exist.
     m_cellNode->child("f").remove_attribute("t");

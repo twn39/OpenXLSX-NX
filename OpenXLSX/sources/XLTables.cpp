@@ -73,10 +73,10 @@ namespace OpenXLSX
         auto rel = m_worksheet->relationships().addRelationship(XLRelationshipType::Table, tablesRelativePath);
 
         auto tableParts = m_sheetNode.child("tableParts");
-        if (tableParts.empty()) tableParts = appendAndGetNode(m_sheetNode, "tableParts", m_worksheet->m_nodeOrder);
+        if (tableParts.empty()) tableParts = ensureChild(m_sheetNode, "tableParts", m_worksheet->m_nodeOrder);
 
         uint32_t count = tableParts.attribute("count").as_uint(0) + 1;
-        appendAndSetAttribute(tableParts, "count", std::to_string(count));
+        setAttr(tableParts, "count", std::to_string(count));
         tableParts.append_child("tablePart").append_attribute("r:id").set_value(rel.id().c_str());
 
         std::string     refStr(range);
@@ -230,16 +230,16 @@ namespace OpenXLSX
         }
 
         setTableAttribute(docNode, "ref", ref);
-        XMLNode autoFilter = appendAndGetNode(docNode, "autoFilter", TableNodeOrder);
-        appendAndSetAttribute(autoFilter, "ref", filterRef);
+        XMLNode autoFilter = ensureChild(docNode, "autoFilter", TableNodeOrder);
+        setAttr(autoFilter, "ref", filterRef);
     }
 
     std::string XLTable::styleName() const { return xmlDocument().document_element().child("tableStyleInfo").attribute("name").value(); }
     void        XLTable::setStyleName(std::string_view styleName)
     {
         XMLNode docNode = xmlDocument().document_element();
-        XMLNode info    = appendAndGetNode(docNode, "tableStyleInfo", TableNodeOrder);
-        appendAndSetAttribute(info, "name", std::string(styleName));
+        XMLNode info    = ensureChild(docNode, "tableStyleInfo", TableNodeOrder);
+        setAttr(info, "name", std::string(styleName));
     }
 
     std::string XLTable::comment() const { return ""; }
@@ -253,8 +253,8 @@ namespace OpenXLSX
     void XLTable::setShowRowStripes(bool show)
     {
         XMLNode docNode = xmlDocument().document_element();
-        XMLNode info    = appendAndGetNode(docNode, "tableStyleInfo", TableNodeOrder);
-        appendAndSetAttribute(info, "showRowStripes", show ? "1" : "0");
+        XMLNode info    = ensureChild(docNode, "tableStyleInfo", TableNodeOrder);
+        setAttr(info, "showRowStripes", show ? "1" : "0");
     }
 
     bool XLTable::showColumnStripes() const
@@ -262,8 +262,8 @@ namespace OpenXLSX
     void XLTable::setShowColumnStripes(bool show)
     {
         XMLNode docNode = xmlDocument().document_element();
-        XMLNode info    = appendAndGetNode(docNode, "tableStyleInfo", TableNodeOrder);
-        appendAndSetAttribute(info, "showColumnStripes", show ? "1" : "0");
+        XMLNode info    = ensureChild(docNode, "tableStyleInfo", TableNodeOrder);
+        setAttr(info, "showColumnStripes", show ? "1" : "0");
     }
 
     bool XLTable::showFirstColumn() const
@@ -271,8 +271,8 @@ namespace OpenXLSX
     void XLTable::setShowFirstColumn(bool show)
     {
         XMLNode docNode = xmlDocument().document_element();
-        XMLNode info    = appendAndGetNode(docNode, "tableStyleInfo", TableNodeOrder);
-        appendAndSetAttribute(info, "showFirstColumn", show ? "1" : "0");
+        XMLNode info    = ensureChild(docNode, "tableStyleInfo", TableNodeOrder);
+        setAttr(info, "showFirstColumn", show ? "1" : "0");
     }
 
     bool XLTable::showLastColumn() const
@@ -280,14 +280,14 @@ namespace OpenXLSX
     void XLTable::setShowLastColumn(bool show)
     {
         XMLNode docNode = xmlDocument().document_element();
-        XMLNode info    = appendAndGetNode(docNode, "tableStyleInfo", TableNodeOrder);
-        appendAndSetAttribute(info, "showLastColumn", show ? "1" : "0");
+        XMLNode info    = ensureChild(docNode, "tableStyleInfo", TableNodeOrder);
+        setAttr(info, "showLastColumn", show ? "1" : "0");
     }
 
     XLAutoFilter XLTable::autoFilter() const
     {
         XMLNode docNode    = xmlDocument().document_element();
-        XMLNode filterNode = appendAndGetNode(docNode, "autoFilter", TableNodeOrder);
+        XMLNode filterNode = ensureChild(docNode, "autoFilter", TableNodeOrder);
         return XLAutoFilter(filterNode);
     }
 
@@ -296,7 +296,7 @@ namespace OpenXLSX
         XMLNode  docNode = xmlDocument().document_element();
         XMLNode  columns = docNode.child("tableColumns");
         uint32_t count   = columns.attribute("count").as_uint(0) + 1;
-        appendAndSetAttribute(columns, "count", std::to_string(count));
+        setAttr(columns, "count", std::to_string(count));
 
         auto column = columns.append_child("tableColumn");
         column.append_attribute("id").set_value(count);
@@ -349,12 +349,12 @@ namespace OpenXLSX
         auto docNode = xmlDocument().document_element();
         auto columns = docNode.child("tableColumns");
         if (!columns.empty()) docNode.remove_child(columns);
-        columns = appendAndGetNode(docNode, "tableColumns", TableNodeOrder);
+        columns = ensureChild(docNode, "tableColumns", TableNodeOrder);
 
         XLCellReference start(rangeReference().substr(0, rangeReference().find(':')));
         XLCellReference end(rangeReference().substr(rangeReference().find(':') + 1));
         uint32_t        colCount = end.column() - start.column() + 1;
-        appendAndSetAttribute(columns, "count", std::to_string(colCount));
+        setAttr(columns, "count", std::to_string(colCount));
 
         for (uint16_t c = start.column(); c <= end.column(); ++c) {
             auto column = columns.append_child("tableColumn");
