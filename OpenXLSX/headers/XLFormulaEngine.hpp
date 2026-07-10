@@ -22,6 +22,7 @@
 #include "OpenXLSX-Exports.hpp"
 #include "XLCellReference.hpp"
 #include "XLCellValue.hpp"
+#include "XLEvaluationContext.hpp"
 
 // Forward declare XLWorksheet so callers can use makeResolver without pulling the full header.
 namespace OpenXLSX
@@ -237,12 +238,15 @@ namespace OpenXLSX
      * @details Usage:
      * @code
      *   XLFormulaEngine engine;
-     *   auto resolver = XLFormulaEngine::makeResolver(worksheet);
+     *   XLWorksheetEvaluationContext ctx(worksheet);   // sheet-read port
+     *   auto resolver = XLFormulaEngine::makeResolver(ctx);
      *   XLCellValue result = engine.evaluate("SUM(A1:C1)", resolver);
      * @endcode
      *
      * The engine is **thread-safe for concurrent evaluate() calls** after construction
      * (the function table is built once in the constructor and is read-only thereafter).
+     * Cell lookup goes through `XLEvaluationContext` / `XLCellResolver` so formula code
+     * never depends on concrete worksheet internals.
      */
 
     class OPENXLSX_EXPORT XLFormulaArg
@@ -366,14 +370,30 @@ namespace OpenXLSX
          * @param resolver Callback to look up cell values.  May be empty if the formula
          *        contains no cell references.
          * @return The computed XLCellValue; an error value on evaluation failure.
+         *
+         * @note Prefer pairing with an `XLEvaluationContext` via `makeResolver(context)` so
+         *       formula code depends only on the sheet-read port, not a concrete worksheet type:
+         * @code
+         *   XLWorksheetEvaluationContext ctx(wks);
+         *   engine.evaluate("=A1+B1", XLFormulaEngine::makeResolver(ctx));
+         * @endcode
          */
         [[nodiscard]] XLCellValue evaluate(std::string_view formula, const XLCellResolver& resolver = {}, XLFormulaDiagnosticReporter* reporter = nullptr) const;
+
+        /**
+         * @brief Create a CellResolver that reads live values from an evaluation context.
+         * @param context The abstract sheet-read port.
+         * @return A resolver callable capturing a reference to @p context.
+         * @note The returned resolver is only valid while @p context is alive.
+         */
+        [[nodiscard]] static XLCellResolver makeResolver(const XLEvaluationContext& context);
 
         /**
          * @brief Create a CellResolver that reads live values from an XLWorksheet.
          * @param wks The source worksheet.
          * @return A resolver callable capturing a reference to @p wks.
          * @note The returned resolver is only valid while @p wks is alive.
+         * @note Prefer `XLWorksheetEvaluationContext` + `evaluate(formula, context)` for new code.
          */
         [[nodiscard]] static XLCellResolver makeResolver(const XLWorksheet& wks);
 

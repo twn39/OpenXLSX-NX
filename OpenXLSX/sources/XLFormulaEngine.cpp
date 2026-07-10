@@ -17,6 +17,7 @@
 #include "XLException.hpp"
 #include "XLFormulaEngine.hpp"
 #include "XLFormulaRegistry.hpp"
+#include "XLEvaluationContext.hpp"
 #include "XLWorksheet.hpp"
 
 using namespace OpenXLSX;
@@ -242,18 +243,17 @@ XLCellValue XLFormulaEngine::evaluate(std::string_view formula, const XLCellReso
 // makeResolver
 // =============================================================================
 
+XLCellResolver XLFormulaEngine::makeResolver(const XLEvaluationContext& context)
+{
+    return [&context](std::string_view ref) -> XLCellValue { return context.cellValue(ref); };
+}
+
 XLCellResolver XLFormulaEngine::makeResolver(const XLWorksheet& wks)
 {
+    // Capture worksheet pointer; each lookup builds a thin context adapter so cross-sheet
+    // resolution stays in XLWorksheetEvaluationContext (not duplicated here).
     return [&wks](std::string_view ref) -> XLCellValue {
-        try {
-            // Strip sheet prefix (e.g. "Sheet1!A1" -> "A1")
-            auto        bang     = ref.find('!');
-            std::string cellAddr = std::string(bang != std::string_view::npos ? ref.substr(bang + 1) : ref);
-            return wks.cell(cellAddr).value();
-        }
-        catch (...) {
-            return XLCellValue{};
-        }
+        return XLWorksheetEvaluationContext(wks).cellValue(ref);
     };
 }
 
