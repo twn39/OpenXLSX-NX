@@ -3,7 +3,7 @@
 
 // ===== OpenXLSX Includes ===== //
 #include "XLColumn.hpp"
-#include "XLStyles.hpp"    // XLDefaultCellFormat
+#include "XLStyles_Common.hpp"    // XLDefaultCellFormat
 #include "XLXmlHelpers.hpp"
 
 using namespace OpenXLSX;

@@ -3,7 +3,7 @@
 
 #include "OpenXLSX-Exports.hpp"
 #include "XLCellValue.hpp"
-#include "XLStyles.hpp"
+#include "XLStyles_Common.hpp"    // XLStyleIndex
 #include <cstddef>
 #include <filesystem>
 #include <fstream>

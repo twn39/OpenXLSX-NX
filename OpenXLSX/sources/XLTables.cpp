@@ -37,10 +37,11 @@ namespace OpenXLSX
             std::string absolutePath  = eliminateDotAndDotDotFromPath(
                 !target.empty() && target.front() == '/' ? target : worksheetPath.substr(0, worksheetPath.find_last_of('/') + 1) + target);
             if (!absolutePath.empty() && absolutePath.front() == '/') absolutePath.erase(0, 1);
-            XLXmlData* xmlData = m_worksheet->parentDoc().getXmlData(XLInternalAccess{}, absolutePath, true);
-            if (!xmlData && m_worksheet->parentDoc().archive().hasEntry(absolutePath)) {
-                m_worksheet->parentDoc().contentTypes().addOverride("/" + absolutePath, XLContentType::Table);
-                xmlData = m_worksheet->parentDoc().addXmlData(XLInternalAccess{}, absolutePath, "", XLContentType::Table);
+            XLPackageServices& pkg = m_worksheet->package();
+            XLXmlData* xmlData = pkg.findXmlPart(absolutePath, /*doNotThrow=*/true);
+            if (!xmlData && pkg.archive().hasEntry(absolutePath)) {
+                m_worksheet->package().contentTypes().addOverride("/" + absolutePath, XLContentType::Table);
+                xmlData = pkg.emplaceXmlPart(absolutePath, "", XLContentType::Table);
             }
             if (xmlData) m_tables.emplace_back(xmlData);
         }
@@ -66,7 +67,7 @@ namespace OpenXLSX
 
     XLTable XLTableCollection::add(std::string_view name, std::string_view range)
     {
-        uint32_t    tableId            = m_worksheet->parentDoc().nextTableId();
+        uint32_t    tableId            = m_worksheet->partFactory().nextTableId();
         std::string tablesFilename     = "xl/tables/table" + std::to_string(tableId) + ".xml";
         std::string tablesRelativePath = getPathARelativeToPathB(tablesFilename, m_worksheet->getXmlPath());
 
@@ -141,11 +142,11 @@ namespace OpenXLSX
         tableXml += "</tableColumns><tableStyleInfo name=\"TableStyleMedium2\" showFirstColumn=\"0\" showLastColumn=\"0\" "
                     "showRowStripes=\"1\" showColumnStripes=\"0\"/></table>";
 
-        m_worksheet->parentDoc().archive().addEntry(tablesFilename, tableXml);
-        m_worksheet->parentDoc().contentTypes().addOverride("/" + tablesFilename, XLContentType::Table);
+        XLPackageServices& pkg = m_worksheet->package();
+        pkg.archive().addEntry(tablesFilename, tableXml);
+        m_worksheet->package().contentTypes().addOverride("/" + tablesFilename, XLContentType::Table);
 
-        XLXmlData* xmlData =
-            m_worksheet->parentDoc().addXmlData(XLInternalAccess{}, tablesFilename, "", XLContentType::Table);
+        XLXmlData* xmlData = pkg.emplaceXmlPart(tablesFilename, "", XLContentType::Table);
         m_loaded = false;    // Force reload
         return XLTable(xmlData);
     }

@@ -6,7 +6,7 @@
 #include "XLCellIterator.hpp"
 #include "XLCellReference.hpp"
 #include "XLRow.hpp"
-#include "XLStyles.hpp"    // XLDefaultCellFormat
+#include "XLStyles_Common.hpp"    // XLDefaultCellFormat
 
 #include "XLUtilities.hpp"
 

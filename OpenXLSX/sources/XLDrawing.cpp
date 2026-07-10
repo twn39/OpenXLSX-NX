@@ -810,15 +810,15 @@ void XLDrawing::addScaledImage(std::string_view rId,
 XLRelationships& XLDrawing::relationships()
 {
     if (!m_relationships or !m_relationships->valid()) {
-        m_relationships = std::make_unique<XLRelationships>(parentDoc().drawingRelationships(getXmlPath()));
+        m_relationships = std::make_unique<XLRelationships>(package().drawingRelationships(getXmlPath()));
     }
 
     return *m_relationships;
 }
 
-XLDrawingItem::XLDrawingItem() : m_anchorNode(), m_parentDoc(nullptr) {}
+XLDrawingItem::XLDrawingItem() : m_anchorNode(), m_package(nullptr) {}
 
-XLDrawingItem::XLDrawingItem(const XMLNode& node, XLDocument* parentDoc) : m_anchorNode(node), m_parentDoc(parentDoc) {}
+XLDrawingItem::XLDrawingItem(const XMLNode& node, XLPackageServices* package) : m_anchorNode(node), m_package(package) {}
 
 std::string XLDrawingItem::name() const
 { return m_anchorNode.child("xdr:pic").child("xdr:nvPicPr").child("xdr:cNvPr").attribute("name").value(); }
@@ -862,15 +862,17 @@ std::string XLDrawingItem::relationshipId() const
 std::vector<uint8_t> XLDrawingItem::imageBinary() const
 {
     std::vector<uint8_t> buffer;
-    if (!m_parentDoc) return buffer;
-    
+    if (!m_package) return buffer;
+
     std::string relId = relationshipId();
     if (relId.empty()) return buffer;
 
+    IZipArchive& archive = m_package->archive();
+
     std::string targetPath;
-    for (const auto& entry : m_parentDoc->archive().entryNames()) {
+    for (const auto& entry : archive.entryNames()) {
         if (entry.find("_rels") != std::string::npos && entry.find("drawing") != std::string::npos) {
-            std::string relsContent = m_parentDoc->archive().getEntry(entry);
+            std::string relsContent = archive.getEntry(entry);
             if (relsContent.find(relId) != std::string::npos) {
                 pugi::xml_document relsDoc;
                 relsDoc.load_buffer(relsContent.data(), relsContent.size());
@@ -895,9 +897,9 @@ std::vector<uint8_t> XLDrawingItem::imageBinary() const
         targetPath = "xl/drawings/" + targetPath;
     }
 
-    if (!m_parentDoc->archive().hasEntry(targetPath)) return buffer;
+    if (!archive.hasEntry(targetPath)) return buffer;
 
-    std::string binData = m_parentDoc->archive().getEntry(targetPath);
+    std::string binData = archive.getEntry(targetPath);
     buffer.assign(binData.begin(), binData.end());
     return buffer;
 }
@@ -921,7 +923,7 @@ XLDrawingItem XLDrawing::image(uint32_t index) const
         std::string nodeName = child.raw_name();
         if (nodeName == "xdr:oneCellAnchor" or nodeName == "xdr:twoCellAnchor" or nodeName == "xdr:absoluteAnchor") {
             if (!child.child("xdr:pic").empty()) {
-                if (count == index) { return XLDrawingItem(child, const_cast<XLDocument*>(&parentDoc())); }
+                if (count == index) { return XLDrawingItem(child, &const_cast<XLDrawing*>(this)->package()); }
                 count++;
             }
         }

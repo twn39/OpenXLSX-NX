@@ -5,6 +5,9 @@
 
 // ===== OpenXLSX Includes ===== //
 #include "XLDocument.hpp"
+#include "XLPackagePartFactory.hpp"
+#include "XLPackageServices.hpp"
+#include "XLSharedStringTable.hpp"
 #include "XLXmlFile.hpp"
 
 using namespace OpenXLSX;
@@ -49,6 +52,40 @@ XLDocument& XLXmlFile::parentDoc()
 {
     Expects(m_xmlData != nullptr);
     return *m_xmlData->getParentDoc();
+}
+
+XLPackageServices& XLXmlFile::package()
+{
+    // XLDocument implements XLPackageServices; prefer this over parentDoc() for package I/O.
+    return parentDoc();
+}
+
+const XLPackageServices& XLXmlFile::package() const
+{
+    return parentDoc();
+}
+
+XLPackagePartFactory& XLXmlFile::partFactory()
+{
+    // XLDocument implements XLPackagePartFactory; prefer for createChart / drawings / slicers.
+    return parentDoc();
+}
+
+const XLPackagePartFactory& XLXmlFile::partFactory() const
+{
+    return parentDoc();
+}
+
+const XLSharedStringTable& XLXmlFile::sharedStringTable() const
+{
+    // XLDocument implements XLSharedStringTable (read-only SST lookups).
+    return parentDoc();
+}
+
+const XLSharedStrings& XLXmlFile::sharedStrings() const
+{
+    // Full SST (write-capable via const methods on XLSharedStrings). Prefer over parentDoc().sharedStrings().
+    return parentDoc().sharedStrings();
 }
 
 std::string XLXmlFile::relationshipID() const

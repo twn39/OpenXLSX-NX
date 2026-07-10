@@ -19,6 +19,10 @@ namespace OpenXLSX
 {
     class XLXmlData;
     class XLDocument;
+    class XLPackageServices;
+    class XLPackagePartFactory;
+    class XLSharedStringTable;
+    class XLSharedStrings;
 
     /**
      * @brief The XLUnsupportedElement class provides a stub implementation that can be used as function
@@ -102,14 +106,48 @@ namespace OpenXLSX
         /**
          * @brief This function provides access to the parent XLDocument object.
          * @return A reference to the parent XLDocument object.
+         * @note Prefer @ref package() when only archive / XML-part / relationship services are needed.
          */
         XLDocument& parentDoc();
 
         /**
          * @brief This function provides access to the parent XLDocument object.
          * @return A const reference to the parent XLDocument object.
+         * @note Prefer @ref package() when only archive / XML-part / relationship services are needed.
          */
         const XLDocument& parentDoc() const;
+
+        /**
+         * @brief Narrow package-services port (archive, managed XML parts, relationships, content types).
+         * @details Decouples Drawing / Pivot / similar parts from the full document façade.
+         *          Valid only while the parent document remains alive.
+         */
+        [[nodiscard]] XLPackageServices&       package();
+        [[nodiscard]] const XLPackageServices& package() const;
+
+        /**
+         * @brief Narrow package-part factory port (chart / drawing / image / slicer / sheet accessories).
+         * @details Prefer this over parentDoc() for createChart, sheetDrawing, addImage, createSlicer, etc.
+         *          Valid only while the parent document remains alive.
+         */
+        [[nodiscard]] XLPackagePartFactory&       partFactory();
+        [[nodiscard]] const XLPackagePartFactory& partFactory() const;
+
+        /**
+         * @brief Read-only shared string table (SST) port.
+         * @details Prefer this when only resolving indices to text (or looking up existing strings).
+         *          Valid only while the parent document remains alive.
+         */
+        [[nodiscard]] const XLSharedStringTable& sharedStringTable() const;
+
+        /**
+         * @brief Full workbook SST (including getOrCreate / append).
+         * @details Convenience forwarding to the parent document; prefer over parentDoc().sharedStrings()
+         *          when constructing cells/rows or writing strings. Use @ref sharedStringTable() for
+         *          read-only lookups.
+         *          Valid only while the parent document remains alive.
+         */
+        [[nodiscard]] const XLSharedStrings& sharedStrings() const;
 
         /**
          * @brief This function provides access to the underlying XMLDocument object.

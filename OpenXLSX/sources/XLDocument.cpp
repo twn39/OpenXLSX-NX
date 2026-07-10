@@ -685,6 +685,20 @@ std::string XLDocument::name() const
  */
 XLContentTypes& XLDocument::contentTypes() { return m_contentTypes; }
 
+const XLContentTypes& XLDocument::contentTypes() const { return m_contentTypes; }
+
+// ----- XLSharedStringTable (read-only SST port) -----
+
+int32_t XLDocument::stringCount() const { return m_sharedStrings.stringCount(); }
+
+int32_t XLDocument::getStringIndex(std::string_view str) const { return m_sharedStrings.getStringIndex(str); }
+
+bool XLDocument::stringExists(std::string_view str) const { return m_sharedStrings.stringExists(str); }
+
+const char* XLDocument::getString(int32_t index) const { return m_sharedStrings.getString(index); }
+
+std::string_view XLDocument::getStringView(int32_t index) const { return m_sharedStrings.getStringView(index); }
+
 /**
  * @details Provides access to custom properties, enabling the storage of application-specific metadata within the OOXML container.
  */
@@ -859,6 +873,21 @@ const XLXmlData* XLDocument::getXmlData(std::string_view path, bool doNotThrow) 
         throw XLInternalError("Path " + std::string(path) + " does not exist in zip archive.");
     }
     return &*result;
+}
+
+XLXmlData* XLDocument::findXmlPart(std::string_view path, bool doNotThrow)
+{
+    return getXmlData(path, doNotThrow);
+}
+
+const XLXmlData* XLDocument::findXmlPart(std::string_view path, bool doNotThrow) const
+{
+    return getXmlData(path, doNotThrow);
+}
+
+XLXmlData* XLDocument::emplaceXmlPart(const std::string& path, const std::string& id, XLContentType type)
+{
+    return &m_data.emplace_back(this, path, id, type);
 }
 
 /**

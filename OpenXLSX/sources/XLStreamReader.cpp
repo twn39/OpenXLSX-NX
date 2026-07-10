@@ -57,7 +57,7 @@ namespace OpenXLSX
     {
         if (!worksheet) throw XLInternalError("Worksheet is null");
 
-        m_zipStream = worksheet->parentDoc().archive().openEntryStream(worksheet->getXmlPath());
+        m_zipStream = worksheet->package().archive().openEntryStream(worksheet->getXmlPath());
         if (!m_zipStream) throw XLInternalError("Failed to open worksheet zip stream");
 
         // Pre-reserve scratch buffers to avoid reallocations per row
@@ -109,7 +109,7 @@ namespace OpenXLSX
     void XLStreamReader::cleanup()
     {
         if (m_zipStream && m_worksheet) {
-            m_worksheet->parentDoc().archive().closeEntryStream(m_zipStream);
+            m_worksheet->package().archive().closeEntryStream(m_zipStream);
             m_zipStream = nullptr;
         }
     }
@@ -120,7 +120,7 @@ namespace OpenXLSX
 
         constexpr size_t kReadBuf = 65536;
         char             buf[kReadBuf];    // 64 KB chunks
-        auto             bytesRead = m_worksheet->parentDoc().archive().readEntryStream(m_zipStream, buf, kReadBuf);
+        auto             bytesRead = m_worksheet->package().archive().readEntryStream(m_zipStream, buf, kReadBuf);
 
         if (bytesRead > 0)
             m_buffer.append(buf, static_cast<size_t>(bytesRead));
@@ -241,7 +241,7 @@ namespace OpenXLSX
                 char* ep  = nullptr;
                 auto  idx = static_cast<int32_t>(std::strtol(cellValue.data(), &ep, 10));
                 if (ep != cellValue.data())
-                    result.emplace_back(std::string(m_worksheet->parentDoc().sharedStrings().getString(idx)));
+                    result.emplace_back(std::string(m_worksheet->sharedStringTable().getString(idx)));
                 else
                     result.emplace_back();
             }

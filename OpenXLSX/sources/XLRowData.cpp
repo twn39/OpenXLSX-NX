@@ -33,7 +33,7 @@ namespace OpenXLSX
         if (not m_currentCell)    // 2025-07-14 BUGFIX issue #368: check that m_currentCell is valid
             throw XLInputError("XLRowDataIterator: tried to increment beyond end operator");
         const uint16_t cellNumber = m_currentCell.cellReference().column() + 1;
-        XMLNode        cellNode   = m_currentCell.m_cellNode.next_sibling_of_type(pugi::node_element);
+        XMLNode        cellNode   = m_currentCell.m_cellNode.next_sibling_of_type(node_element);
         if (cellNumber > m_dataRange->m_lastCol)
             m_currentCell = XLCell();
 
@@ -172,7 +172,7 @@ namespace OpenXLSX
     XLRowDataProxy::         operator std::list<XLCellValue>() const { return convertContainer<std::list<XLCellValue>>(); }
     std::vector<XLCellValue> XLRowDataProxy::getValues() const
     {
-        const XMLNode  lastElementChild = m_rowNode->last_child_of_type(pugi::node_element);
+        const XMLNode  lastElementChild = m_rowNode->last_child_of_type(node_element);
         const uint16_t numCells = (lastElementChild.empty() ? 0 : extractColumnFromCellRef(lastElementChild.attribute("r").value()));
         std::vector<XLCellValue> result(static_cast<uint64_t>(numCells));
         if (numCells > 0) {
@@ -180,7 +180,7 @@ namespace OpenXLSX
 
             while (not node.empty()) {
                 result[extractColumnFromCellRef(node.attribute("r").value()) - 1] = XLCell(node, m_row->m_sharedStrings.get()).value();
-                node                                                              = node.previous_sibling_of_type(pugi::node_element);
+                node                                                              = node.previous_sibling_of_type(node_element);
             }
         }
         return result;
@@ -188,11 +188,11 @@ namespace OpenXLSX
     const XLSharedStrings& XLRowDataProxy::getSharedStrings() const { return m_row->m_sharedStrings.get(); }
     void                   XLRowDataProxy::deleteCellValues(uint16_t count)
     {
-        XMLNode cellNode = m_rowNode->first_child_of_type(pugi::node_element);
+        XMLNode cellNode = m_rowNode->first_child_of_type(node_element);
         while (not cellNode.empty()) {
             if (extractColumnFromCellRef(cellNode.attribute("r").value()) <= count) {
                 XMLNode nextNode    = cellNode.next_sibling();
-                XMLNode nextElement = cellNode.next_sibling_of_type(pugi::node_element);
+                XMLNode nextElement = cellNode.next_sibling_of_type(node_element);
 
                 m_rowNode->remove_child(cellNode);
 
@@ -205,7 +205,7 @@ namespace OpenXLSX
                 cellNode = nextElement;
             }
             else {
-                cellNode = cellNode.next_sibling_of_type(pugi::node_element);
+                cellNode = cellNode.next_sibling_of_type(node_element);
             }
         }
     }

@@ -132,20 +132,21 @@ namespace OpenXLSX
                                 writtenAsShared = true;
                             }
                             else {
-                                // 2. 未命中局部缓存，检查全局 SST 容量
-                                const auto& sst = m_worksheet->parentDoc().sharedStrings();
-                                if (sst.stringExists(strVal)) {
-                                    sstIdx = sst.getStringIndex(strVal);
+                                // 2. 未命中局部缓存：只读表探测；写入仍走完整 SST
+                                const XLSharedStringTable& sstView = m_worksheet->sharedStringTable();
+                                if (sstView.stringExists(strVal)) {
+                                    sstIdx = sstView.getStringIndex(strVal);
                                     writtenAsShared = true;
                                 }
-                                else if (static_cast<size_t>(sst.stringCount()) < m_maxUniqueStrings) {
+                                else if (static_cast<size_t>(sstView.stringCount()) < m_maxUniqueStrings) {
+                                    const auto& sst = m_worksheet->sharedStrings();
                                     sstIdx = sst.getOrCreateStringIndex(strVal);
-                                    
+
                                     // 3. 零拷贝存入局部缓存
                                     if (m_localCache.size() >= kLocalCacheLimit) {
                                         m_localCache.clear();
                                     }
-                                    m_localCache.emplace(sst.getStringView(sstIdx), sstIdx);
+                                    m_localCache.emplace(sstView.getStringView(sstIdx), sstIdx);
                                     writtenAsShared = true;
                                 }
                             }

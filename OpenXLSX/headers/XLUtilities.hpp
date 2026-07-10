@@ -11,7 +11,7 @@
 #include "XLConstants.hpp"        // 2024-05-28 OpenXLSX::MAX_ROWS
 #include "XLContentTypes.hpp"     // OpenXLSX::XLContentType
 #include "XLRelationships.hpp"    // OpenXLSX::XLRelationshipType
-#include "XLStyles.hpp"           // OpenXLSX::XLStyleIndex
+#include "XLStyles_Common.hpp"    // XLStyleIndex, XLDefaultCellFormat
 #include "XLXmlHelpers.hpp"       // ensure*/set* DOM helpers + appendAnd* aliases
 #include "XLXmlParser.hpp"
 

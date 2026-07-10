@@ -37,6 +37,9 @@
 #include "XLXmlData.hpp"
 #include "XLZipArchive.hpp"
 #include "XLInternalAccess.hpp"
+#include "XLPackagePartFactory.hpp"
+#include "XLPackageServices.hpp"
+#include "XLSharedStringTable.hpp"
 
 namespace OpenXLSX
 {
@@ -78,7 +81,9 @@ namespace OpenXLSX
      * closing and saving the document.\n<b><em>The XLDocument is the entrypoint for clients
      * using the RapidXLSX library.</em></b>
      */
-    class OPENXLSX_EXPORT XLDocument final
+    class OPENXLSX_EXPORT XLDocument final : public XLPackageServices,
+                                              public XLPackagePartFactory,
+                                              public XLSharedStringTable
     {
     public:
         struct SharedFormula
@@ -210,7 +215,8 @@ namespace OpenXLSX
         /**
          * @brief Provides access to the [Content_Types].xml file, which defines the package structure and internal part mapping.
          */
-        [[nodiscard]] XLContentTypes& contentTypes();
+        [[nodiscard]] XLContentTypes&       contentTypes() override;
+        [[nodiscard]] const XLContentTypes& contentTypes() const override;
 
         /**
          * @brief Provides access to custom properties (metadata) that can be set for the document.
@@ -234,7 +240,7 @@ namespace OpenXLSX
          * @brief Atomic table ID generator to ensure workbook-wide uniqueness for Excel table structures.
          * [[nodiscard]] is used to enforce correct result consumption.
          */
-        [[nodiscard]] uint32_t nextTableId() const;
+        [[nodiscard]] uint32_t nextTableId() const override;
 
         /**
          * @brief Get the underlying workbook object, containing worksheets and global data state.
@@ -297,48 +303,48 @@ namespace OpenXLSX
 
         /**
          * @brief Component presence checks, used to avoid unnecessary parsing of absent components in the package.
+         * @note Also part of XLPackagePartFactory.
          */
-        [[nodiscard]] bool hasSheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false) const;
-        [[nodiscard]] bool hasSheetVmlDrawing(uint16_t sheetXmlNo) const;
-        [[nodiscard]] bool hasSheetComments(uint16_t sheetXmlNo) const;
-        [[nodiscard]] bool hasSheetThreadedComments(uint16_t sheetXmlNo) const;
-        [[nodiscard]] bool hasSheetDrawing(uint16_t sheetXmlNo) const;
-        [[nodiscard]] bool hasSheetTables(uint16_t sheetXmlNo) const;
+        [[nodiscard]] bool hasSheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false) const override;
+        [[nodiscard]] bool hasSheetVmlDrawing(uint16_t sheetXmlNo) const override;
+        [[nodiscard]] bool hasSheetComments(uint16_t sheetXmlNo) const override;
+        [[nodiscard]] bool hasSheetThreadedComments(uint16_t sheetXmlNo) const override;
+        [[nodiscard]] bool hasSheetDrawing(uint16_t sheetXmlNo) const override;
+        [[nodiscard]] bool hasSheetTables(uint16_t sheetXmlNo) const override;
 
-        XLRelationships sheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false);
-        XLDrawing       sheetDrawing(uint16_t sheetXmlNo);
-        XLDrawing       createDrawing();
-        XLDrawing       drawing(std::string_view path);
-        XLVmlDrawing    sheetVmlDrawing(uint16_t sheetXmlNo);
-        XLComments      sheetComments(uint16_t sheetXmlNo);
-        XLThreadedComments sheetThreadedComments(uint16_t sheetXmlNo);
-        XLTables        sheetTables(uint16_t sheetXmlNo);
+        XLRelationships sheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false) override;
+        XLDrawing       sheetDrawing(uint16_t sheetXmlNo) override;
+        XLDrawing       createDrawing() override;
+        XLDrawing       drawing(std::string_view path) override;
+        XLVmlDrawing    sheetVmlDrawing(uint16_t sheetXmlNo) override;
+        XLComments      sheetComments(uint16_t sheetXmlNo) override;
+        XLThreadedComments sheetThreadedComments(uint16_t sheetXmlNo) override;
+        XLTables        sheetTables(uint16_t sheetXmlNo) override;
 
-        class XLChart createChart(XLChartType type = XLChartType::Bar);
+        XLChart createChart(XLChartType type = XLChartType::Bar) override;
 
         class XLPivotTable           createPivotTable();
         class XLPivotCacheDefinition createPivotCacheDefinition();
         class XLPivotCacheRecords    createPivotCacheRecords(std::string_view cacheDefPath);
 
-        std::string createTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName);
-        std::string findOrCreateTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName);
+        std::string createTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName) override;
+        std::string findOrCreateTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName) override;
 
         std::string createPivotSlicerCache(uint32_t         pivotCacheId,
                                            uint32_t         sheetId,
                                            std::string_view pivotTableName,
                                            std::string_view name,
-                                           std::string_view sourceName);
+                                           std::string_view sourceName) override;
         std::string findOrCreatePivotSlicerCache(uint32_t         pivotCacheId,
                                                  uint32_t         sheetId,
                                                  std::string_view pivotTableName,
                                                  std::string_view name,
-                                                 std::string_view sourceName);
+                                                 std::string_view sourceName) override;
 
         std::string createSlicer(std::string_view name, std::string_view cacheName, std::string_view caption,
-                                 std::string_view existingSlicerFile = {});
+                                 std::string_view existingSlicerFile = {}) override;
 
-
-        void deleteSlicerFileAndOrphanCache(const std::string& name);
+        void deleteSlicerFileAndOrphanCache(const std::string& name) override;
 
         /**
          * @brief Insert image into the archive's media folder. Uses string_view for zero-copy data transfer.
@@ -346,30 +352,36 @@ namespace OpenXLSX
          * @param data Raw image data as a non-owning view.
          * @return The internal package path to the image.
          */
-        std::string addImage(std::string_view name, std::string_view data);
-        std::string addImage(std::string_view name, gsl::span<const uint8_t> data);
+        std::string addImage(std::string_view name, std::string_view data) override;
+        std::string addImage(std::string_view name, gsl::span<const uint8_t> data) override;
 
         /**
          * @brief Fetch raw image data from the document archive (xl/media/).
          */
-        [[nodiscard]] std::string getImage(std::string_view path) const;
+        [[nodiscard]] std::string getImage(std::string_view path) const override;
 
-        XLRelationships drawingRelationships(std::string_view drawingPath);
+        XLRelationships drawingRelationships(std::string_view drawingPath) override;
         /**
          * @brief Get relationships for an arbitrary XML file (e.g. pivot tables)
          */
-        XLRelationships xmlRelationships(std::string_view xmlPath);
+        XLRelationships xmlRelationships(std::string_view xmlPath) override;
         /**
          * @brief Get workbook relationships
          */
-        XLRelationships& workbookRelationships() { return m_wbkRelationships; }
+        XLRelationships& workbookRelationships() override { return m_wbkRelationships; }
 
         /**
          * @brief Access the low-level ZIP archive for advanced package manipulation.
          * [[nodiscard]] is used to prevent state-querying errors.
          */
-        [[nodiscard]] IZipArchive&       archive() { return m_archive; }
-        [[nodiscard]] const IZipArchive& archive() const { return m_archive; }
+        [[nodiscard]] IZipArchive&       archive() override { return m_archive; }
+        [[nodiscard]] const IZipArchive& archive() const override { return m_archive; }
+
+        // ----- XLPackageServices: managed XML parts -----
+
+        [[nodiscard]] XLXmlData*       findXmlPart(std::string_view path, bool doNotThrow = false) override;
+        [[nodiscard]] const XLXmlData* findXmlPart(std::string_view path, bool doNotThrow = false) const override;
+        XLXmlData*                     emplaceXmlPart(const std::string& path, const std::string& id, XLContentType type) override;
 
         /**
          * @brief Access application-specific properties (metadata).
@@ -404,8 +416,23 @@ namespace OpenXLSX
         /**
          * @brief Access the workbook's central Shared String Table (SST).
          * The SST reduces file size by deduplicating text across the entire package.
+         * @note Full SST (including getOrCreate / append). Prefer @ref sharedStringTable() for read-only lookups.
          */
         [[nodiscard]] const XLSharedStrings& sharedStrings() const { return m_sharedStrings; }
+
+        /**
+         * @brief Read-only SST port (index ↔ string lookups only).
+         * @details Also available as XLSharedStringTable via inheritance; this alias documents intent.
+         */
+        [[nodiscard]] const XLSharedStringTable& sharedStringTable() const { return *this; }
+
+        // ----- XLSharedStringTable (read-only) -----
+
+        [[nodiscard]] int32_t            stringCount() const override;
+        [[nodiscard]] int32_t            getStringIndex(std::string_view str) const override;
+        [[nodiscard]] bool               stringExists(std::string_view str) const override;
+        [[nodiscard]] const char*        getString(int32_t index) const override;
+        [[nodiscard]] std::string_view   getStringView(int32_t index) const override;
 
         /**
          * @brief Check if the document has a persons metadata file.

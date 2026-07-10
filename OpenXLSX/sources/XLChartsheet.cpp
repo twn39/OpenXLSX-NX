@@ -28,7 +28,7 @@ uint16_t XLChartsheet::sheetXmlNumber() const
 
 XLRelationships& XLChartsheet::relationships()
 {
-    if (!m_relationships.valid()) { m_relationships = parentDoc().sheetRelationships(sheetXmlNumber(), true); }
+    if (!m_relationships.valid()) { m_relationships = partFactory().sheetRelationships(sheetXmlNumber(), true); }
     if (!m_relationships.valid()) throw XLException("XLChartsheet::relationships(): could not create relationships XML");
     return m_relationships;
 }
@@ -50,7 +50,7 @@ XLDrawing& XLChartsheet::drawing()
 
         if (drawingRelationship.empty()) {
             // Create a new drawing file
-            m_drawing = parentDoc().createDrawing();
+            m_drawing = partFactory().createDrawing();
             if (!m_drawing.valid()) throw XLException("XLChartsheet::drawing(): could not create drawing XML");
 
             std::string drawingPath         = m_drawing.getXmlPath();
@@ -72,7 +72,7 @@ XLDrawing& XLChartsheet::drawing()
                 drawingPath          = eliminateDotAndDotDotFromPath(drawingPath);
             }
             if (drawingPath.front() == '/') drawingPath = drawingPath.substr(1);
-            m_drawing = parentDoc().drawing(drawingPath);
+            m_drawing = partFactory().drawing(drawingPath);
         }
     }
     return m_drawing;
@@ -81,7 +81,7 @@ XLDrawing& XLChartsheet::drawing()
 XLChart XLChartsheet::addChart(XLChartType type, std::string_view name)
 {
     // 1. Create Chart File in Document
-    XLChart chart = parentDoc().createChart(type);
+    XLChart chart = partFactory().createChart(type);
 
     // 2. Get Drawing for the chartsheet
     XLDrawing&  drw               = drawing();

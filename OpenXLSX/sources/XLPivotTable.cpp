@@ -51,13 +51,15 @@ namespace OpenXLSX
         }
 
         if (!rId.empty()) {
-            std::string cacheTargetPath = const_cast<XLDocument&>(parentDoc()).workbookRelationships().relationshipById(rId).target();
+            // Package port: relationships + managed XML parts (no full document façade).
+            XLPackageServices& pkg = const_cast<XLPivotTable*>(this)->package();
+            std::string cacheTargetPath = pkg.workbookRelationships().relationshipById(rId).target();
             if (!cacheTargetPath.empty() && cacheTargetPath[0] != '/') cacheTargetPath = "/xl/" + cacheTargetPath;
             std::string targetPath = !cacheTargetPath.empty() && cacheTargetPath[0] == '/' ? cacheTargetPath.substr(1) : cacheTargetPath;
-            
-            XLXmlData* xmlData = const_cast<XLDocument&>(parentDoc()).getXmlData(XLInternalAccess{}, targetPath, true);
+
+            XLXmlData* xmlData = pkg.findXmlPart(targetPath, /*doNotThrow=*/true);
             if (xmlData == nullptr) {
-                xmlData = const_cast<XLDocument&>(parentDoc()).addXmlData(XLInternalAccess{}, targetPath, rId, XLContentType::PivotCacheDefinition);
+                xmlData = pkg.emplaceXmlPart(targetPath, rId, XLContentType::PivotCacheDefinition);
             }
             return XLPivotCacheDefinition(xmlData);
         }
@@ -95,13 +97,14 @@ namespace OpenXLSX
         }
 
         if (!rId.empty()) {
-            std::string cacheTargetPath = parentDoc().workbookRelationships().relationshipById(rId).target();
+            XLPackageServices& pkg = package();
+            std::string cacheTargetPath = pkg.workbookRelationships().relationshipById(rId).target();
             // Resolve relative path to absolute
             if (!cacheTargetPath.empty() && cacheTargetPath[0] != '/') cacheTargetPath = "/xl/" + cacheTargetPath;
             std::string targetPath = !cacheTargetPath.empty() && cacheTargetPath[0] == '/' ? cacheTargetPath.substr(1) : cacheTargetPath;
 
-            // Get the xml document for cache
-            XLPivotCacheDefinition cacheDef(parentDoc().getXmlData(XLInternalAccess{}, targetPath));
+            // Get the xml document for cache via package part store
+            XLPivotCacheDefinition cacheDef(pkg.findXmlPart(targetPath));
             XMLDocument&           cacheDoc  = cacheDef.xmlDocument();
             XMLNode                cacheRoot = cacheDoc.document_element();
             if (refresh) {
@@ -167,7 +170,7 @@ namespace OpenXLSX
 
 namespace OpenXLSX
 {
-    XLRelationships XLPivotTable::relationships() { return parentDoc().xmlRelationships(getXmlPath()); }
+    XLRelationships XLPivotTable::relationships() { return package().xmlRelationships(getXmlPath()); }
 
-    XLRelationships XLPivotCacheDefinition::relationships() { return parentDoc().xmlRelationships(getXmlPath()); }
+    XLRelationships XLPivotCacheDefinition::relationships() { return package().xmlRelationships(getXmlPath()); }
 }    // namespace OpenXLSX

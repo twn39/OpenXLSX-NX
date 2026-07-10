@@ -159,7 +159,7 @@ XLCellAssignable XLWorksheet::cell(uint32_t rowNumber, uint16_t columnNumber) co
     if (columnNumber > m_maxColumn) m_maxColumn = columnNumber;
     const XMLNode rowNode  = getRowNode(xmlDocument().document_element().child("sheetData"), rowNumber, &m_hintRowNumber, &m_hintRowNode);
     const XMLNode cellNode = getCellNode(rowNode, columnNumber, rowNumber, {}, &m_hintColNumber, &m_hintCellNode);
-    return XLCellAssignable(XLCell(cellNode, parentDoc().sharedStrings(), const_cast<XLWorksheet*>(this)));
+    return XLCellAssignable(XLCell(cellNode, sharedStrings(), const_cast<XLWorksheet*>(this)));
 }
 
 XLCellAssignable XLWorksheet::findCell(const std::string& ref) const { return findCell(XLCellReference(ref)); }
@@ -168,14 +168,14 @@ XLCellAssignable XLWorksheet::findCell(const XLCellReference& ref) const { retur
 XLCellAssignable XLWorksheet::findCell(uint32_t rowNumber, uint16_t columnNumber) const
 {
     return XLCellAssignable(XLCell(findCellNode(findRowNode(xmlDocument().document_element().child("sheetData"), rowNumber), columnNumber),
-                                   parentDoc().sharedStrings(), const_cast<XLWorksheet*>(this)));
+                                   sharedStrings(), const_cast<XLWorksheet*>(this)));
 }
 
 XLCellRange XLWorksheet::range() const { return range(XLCellReference("A1"), lastCell()); }
 XLCellRange XLWorksheet::range(const XLCellReference& topLeft, const XLCellReference& bottomRight) const
 {
     if (bottomRight.column() > m_maxColumn) m_maxColumn = bottomRight.column();
-    return XLCellRange(xmlDocument().document_element().child("sheetData"), topLeft, bottomRight, parentDoc().sharedStrings()); 
+    return XLCellRange(xmlDocument().document_element().child("sheetData"), topLeft, bottomRight, sharedStrings()); 
 }
 
 XLCellRange XLWorksheet::range(std::string const& topLeft, std::string const& bottomRight) const
@@ -207,19 +207,19 @@ XLRowRange XLWorksheet::rows() const
                       (sheetDataNode.last_child_of_type(pugi::node_element).empty()
                            ? 1
                            : static_cast<uint32_t>(sheetDataNode.last_child_of_type(pugi::node_element).attribute("r").as_ullong())),
-                      parentDoc().sharedStrings());
+                      sharedStrings());
 }
 
 XLRowRange XLWorksheet::rows(uint32_t rowCount) const
-{ return XLRowRange(xmlDocument().document_element().child("sheetData"), 1, rowCount, parentDoc().sharedStrings()); }
+{ return XLRowRange(xmlDocument().document_element().child("sheetData"), 1, rowCount, sharedStrings()); }
 
 XLRowRange XLWorksheet::rows(uint32_t firstRow, uint32_t lastRow) const
-{ return XLRowRange(xmlDocument().document_element().child("sheetData"), firstRow, lastRow, parentDoc().sharedStrings()); }
+{ return XLRowRange(xmlDocument().document_element().child("sheetData"), firstRow, lastRow, sharedStrings()); }
 
 void XLWorksheet::appendRow(const std::vector<XLCellValue>& values) { row(rowCount() + 1).values() = values; }
 
 XLRow XLWorksheet::row(uint32_t rowNumber) const
-{ return XLRow{getRowNode(xmlDocument().document_element().child("sheetData"), rowNumber), parentDoc().sharedStrings()}; }
+{ return XLRow{getRowNode(xmlDocument().document_element().child("sheetData"), rowNumber), sharedStrings()}; }
 
 XLColumn XLWorksheet::column(uint16_t columnNumber) const
 {
@@ -498,13 +498,13 @@ void XLWorksheet::updateSheetName(const std::string& oldName, const std::string&
         for (XMLNode cell = row.first_child_of_type(pugi::node_element); not cell.empty();
              cell         = cell.next_sibling_of_type(pugi::node_element))
         {
-            if (!XLCell(cell, parentDoc().sharedStrings()).hasFormula()) continue;
-            formula = XLCell(cell, parentDoc().sharedStrings()).formula().get();
+            if (!XLCell(cell, sharedStrings()).hasFormula()) continue;
+            formula = XLCell(cell, sharedStrings()).formula().get();
             if (formula.find('[') == std::string::npos and formula.find(']') == std::string::npos) {
                 while (formula.find(oldNameTemp) != std::string::npos) {
                     formula.replace(formula.find(oldNameTemp), oldNameTemp.length(), newNameTemp);
                 }
-                XLCell(cell, parentDoc().sharedStrings()).formula() = formula;
+                XLCell(cell, sharedStrings()).formula() = formula;
             }
         }
     }
@@ -570,7 +570,7 @@ std::optional<XLCell> XLWorksheet::peekCell(uint32_t rowNumber, uint16_t columnN
 {
     XMLNode cellNode = findCellNode(findRowNode(xmlDocument().document_element().child("sheetData"), rowNumber), columnNumber);
     if (!cellNode) return std::nullopt;
-    return XLCell(cellNode, parentDoc().sharedStrings(), const_cast<XLWorksheet*>(this));
+    return XLCell(cellNode, sharedStrings(), const_cast<XLWorksheet*>(this));
 }
 
 void XLWorksheet::addSparkline(const std::string& location, const std::string& dataRange, XLSparklineType type)

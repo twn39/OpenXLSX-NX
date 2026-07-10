@@ -42,16 +42,16 @@ namespace
     }
 }
 
-bool XLWorksheet::hasRelationships() const { return parentDoc().hasSheetRelationships(sheetXmlNumber()); }
-bool XLWorksheet::hasDrawing() const { return parentDoc().hasSheetDrawing(sheetXmlNumber()); }
-bool XLWorksheet::hasVmlDrawing() const { return parentDoc().hasSheetVmlDrawing(sheetXmlNumber()); }
-bool XLWorksheet::hasComments() const { return parentDoc().hasSheetComments(sheetXmlNumber()); }
-bool XLWorksheet::hasThreadedComments() const { return parentDoc().hasSheetThreadedComments(sheetXmlNumber()); }
-bool XLWorksheet::hasTables() const { return parentDoc().hasSheetTables(sheetXmlNumber()); }
+bool XLWorksheet::hasRelationships() const { return partFactory().hasSheetRelationships(sheetXmlNumber()); }
+bool XLWorksheet::hasDrawing() const { return partFactory().hasSheetDrawing(sheetXmlNumber()); }
+bool XLWorksheet::hasVmlDrawing() const { return partFactory().hasSheetVmlDrawing(sheetXmlNumber()); }
+bool XLWorksheet::hasComments() const { return partFactory().hasSheetComments(sheetXmlNumber()); }
+bool XLWorksheet::hasThreadedComments() const { return partFactory().hasSheetThreadedComments(sheetXmlNumber()); }
+bool XLWorksheet::hasTables() const { return partFactory().hasSheetTables(sheetXmlNumber()); }
 
 XLRelationships& XLWorksheet::relationships()
 {
-    if (!m_impl->m_relationships.valid()) { m_impl->m_relationships = parentDoc().sheetRelationships(sheetXmlNumber()); }
+    if (!m_impl->m_relationships.valid()) { m_impl->m_relationships = partFactory().sheetRelationships(sheetXmlNumber()); }
     if (!m_impl->m_relationships.valid()) throw XLException("XLWorksheet::relationships(): could not create relationships XML");
     return m_impl->m_relationships;
 }
@@ -63,7 +63,7 @@ XLDrawing& XLWorksheet::drawing()
         std::ignore        = relationships();
 
         uint16_t sheetXmlNo = sheetXmlNumber();
-        m_impl->m_drawing           = parentDoc().sheetDrawing(sheetXmlNo);
+        m_impl->m_drawing           = partFactory().sheetDrawing(sheetXmlNo);
         if (!m_impl->m_drawing.valid()) throw XLException("XLWorksheet::drawing(): could not create drawing XML");
 
         std::string drawingPath         = m_impl->m_drawing.getXmlPath();
@@ -94,7 +94,7 @@ void XLWorksheet::addImage(const std::string&    name,
                            uint32_t              height,
                            const XLImageOptions& options)
 {
-    std::string internalPath      = parentDoc().addImage(name, data);
+    std::string internalPath      = partFactory().addImage(name, data);
     XLDrawing&  drw               = drawing();
     std::string drawingPath       = drw.getXmlPath();
     std::string imageRelativePath = getPathARelativeToPathB(internalPath, drawingPath);
@@ -116,7 +116,7 @@ void XLWorksheet::addImage(const std::string&    name,
                            uint32_t              height,
                            const XLImageOptions& options)
 {
-    std::string internalPath      = parentDoc().addImage(name, data);
+    std::string internalPath      = partFactory().addImage(name, data);
     XLDrawing&  drw               = drawing();
     std::string drawingPath       = drw.getXmlPath();
     std::string imageRelativePath = getPathARelativeToPathB(internalPath, drawingPath);
@@ -132,7 +132,7 @@ void XLWorksheet::addImage(const std::string&    name,
 
 void XLWorksheet::addScaledImage(const std::string& name, const std::string& data, uint32_t row, uint32_t col, double scalingFactor)
 {
-    std::string internalPath      = parentDoc().addImage(name, data);
+    std::string internalPath      = partFactory().addImage(name, data);
     XLDrawing&  drw               = drawing();
     std::string drawingPath       = drw.getXmlPath();
     std::string imageRelativePath = getPathARelativeToPathB(internalPath, drawingPath);
@@ -149,7 +149,7 @@ void XLWorksheet::addScaledImage(const std::string& name, const std::string& dat
 XLChart XLWorksheet::addChart(XLChartType type, std::string_view name, uint32_t row, uint32_t col, uint32_t width, uint32_t height)
 {
     // 1. Create Chart File in Document
-    XLChart chart = parentDoc().createChart(type);
+    XLChart chart = partFactory().createChart(type);
 
     // 2. Get Drawing for the sheet
     XLDrawing&  drw               = drawing();
@@ -198,7 +198,7 @@ XLVmlDrawing& XLWorksheet::vmlDrawing()
         std::ignore        = relationships();
 
         uint16_t sheetXmlNo = sheetXmlNumber();
-        m_impl->m_vmlDrawing        = parentDoc().sheetVmlDrawing(sheetXmlNo);
+        m_impl->m_vmlDrawing        = partFactory().sheetVmlDrawing(sheetXmlNo);
         if (!m_impl->m_vmlDrawing.valid()) throw XLException("XLWorksheet::vmlDrawing(): could not create drawing XML");
         std::string        drawingRelativePath = getPathARelativeToPathB(m_impl->m_vmlDrawing.getXmlPath(), getXmlPath());
         XLRelationshipItem vmlDrawingRelationship;
@@ -223,7 +223,7 @@ XLComments& XLWorksheet::comments()
         std::ignore = vmlDrawing();
 
         uint16_t sheetXmlNo = sheetXmlNumber();
-        m_impl->m_comments          = parentDoc().sheetComments(sheetXmlNo);
+        m_impl->m_comments          = partFactory().sheetComments(sheetXmlNo);
         if (!m_impl->m_comments.valid()) throw XLException("XLWorksheet::comments(): could not create comments XML");
         m_impl->m_comments.setVmlDrawing(m_impl->m_vmlDrawing);
         std::string commentsRelativePath = getPathARelativeToPathB(m_impl->m_comments.getXmlPath(), getXmlPath());
@@ -240,7 +240,7 @@ XLThreadedComments& XLWorksheet::threadedComments()
         std::ignore        = relationships();
         std::ignore        = comments(); // Trigger Comments & VML Drawing first to ensure stable relationship ordering (rId1=VML, rId2=Comments, rId3=Threaded)
         uint16_t sheetXmlNo = sheetXmlNumber();
-        m_impl->m_threadedComments  = parentDoc().sheetThreadedComments(sheetXmlNo);
+        m_impl->m_threadedComments  = partFactory().sheetThreadedComments(sheetXmlNo);
         if (!m_impl->m_threadedComments.valid()) throw XLException("XLWorksheet::threadedComments(): could not create threadedComments XML");
 
         std::string commentsPath         = m_impl->m_threadedComments.getXmlPath();
@@ -331,7 +331,7 @@ void XLWorksheet::removeHyperlink(std::string_view cellRef)
 XLChart XLWorksheet::addChart(XLChartType type, const XLChartAnchor& anchor)
 {
     // 1. Create Chart File in Document
-    XLChart chart = parentDoc().createChart(type);
+    XLChart chart = partFactory().createChart(type);
 
     // 2. Get Drawing for the sheet
     XLDrawing&  drw               = drawing();
@@ -569,7 +569,7 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     std::ignore = drawing();
 
     // 1. Create/Find Slicer Cache and Slicer files
-    std::string actualCacheName = parentDoc().findOrCreateTableSlicerCache(tableId, colId, cacheName, columnName);
+    std::string actualCacheName = partFactory().findOrCreateTableSlicerCache(tableId, colId, cacheName, columnName);
 
     // ── Per-sheet slicer XML sharing ─────────────────────────────────────
     // OOXML: all slicers on the same sheet share one slicer.xml file.
@@ -586,11 +586,11 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
     }
 
     // Append slicer node to existing file, or create new file
-    std::string slicerFilename = parentDoc().createSlicer(name, actualCacheName, caption, existingSlicerFile);
+    std::string slicerFilename = partFactory().createSlicer(name, actualCacheName, caption, existingSlicerFile);
 
     // Apply style/options to the newly appended slicer node (direct XML)
     if (!options.slicerStyle.empty()) {
-        XLXmlData* slicerData = parentDoc().getXmlData(XLInternalAccess{}, slicerFilename);
+        XLXmlData* slicerData = package().findXmlPart(slicerFilename);
         if (slicerData) {
             XMLNode root = slicerData->getXmlDocument()->document_element();
             for (auto node : root.children("slicer")) {
@@ -848,13 +848,13 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
         }
     }
     if (!pcRId.empty()) {
-        std::string pcTargetPath = parentDoc().workbookRelationships().relationshipById(pcRId).target();
+        XLPackageServices& pkg = package();
+        std::string pcTargetPath = pkg.workbookRelationships().relationshipById(pcRId).target();
         if (!pcTargetPath.empty() && pcTargetPath[0] != '/') pcTargetPath = "/xl/" + pcTargetPath;
 
         std::string targetPath = !pcTargetPath.empty() && pcTargetPath[0] == '/' ? pcTargetPath.substr(1) : pcTargetPath;
-        
-        // Use XLDocument's private getXmlData via our new friend status
-        XLXmlData* data = parentDoc().getXmlData(XLInternalAccess{}, targetPath);
+
+        XLXmlData* data = pkg.findXmlPart(targetPath);
         if (data) {
             XMLNode cacheRoot = data->getXmlDocument()->document_element();
             XMLNode extLst    = cacheRoot.child("extLst");
@@ -870,7 +870,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
     }
 
     // 1. Create Slicer Cache and Slicer files
-    std::string actualCacheName = parentDoc().findOrCreatePivotSlicerCache(cacheId, sheetId, ptName, cacheName, columnName);
+    std::string actualCacheName = partFactory().findOrCreatePivotSlicerCache(cacheId, sheetId, ptName, cacheName, columnName);
 
     // Per-sheet slicer XML sharing: look for existing slicer relationship on this worksheet
     std::string existingSlicerFile;
@@ -882,11 +882,11 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
             break;
         }
     }
-    std::string slicerFilename = parentDoc().createSlicer(sName, actualCacheName, caption, existingSlicerFile);
+    std::string slicerFilename = partFactory().createSlicer(sName, actualCacheName, caption, existingSlicerFile);
 
     // Apply style via direct XML attribute (no XLSlicer construction needed)
     if (!options.slicerStyle.empty()) {
-        XLXmlData* slicerData = parentDoc().getXmlData(XLInternalAccess{}, slicerFilename);
+        XLXmlData* slicerData = package().findXmlPart(slicerFilename);
         if (slicerData) {
             XMLNode root = slicerData->getXmlDocument()->document_element();
             for (auto node : root.children("slicer")) {
@@ -900,9 +900,9 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
         }
     }
 
-    for (const auto& item : parentDoc().archive().entryNames()) {
+    for (const auto& item : package().archive().entryNames()) {
         if (item.find("xl/slicerCaches/slicerCache") != std::string::npos) {
-            XLXmlData* cacheData = parentDoc().getXmlData(XLInternalAccess{}, item);
+            XLXmlData* cacheData = package().findXmlPart(item);
             if (cacheData) {
                 XLSlicerCache slicerCache(cacheData);
                 if (slicerCache.name() == actualCacheName) {
@@ -1135,9 +1135,9 @@ void XLWorksheet::deleteSlicer(const std::string& name)
         if (rel.type() == XLRelationshipType::Slicer) {
             std::string target = rel.target();
             std::string absPath = eliminateDotAndDotDotFromPath("xl/worksheets/" + target);
-            XLXmlData* xmlData = parentDoc().getXmlData(XLInternalAccess{}, absPath, true);
+            XLXmlData* xmlData = package().findXmlPart(absPath, /*doNotThrow=*/true);
             if (!xmlData) {
-                xmlData = const_cast<XLDocument&>(parentDoc()).addXmlData(XLInternalAccess{}, absPath, "", XLContentType::Slicer);
+                xmlData = package().emplaceXmlPart(absPath, "", XLContentType::Slicer);
             }
             if (xmlData) {
                 auto root = xmlData->getXmlDocument()->document_element();
@@ -1180,7 +1180,7 @@ void XLWorksheet::deleteSlicer(const std::string& name)
     }
 
     // 3. Delete slicer file and orphan cache
-    parentDoc().deleteSlicerFileAndOrphanCache(name);
+    partFactory().deleteSlicerFileAndOrphanCache(name);
 
     // Remove the definedName associated with the slicer
     if (parentDoc().workbook().definedNames().exists(name)) {

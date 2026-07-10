@@ -17,8 +17,8 @@
 #include "XLCellValue.hpp"
 #include "XLFormula.hpp"
 #include "XLSharedStrings.hpp"
-#include "XLStyle.hpp"
-#include "XLStyles.hpp"    // XLStyleIndex
+#include "XLStyle.hpp"            // XLStyle; pulls XLStyles for format APIs
+#include "XLStyles_Common.hpp"    // XLStyleIndex (explicit for callers of cellFormat)
 
 namespace OpenXLSX
 {

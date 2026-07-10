@@ -22,6 +22,8 @@
 namespace OpenXLSX
 {
     class XLRelationships;
+    class XLPackageServices;
+    class XLDocument;
 
     extern const std::string_view ShapeNodeName;        // = "v:shape"
     extern const std::string_view ShapeTypeNodeName;    // = "v:shapetype"
@@ -350,7 +352,10 @@ namespace OpenXLSX
     {
     public:
         XLDrawingItem();
-        explicit XLDrawingItem(const XMLNode& node, XLDocument* parentDoc = nullptr);
+        /**
+         * @param package Package services port (archive access for imageBinary). Prefer over full XLDocument*.
+         */
+        explicit XLDrawingItem(const XMLNode& node, XLPackageServices* package = nullptr);
         XLDrawingItem(const XLDrawingItem& other)                = default;
         XLDrawingItem(XLDrawingItem&& other) noexcept            = default;
         ~XLDrawingItem()                                         = default;
@@ -367,13 +372,13 @@ namespace OpenXLSX
         
         /**
          * @brief Extracts the raw binary data of the image from the Excel zip archive.
-         * @return A byte vector containing the raw image (e.g., PNG, JPEG). Returns empty if the parent document is null.
+         * @return A byte vector containing the raw image (e.g., PNG, JPEG). Returns empty if the package port is null.
          */
         std::vector<uint8_t> imageBinary() const;
 
     private:
-        mutable XMLNode m_anchorNode;
-        XLDocument*     m_parentDoc{nullptr};
+        mutable XMLNode      m_anchorNode;
+        XLPackageServices*   m_package{nullptr};    /**< Archive/relationship port; not owned */
     };
 
     /**
