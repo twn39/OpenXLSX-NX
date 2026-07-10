@@ -1,10 +1,10 @@
 #include "XLFormulaUtils.hpp"
+
 #include <fmt/format.h>
 #include <limits>
-#include <algorithm>
 
-namespace OpenXLSX {
-    // Convert a value to double; return NaN for non-numeric/empty.
+namespace OpenXLSX::formula
+{
     double toDouble(const XLCellValue& v)
     {
         switch (v.type()) {
@@ -20,7 +20,9 @@ namespace OpenXLSX {
     }
 
     bool isNumeric(const XLCellValue& v)
-    { return v.type() == XLValueType::Integer || v.type() == XLValueType::Float || v.type() == XLValueType::Boolean; }
+    {
+        return v.type() == XLValueType::Integer || v.type() == XLValueType::Float || v.type() == XLValueType::Boolean;
+    }
 
     bool isEmpty(const XLCellValue& v) { return v.type() == XLValueType::Empty; }
 
@@ -42,53 +44,22 @@ namespace OpenXLSX {
         }
     }
 
-    XLCellValue errValue()
+    XLCellValue makeError(std::string_view token)
     {
         XLCellValue r;
-        r.setError("#VALUE!");
-        return r;
-    }
-    XLCellValue errDiv0()
-    {
-        XLCellValue r;
-        r.setError("#DIV/0!");
-        return r;
-    }
-    XLCellValue errNA()
-    {
-        XLCellValue r;
-        r.setError("#N/A");
-        return r;
-    }
-    XLCellValue errNum()
-    {
-        XLCellValue r;
-        r.setError("#NUM!");
-        return r;
-    }
-    XLCellValue errRef()
-    {
-        XLCellValue r;
-        r.setError("#REF!");
-        return r;
-    }
-    XLCellValue errName()
-    {
-        XLCellValue r;
-        r.setError("#NAME?");
+        r.setError(std::string(token));
         return r;
     }
 
-    // Trim leading/trailing whitespace
     std::string strTrim(std::string s)
     {
         const char* ws = " \t\r\n";
-        s.erase(0, s.find_first_not_of(ws));
-        s.erase(s.find_last_not_of(ws) + 1);
-        return s;
+        const auto  b  = s.find_first_not_of(ws);
+        if (b == std::string::npos) return {};
+        const auto e = s.find_last_not_of(ws);
+        return s.substr(b, e - b + 1);
     }
 
-    // Collect numeric values from a list of arguments directly
     std::vector<double> numerics(const std::vector<XLFormulaArg>& args)
     {
         std::vector<double> out;
@@ -98,7 +69,6 @@ namespace OpenXLSX {
         return out;
     }
 
-    // Collect numeric values from a single argument
     std::vector<double> numerics(const XLFormulaArg& arg)
     {
         std::vector<double> out;
@@ -106,4 +76,5 @@ namespace OpenXLSX {
             if (isNumeric(v)) out.push_back(toDouble(v));
         return out;
     }
-}
+
+}    // namespace OpenXLSX::formula

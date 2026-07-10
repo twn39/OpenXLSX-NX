@@ -25,7 +25,10 @@
 #include "OpenXLSX-Exports.hpp"
 
 #include <cstdint>
+#include <string>
 #include <string_view>
+#include <unordered_map>
+#include <vector>
 
 namespace OpenXLSX
 {
@@ -62,6 +65,35 @@ namespace OpenXLSX
          * @note View is valid while the document / SST remains alive.
          */
         [[nodiscard]] virtual std::string_view getStringView(int32_t index) const = 0;
+    };
+
+    /**
+     * @brief In-memory read-only SST for unit tests and offline consumers (no document required).
+     * @details Mirrors XLMapEvaluationContext: a lightweight mock of the SST port.
+     *          Appended strings keep stable storage so getString/getStringView remain valid.
+     */
+    class OPENXLSX_EXPORT XLMapSharedStringTable final : public XLSharedStringTable
+    {
+    public:
+        XLMapSharedStringTable() = default;
+
+        /** @brief Replace the table with an ordered list of strings (indices 0..n-1). */
+        explicit XLMapSharedStringTable(std::vector<std::string> strings);
+
+        /** @brief Append a string and return its index (duplicates reuse the existing index). */
+        int32_t append(std::string_view str);
+
+        void clear();
+
+        [[nodiscard]] int32_t            stringCount() const override;
+        [[nodiscard]] int32_t            getStringIndex(std::string_view str) const override;
+        [[nodiscard]] bool               stringExists(std::string_view str) const override;
+        [[nodiscard]] const char*        getString(int32_t index) const override;
+        [[nodiscard]] std::string_view   getStringView(int32_t index) const override;
+
+    private:
+        std::vector<std::string>                 m_strings;
+        std::unordered_map<std::string, int32_t> m_index;
     };
 
 }    // namespace OpenXLSX

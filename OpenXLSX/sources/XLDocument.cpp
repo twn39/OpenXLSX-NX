@@ -476,6 +476,9 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
         throw XLException("XLDocument::saveAs: refusing to overwrite existing file "s + std::string(fileName));
     }
 
+    // Fail fast on broken package structure before writing the archive.
+    validatePackageInvariants();
+
     // [CRITICAL FIX: Prevent source file corruption during saveAs]
     // If the target filename is different from the currently opened file, we must clone the archive FIRST.
     // Otherwise, libzip will commit all pending XML modifications into the original source file.

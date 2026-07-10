@@ -180,6 +180,14 @@ namespace OpenXLSX
         void addStreamedFile(std::string_view pathInZip, std::string_view tempFilePath);
 
         /**
+         * @brief Validate package-level OOXML invariants before serialization.
+         * @details Checks workbook presence, Content_Types overrides for managed parts,
+         *          and sheet relationship targets. Invoked automatically from saveAs();
+         *          may also be called by tests. Throws XLException on hard failures.
+         */
+        void validatePackageInvariants() const;
+
+        /**
          * @brief Persistence to a new location.
          * @param fileName Target path.
          * @param forceOverwrite Protects existing files from being overwritten without explicit intent.
