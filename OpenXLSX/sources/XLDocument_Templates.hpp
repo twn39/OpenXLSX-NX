@@ -98,12 +98,8 @@ namespace OpenXLSX
         constexpr std::string_view templateSharedStrings =
             R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"></sst>)"sv;
-    }    // namespace
 
-}    // namespace OpenXLSX
-#endif    // OPENXLSX_XLDOCUMENT_TEMPLATES_HPP
-
-constexpr std::string_view xlPivotTableTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        constexpr std::string_view xlPivotTableTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <pivotTableDefinition xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" name="PivotTable1" cacheId="1" dataCaption="Values" showError="0" updatedVersion="8" minRefreshableVersion="3" showDrill="0" useAutoFormatting="0" pageOverThenDown="0" rowGrandTotals="0" colGrandTotals="0" mergeItem="0" createdVersion="3" compactData="0">
   <location ref="A1:A2" firstHeaderRow="1" firstDataRow="1" firstDataCol="1"/>
   <pivotFields count="0"/>
@@ -113,7 +109,7 @@ constexpr std::string_view xlPivotTableTemplate = R"(<?xml version="1.0" encodin
   <pivotTableStyleInfo name="PivotStyleLight16" showRowHeaders="0" showColHeaders="0"/>
 </pivotTableDefinition>)";
 
-constexpr std::string_view xlPivotCacheDefinitionTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        constexpr std::string_view xlPivotCacheDefinitionTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <pivotCacheDefinition xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" saveData="0" refreshOnLoad="1" createdVersion="3" refreshedVersion="8" minRefreshableVersion="3">
   <cacheSource type="worksheet">
     <worksheetSource ref="A1:A2" sheet="Sheet1"/>
@@ -121,5 +117,9 @@ constexpr std::string_view xlPivotCacheDefinitionTemplate = R"(<?xml version="1.
   <cacheFields count="0"/>
 </pivotCacheDefinition>)";
 
-constexpr std::string_view xlPivotCacheRecordsTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        constexpr std::string_view xlPivotCacheRecordsTemplate = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <pivotCacheRecords xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="0"/>)";
+    }    // namespace
+
+}    // namespace OpenXLSX
+#endif    // OPENXLSX_XLDOCUMENT_TEMPLATES_HPP
