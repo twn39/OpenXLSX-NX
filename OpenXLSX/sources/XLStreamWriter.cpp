@@ -443,11 +443,31 @@ namespace OpenXLSX
         setRowImpl(m_currentRow, 1, values, &opts);
     }
 
+    void XLStreamWriter::appendRow(std::initializer_list<XLCellValue> values)
+    {
+        appendRow(std::vector<XLCellValue>(values));
+    }
+
+    void XLStreamWriter::appendRow(std::initializer_list<XLCellValue> values, const XLStreamRowOpts& opts)
+    {
+        appendRow(std::vector<XLCellValue>(values), opts);
+    }
+
     void XLStreamWriter::appendRow(const std::vector<XLStreamCell>& cells) { setRowImpl(m_currentRow, 1, cells, nullptr); }
 
     void XLStreamWriter::appendRow(const std::vector<XLStreamCell>& cells, const XLStreamRowOpts& opts)
     {
         setRowImpl(m_currentRow, 1, cells, &opts);
+    }
+
+    void XLStreamWriter::appendRow(std::initializer_list<XLStreamCell> cells)
+    {
+        appendRow(std::vector<XLStreamCell>(cells));
+    }
+
+    void XLStreamWriter::appendRow(std::initializer_list<XLStreamCell> cells, const XLStreamRowOpts& opts)
+    {
+        appendRow(std::vector<XLStreamCell>(cells), opts);
     }
 
     void XLStreamWriter::setRow(uint32_t row, uint16_t startCol, const std::vector<XLStreamCell>& cells, const XLStreamRowOpts& opts)
@@ -460,6 +480,16 @@ namespace OpenXLSX
         setRowImpl(row, startCol, values, &opts);
     }
 
+    void XLStreamWriter::setRow(uint32_t row, uint16_t startCol, std::initializer_list<XLStreamCell> cells, const XLStreamRowOpts& opts)
+    {
+        setRow(row, startCol, std::vector<XLStreamCell>(cells), opts);
+    }
+
+    void XLStreamWriter::setRow(uint32_t row, uint16_t startCol, std::initializer_list<XLCellValue> values, const XLStreamRowOpts& opts)
+    {
+        setRow(row, startCol, std::vector<XLCellValue>(values), opts);
+    }
+
     void XLStreamWriter::setRow(const std::string& cellRef, const std::vector<XLStreamCell>& cells, const XLStreamRowOpts& opts)
     {
         XLCellReference ref(cellRef);
@@ -470,6 +500,16 @@ namespace OpenXLSX
     {
         XLCellReference ref(cellRef);
         setRowImpl(ref.row(), ref.column(), values, &opts);
+    }
+
+    void XLStreamWriter::setRow(const std::string& cellRef, std::initializer_list<XLStreamCell> cells, const XLStreamRowOpts& opts)
+    {
+        setRow(cellRef, std::vector<XLStreamCell>(cells), opts);
+    }
+
+    void XLStreamWriter::setRow(const std::string& cellRef, std::initializer_list<XLCellValue> values, const XLStreamRowOpts& opts)
+    {
+        setRow(cellRef, std::vector<XLCellValue>(values), opts);
     }
 
     void XLStreamWriter::close()

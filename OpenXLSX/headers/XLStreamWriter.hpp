@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <optional>
 #include <string>
 #include <vector>
@@ -96,15 +97,21 @@ namespace OpenXLSX
 
         /**
          * @brief Appends a row of unstyled values at the next sequential row.
+         * @note Prefer braced lists of XLCellValue / literals; initializer_list overloads
+         *       avoid GCC ambiguity with the XLStreamCell vector overload.
          */
         void appendRow(const std::vector<XLCellValue>& values);
         void appendRow(const std::vector<XLCellValue>& values, const XLStreamRowOpts& opts);
+        void appendRow(std::initializer_list<XLCellValue> values);
+        void appendRow(std::initializer_list<XLCellValue> values, const XLStreamRowOpts& opts);
 
         /**
          * @brief Appends a row of styled/formula cells at the next sequential row.
          */
         void appendRow(const std::vector<XLStreamCell>& cells);
         void appendRow(const std::vector<XLStreamCell>& cells, const XLStreamRowOpts& opts);
+        void appendRow(std::initializer_list<XLStreamCell> cells);
+        void appendRow(std::initializer_list<XLStreamCell> cells, const XLStreamRowOpts& opts);
 
         /**
          * @brief Writes a row at an explicit 1-based row index and starting column.
@@ -113,12 +120,16 @@ namespace OpenXLSX
          */
         void setRow(uint32_t row, uint16_t startCol, const std::vector<XLStreamCell>& cells, const XLStreamRowOpts& opts = {});
         void setRow(uint32_t row, uint16_t startCol, const std::vector<XLCellValue>& values, const XLStreamRowOpts& opts = {});
+        void setRow(uint32_t row, uint16_t startCol, std::initializer_list<XLStreamCell> cells, const XLStreamRowOpts& opts = {});
+        void setRow(uint32_t row, uint16_t startCol, std::initializer_list<XLCellValue> values, const XLStreamRowOpts& opts = {});
 
         /**
          * @brief Convenience overload: start cell reference such as "C10".
          */
         void setRow(const std::string& cellRef, const std::vector<XLStreamCell>& cells, const XLStreamRowOpts& opts = {});
         void setRow(const std::string& cellRef, const std::vector<XLCellValue>& values, const XLStreamRowOpts& opts = {});
+        void setRow(const std::string& cellRef, std::initializer_list<XLStreamCell> cells, const XLStreamRowOpts& opts = {});
+        void setRow(const std::string& cellRef, std::initializer_list<XLCellValue> values, const XLStreamRowOpts& opts = {});
 
         /**
          * @brief Flushes buffers, writes the sheet footer, patches &lt;dimension&gt;, and deactivates the stream.
