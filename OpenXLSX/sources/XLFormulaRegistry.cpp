@@ -17,6 +17,8 @@ namespace OpenXLSX
             registerFinancialFunctions(instance);
             registerStatisticalFunctions(instance);
             registerInfoFunctions(instance);
+            registerArrayFunctions(instance);
+            registerEngineeringFunctions(instance);
         });
         return instance;
     }
@@ -31,28 +33,41 @@ namespace OpenXLSX
 
     const XLFormulaFunction* XLFormulaRegistry::lookup(std::string_view name) const
     {
-        bool has_lowercase = false;
+        auto tryFind = [this](std::string_view key) -> const XLFormulaFunction* {
+            auto it = m_functions.find(key);
+            if (it != m_functions.end()) return it->second.get();
+            return nullptr;
+        };
+
+        std::string upper_name(name);
+        bool        has_lowercase = false;
         for (char c : name) {
             if (c >= 'a' && c <= 'z') {
                 has_lowercase = true;
                 break;
             }
         }
-        
         if (has_lowercase) {
-            std::string upper_name(name);
             std::transform(upper_name.begin(), upper_name.end(), upper_name.begin(), [](unsigned char c) {
-                return std::toupper(c);
+                return static_cast<char>(std::toupper(c));
             });
-            auto it = m_functions.find(upper_name);
-            if (it != m_functions.end()) {
-                return it->second.get();
-            }
-        } else {
-            auto it = m_functions.find(name);
-            if (it != m_functions.end()) {
-                return it->second.get();
-            }
+        }
+        else {
+            upper_name.assign(name);
+        }
+
+        // Strip Excel future-function prefixes after uppercasing
+        auto strip = [](std::string& n, const char* prefix) {
+            const std::size_t len = std::char_traits<char>::length(prefix);
+            if (n.size() > len && n.compare(0, len, prefix) == 0) n.erase(0, len);
+        };
+        strip(upper_name, "_XLFN.");
+        strip(upper_name, "_XLWS.");
+
+        if (auto* f = tryFind(upper_name)) return f;
+        // Also try original case key for all-uppercase inputs without transform path
+        if (!has_lowercase) {
+            if (auto* f = tryFind(name)) return f;
         }
         return nullptr;
     }

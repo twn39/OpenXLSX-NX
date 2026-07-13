@@ -10,6 +10,7 @@
 #include "XLDocument.hpp"
 #include "XLException.hpp"
 #include "XLFormula.hpp"
+#include "XLWorksheet.hpp"
 #include "XLXmlHelpers.hpp"
 
 using namespace OpenXLSX;
@@ -286,9 +287,17 @@ void XLFormulaProxy::setFormulaString(const char* formulaString, bool resetValue
     m_cellNode->prepend_move(m_cellNode->child("f"));
     // END pull request #189
 
-    // ===== Trigger document formula recalculation
+    // ===== Trigger document formula recalculation + calc-engine listeners
     auto& doc = const_cast<XLDocument&>(m_cell->m_sharedStrings.get().parentDoc());
     doc.setFormulaNeedsRecalculation(true);
+    try {
+        std::string sheet;
+        if (m_cell->m_wks) sheet = m_cell->m_wks->name();
+        const auto ref = m_cell->cellReference();
+        doc.notifyCellChanged(sheet, ref.row(), ref.column(), /*formulaChanged=*/true);
+    }
+    catch (...) {
+    }
 }
 
 /**

@@ -84,12 +84,59 @@ namespace OpenXLSX::Formula
 
     // ---- Math extended ----
     XLCellValue fnSumproduct(const std::vector<XLFormulaArg>& args);
+    // Matrix (array-returning implementations live as free functions in XLFormulaMath.cpp)
     XLCellValue fnCeil(const std::vector<XLFormulaArg>& args);
     XLCellValue fnFloor(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnCeilingPrecise(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnFloorPrecise(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnIsoCeiling(const std::vector<XLFormulaArg>& args);
     XLCellValue fnLog(const std::vector<XLFormulaArg>& args);
     XLCellValue fnLog10(const std::vector<XLFormulaArg>& args);
     XLCellValue fnExp(const std::vector<XLFormulaArg>& args);
     XLCellValue fnSign(const std::vector<XLFormulaArg>& args);
+
+    // ---- Phase B – Math & Trig extensions ----
+    XLCellValue fnBase(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnDecimal(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnMultinomial(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnSeriessum(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnCsc(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnSec(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnCot(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnAcot(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnAcoth(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnCsch(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnSech(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnCoth(const std::vector<XLFormulaArg>& args);
+
+    // ---- Phase C – Engineering / scientific ----
+    XLCellValue fnBitand(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnBitor(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnBitxor(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnBitlshift(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnBitrshift(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnHex2dec(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnDec2hex(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnBin2dec(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnDec2bin(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnOct2dec(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnDec2oct(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnHex2bin(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnBin2hex(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnComplex(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImreal(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImaginary(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImabs(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImargument(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImconjugate(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImsum(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImsub(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImproduct(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnImdiv(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnErf(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnErfc(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnGamma(const std::vector<XLFormulaArg>& args);
+    XLCellValue fnGammaln(const std::vector<XLFormulaArg>& args);
 
     // ---- Text extended ----
     XLCellValue fnFind(const std::vector<XLFormulaArg>& args);

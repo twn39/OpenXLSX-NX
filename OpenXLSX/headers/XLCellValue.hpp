@@ -619,6 +619,11 @@ namespace OpenXLSX
         XLCellValueProxy& operator=(XLCellValueProxy&& other) noexcept;
 
         /**
+         * @brief Notify XLDocument cell-change listeners (calculation engine auto-dirty).
+         */
+        void notifyDocumentOfChange();
+
+        /**
          * @brief Set cell to an integer value.
          * @param numberValue The value to be set.
          */

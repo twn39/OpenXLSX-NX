@@ -15,10 +15,26 @@
 // ===== OpenXLSX Includes ===== //
 #include "XLCell.hpp"
 #include "XLCellValue.hpp"
+#include "XLDocument.hpp"
 #include "XLException.hpp"
+#include "XLWorksheet.hpp"
 #include "XLXmlHelpers.hpp"
 
 using namespace OpenXLSX;
+
+void XLCellValueProxy::notifyDocumentOfChange()
+{
+    if (m_cell == nullptr) return;
+    try {
+        auto&       doc = const_cast<XLDocument&>(m_cell->m_sharedStrings.get().parentDoc());
+        std::string sheet;
+        if (m_cell->m_wks) sheet = m_cell->m_wks->name();
+        const auto ref = m_cell->cellReference();
+        doc.notifyCellChanged(sheet, ref.row(), ref.column(), /*formulaChanged=*/false);
+    }
+    catch (...) {
+    }
+}
 
 /**
  * @details Constructor. Default implementation has been used.
@@ -203,6 +219,7 @@ XLCellValueProxy& XLCellValueProxy::clear()
     // ===== Remove the is node (only relevant in case previous cell type was "inlineStr"). // pull request #188
     m_cellNode->remove_child("is");
 
+    notifyDocumentOfChange();
     return *this;
 }
 /**
@@ -411,6 +428,8 @@ void XLCellValueProxy::setInteger(int64_t numberValue)    // NOLINT
 
     // ===== Remove the is node (only relevant in case previous cell type was "inlineStr"). // pull request #188
     m_cellNode->remove_child("is");
+
+    notifyDocumentOfChange();
 }
 
 /**
@@ -436,6 +455,8 @@ void XLCellValueProxy::setBoolean(bool numberValue)    // NOLINT
 
     // ===== Remove the is node (only relevant in case previous cell type was "inlineStr"). // pull request #188
     m_cellNode->remove_child("is");
+
+    notifyDocumentOfChange();
 }
 
 /**
@@ -469,6 +490,8 @@ void XLCellValueProxy::setFloat(double numberValue)
 
         // ===== Remove the is node (only relevant in case previous cell type was "inlineStr"). // pull request #188
         m_cellNode->remove_child("is");
+
+        notifyDocumentOfChange();
     }
     else {
         setError("#NUM!");
@@ -507,6 +530,8 @@ void XLCellValueProxy::setString(std::string_view stringValue)    // NOLINT
 
     // ===== Remove the is node (only relevant in case previous cell type was "inlineStr"). // pull request #188
     m_cellNode->remove_child("is");
+
+    notifyDocumentOfChange();
 
     /* 2024-04-23: NOTE "embedded" strings are "inline strings" in XLSX, using a node like so:
      *     <c r="C1" s="3" t="inlineStr"><is><t>An inline string</t></is></c>

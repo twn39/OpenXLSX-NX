@@ -8,8 +8,11 @@
 #endif
 
 // ===== Standard Library ===== //
+#include <cstddef>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -63,6 +66,8 @@ namespace OpenXLSX
         Comma,        ///< ,
         Semicolon,    ///< ;  (alternative argument separator in some locales)
         Colon,        ///< :  (used inside range references parsed by lexer)
+        LBrace,       ///< {  (array constant)
+        RBrace,       ///< }  (array constant)
         End,          ///< Sentinel – end of input
         Error         ///< Unrecognised character
     };
@@ -113,6 +118,7 @@ namespace OpenXLSX
         BinOp,
         UnaryOp,
         FuncCall,
+        ArrayLit,   ///< Excel array constant {1,2;3,4} — children row-major; number=rows, text=cols
         ErrorLit    ///< #NAME?, etc. – propagated as-is
     };
 
@@ -233,6 +239,142 @@ namespace OpenXLSX
     using XLCellResolver = std::function<XLCellValue(std::string_view ref)>;
 
     /**
+     * @brief Optional callback: resolve a defined name to a formula/reference string.
+     * @details Return e.g. "Sheet1!$A$1:$B$10" or "=$A$1". Empty optional = unknown name.
+     */
+    using XLNameResolver = std::function<std::optional<std::string>(std::string_view name)>;
+
+    // Forward-declare so XLEvalSession can appear before XLFormulaArg details are complete.
+    class XLFormulaArg;
+    class XLFormulaEngine;
+
+    /**
+     * @brief Per-evaluation session shared by the engine and session-aware functions.
+     *
+     * @details Phase A extension point for deep formula features:
+     *          - cell resolution (via resolver)
+     *          - defined-name resolution
+     *          - current cell/sheet (for relative / parameterless ROW/COLUMN)
+     *          - call-depth guard (INDIRECT recursion)
+     *          - access to expandRange / evaluate helpers used by INDIRECT/OFFSET
+     *
+     *          Lifetime: valid only for the duration of a single `XLFormulaEngine::evaluate` call
+     *          (or an explicitly scoped session created by the caller).
+     */
+    class OPENXLSX_EXPORT XLEvalSession
+    {
+    public:
+        static constexpr int kMaxCallDepth = 128;
+
+        XLEvalSession() = default;
+        explicit XLEvalSession(const XLCellResolver& resolver) : m_resolver(&resolver) {}
+
+        XLEvalSession& setResolver(const XLCellResolver& resolver)
+        {
+            m_resolver = &resolver;
+            return *this;
+        }
+
+        XLEvalSession& setNameResolver(XLNameResolver nameResolver)
+        {
+            m_nameResolver = std::move(nameResolver);
+            return *this;
+        }
+
+        /**
+         * @brief Bind the cell that owns the formula (1-based Excel coordinates).
+         * @details Enables parameterless ROW()/COLUMN() and future relative-ref features.
+         */
+        XLEvalSession& setCurrentCell(uint32_t row, uint16_t col)
+        {
+            m_currentRow     = row;
+            m_currentCol     = col;
+            m_hasCurrentCell = (row > 0 && col > 0);
+            return *this;
+        }
+
+        XLEvalSession& setCurrentSheet(std::string sheetName)
+        {
+            m_currentSheet = std::move(sheetName);
+            return *this;
+        }
+
+        [[nodiscard]] bool hasResolver() const { return m_resolver != nullptr && static_cast<bool>(*m_resolver); }
+
+        [[nodiscard]] const XLCellResolver* resolverPtr() const { return m_resolver; }
+
+        [[nodiscard]] XLCellValue cellValue(std::string_view ref) const
+        {
+            if (!hasResolver()) return XLCellValue{};
+            return (*m_resolver)(ref);
+        }
+
+        [[nodiscard]] std::optional<std::string> resolveName(std::string_view name) const
+        {
+            if (!m_nameResolver) return std::nullopt;
+            return m_nameResolver(name);
+        }
+
+        [[nodiscard]] bool     hasCurrentCell() const noexcept { return m_hasCurrentCell; }
+        [[nodiscard]] uint32_t currentRow() const noexcept { return m_currentRow; }
+        [[nodiscard]] uint16_t currentCol() const noexcept { return m_currentCol; }
+        [[nodiscard]] const std::string& currentSheet() const noexcept { return m_currentSheet; }
+
+        /**
+         * @brief Enter a nested function/ref resolution (INDIRECT, etc.).
+         * @return false if the maximum call depth would be exceeded.
+         */
+        bool enterCall()
+        {
+            if (m_callDepth >= kMaxCallDepth) return false;
+            ++m_callDepth;
+            return true;
+        }
+
+        void leaveCall() noexcept
+        {
+            if (m_callDepth > 0) --m_callDepth;
+        }
+
+        [[nodiscard]] int callDepth() const noexcept { return m_callDepth; }
+
+        /**
+         * @brief Expand an A1-style cell/range text into a LazyRange (or scalar error).
+         * @note Requires a live resolver; used by INDIRECT/OFFSET and the engine.
+         */
+        [[nodiscard]] XLFormulaArg expandRange(std::string_view rangeRef) const;
+
+    private:
+        const XLCellResolver* m_resolver{nullptr};
+        XLNameResolver        m_nameResolver;
+        uint32_t              m_currentRow{0};
+        uint16_t              m_currentCol{0};
+        bool                  m_hasCurrentCell{false};
+        std::string           m_currentSheet;
+        int                   m_callDepth{0};
+    };
+
+    /**
+     * @brief RAII guard that pairs XLEvalSession::enterCall / leaveCall.
+     */
+    class OPENXLSX_EXPORT XLEvalCallGuard
+    {
+    public:
+        explicit XLEvalCallGuard(XLEvalSession& session) : m_session(&session), m_ok(session.enterCall()) {}
+        ~XLEvalCallGuard()
+        {
+            if (m_ok && m_session) m_session->leaveCall();
+        }
+        XLEvalCallGuard(const XLEvalCallGuard&)            = delete;
+        XLEvalCallGuard& operator=(const XLEvalCallGuard&) = delete;
+        [[nodiscard]] bool ok() const noexcept { return m_ok; }
+
+    private:
+        XLEvalSession* m_session{nullptr};
+        bool           m_ok{false};
+    };
+
+    /**
      * @brief Lightweight formula evaluation engine.
      *
      * @details Usage:
@@ -257,7 +399,9 @@ namespace OpenXLSX
     private:
         Type                                                m_type{Type::Empty};
         XLCellValue                                         m_scalar;
-        std::vector<XLCellValue>                            m_array;
+        std::vector<XLCellValue>                            m_array;    ///< row-major dense storage when Type::Array
+        size_t                                              m_arrayRows{0};
+        size_t                                              m_arrayCols{0};
         uint32_t                                            m_r1{0}, m_r2{0};
         uint16_t                                            m_c1{0}, m_c2{0};
         std::string                                         m_sheetName;
@@ -266,7 +410,42 @@ namespace OpenXLSX
     public:
         XLFormulaArg() = default;
         XLFormulaArg(XLCellValue v) : m_type(Type::Scalar), m_scalar(std::move(v)) {}
-        XLFormulaArg(std::vector<XLCellValue> arr) : m_type(Type::Array), m_array(std::move(arr)) {}
+
+        /**
+         * @brief Construct a column vector (N×1) from a flat list.
+         * @details Preserves historical 1-D behaviour used by arithmetic broadcast helpers.
+         */
+        XLFormulaArg(std::vector<XLCellValue> arr)
+            : m_type(Type::Array),
+              m_array(std::move(arr)),
+              m_arrayRows(m_array.size()),
+              m_arrayCols(m_array.empty() ? 0 : 1)
+        {}
+
+        /**
+         * @brief Construct a dense row-major 2-D array.
+         * @param data Must contain rows*cols elements (row-major).
+         */
+        XLFormulaArg(std::vector<XLCellValue> data, size_t rows, size_t cols)
+            : m_type(Type::Array), m_array(std::move(data)), m_arrayRows(rows), m_arrayCols(cols)
+        {
+            if (m_arrayRows * m_arrayCols != m_array.size()) {
+                // Recover a consistent rectangular shape when possible.
+                if (m_array.empty()) {
+                    m_arrayRows = 0;
+                    m_arrayCols = 0;
+                }
+                else if (cols > 0 && m_array.size() % cols == 0) {
+                    m_arrayRows = m_array.size() / cols;
+                    m_arrayCols = cols;
+                }
+                else {
+                    m_arrayRows = m_array.size();
+                    m_arrayCols = 1;
+                }
+            }
+        }
+
         XLFormulaArg(uint32_t                                            r1,
                      uint32_t                                            r2,
                      uint16_t                                            c1,
@@ -287,14 +466,15 @@ namespace OpenXLSX
         size_t rows() const
         {
             if (m_type == Type::LazyRange) return static_cast<size_t>(m_r2 - m_r1 + 1);
-            if (m_type == Type::Array) return m_array.size();    // simplified, arrays might be 2d but we treat as 1d column
+            if (m_type == Type::Array) return m_arrayRows;
             return m_type == Type::Scalar ? 1 : 0;
         }
 
         size_t cols() const
         {
             if (m_type == Type::LazyRange) return static_cast<size_t>(m_c2 - m_c1 + 1);
-            return m_type == Type::Scalar || m_type == Type::Array ? 1 : 0;
+            if (m_type == Type::Array) return m_arrayCols;
+            return m_type == Type::Scalar ? 1 : 0;
         }
 
         /// @brief Return the 1-based row of the top-left cell (LazyRange only; 0 for other types).
@@ -302,6 +482,14 @@ namespace OpenXLSX
 
         /// @brief Return the 1-based column of the top-left cell (LazyRange only; 0 for other types).
         uint16_t firstCol() const noexcept { return m_type == Type::LazyRange ? m_c1 : 0; }
+
+        /// @brief Bottom-right row for LazyRange (0 otherwise).
+        uint32_t lastRow() const noexcept { return m_type == Type::LazyRange ? m_r2 : 0; }
+
+        /// @brief Bottom-right column for LazyRange (0 otherwise).
+        uint16_t lastCol() const noexcept { return m_type == Type::LazyRange ? m_c2 : 0; }
+
+        [[nodiscard]] const std::string& sheetName() const noexcept { return m_sheetName; }
 
         bool empty() const
         {
@@ -318,6 +506,23 @@ namespace OpenXLSX
             return static_cast<size_t>(m_r2 - m_r1 + 1) * static_cast<size_t>(m_c2 - m_c1 + 1);
         }
 
+        /**
+         * @brief 0-based (row, col) access. Works for Scalar, Array, and LazyRange.
+         */
+        [[nodiscard]] XLCellValue at(size_t row, size_t col) const
+        {
+            if (m_type == Type::Scalar) return (row == 0 && col == 0) ? m_scalar : XLCellValue();
+            if (m_type == Type::Array) {
+                if (row >= m_arrayRows || col >= m_arrayCols) return XLCellValue();
+                return m_array[row * m_arrayCols + col];
+            }
+            if (m_type == Type::LazyRange) {
+                if (row >= rows() || col >= cols()) return XLCellValue();
+                return (*this)[row * cols() + col];
+            }
+            return XLCellValue();
+        }
+
         XLCellValue operator[](size_t index) const
         {
             if (m_type == Type::Scalar) return index == 0 ? m_scalar : XLCellValue();
@@ -332,6 +537,38 @@ namespace OpenXLSX
                 if (m_resolver && *m_resolver) return (*m_resolver)(ref);
             }
             return XLCellValue();
+        }
+
+        /**
+         * @brief Materialize any arg into a dense row-major Array (copy).
+         * @details Scalars become 1×1; LazyRange is fully resolved via the cell resolver.
+         */
+        [[nodiscard]] XLFormulaArg materialize() const
+        {
+            if (m_type == Type::Array) return *this;
+            if (m_type == Type::Scalar) {
+                std::vector<XLCellValue> d{m_scalar};
+                return XLFormulaArg(std::move(d), 1, 1);
+            }
+            if (m_type == Type::LazyRange) {
+                const size_t r = rows();
+                const size_t c = cols();
+                std::vector<XLCellValue> d;
+                d.reserve(r * c);
+                for (size_t i = 0; i < r * c; ++i) d.push_back((*this)[i]);
+                return XLFormulaArg(std::move(d), r, c);
+            }
+            return XLFormulaArg();
+        }
+
+        /**
+         * @brief Implicit-intersection / top-left scalar projection.
+         */
+        [[nodiscard]] XLCellValue asScalar() const
+        {
+            if (empty()) return XLCellValue{};
+            if (m_type == Type::Scalar) return m_scalar;
+            return (*this)[0];
         }
 
         class Iterator
@@ -353,6 +590,63 @@ namespace OpenXLSX
         Iterator end() const { return Iterator(this, size()); }
     };
 
+    /**
+     * @brief Callback used by spillArray to write one spill cell (1-based Excel coordinates).
+     */
+    using XLSpillWriter = std::function<void(uint32_t row, uint16_t col, const XLCellValue& value)>;
+
+    /**
+     * @brief Callback: return true if (row,col) is occupied and must not be overwritten by a spill
+     *        (except the formula anchor cell itself).
+     */
+    using XLSpillOccupancy = std::function<bool(uint32_t row, uint16_t col)>;
+
+    /**
+     * @brief Result of a checked spill attempt (dynamic-array #SPILL! support).
+     */
+    struct OPENXLSX_EXPORT XLSpillResult
+    {
+        bool        ok{false};             ///< false when the spill range is blocked
+        size_t      cellsWritten{0};       ///< number of cells written (0 on #SPILL!)
+        XLCellValue error;                 ///< #SPILL! when !ok, otherwise empty
+        size_t      rows{0};               ///< spill height
+        size_t      cols{0};               ///< spill width
+    };
+
+    /**
+     * @brief Write a (possibly multi-cell) formula result into a rectangular spill range.
+     * @param result Materialized or lazy array/range/scalar result.
+     * @param topRow 1-based top-left row of the spill anchor.
+     * @param leftCol 1-based top-left column of the spill anchor.
+     * @param write Invoked once per output cell (row-major).
+     * @return Number of cells written.
+     */
+    OPENXLSX_EXPORT size_t spillArray(const XLFormulaArg& result, uint32_t topRow, uint16_t leftCol, const XLSpillWriter& write);
+
+    /**
+     * @brief Check whether a spill rectangle is free of blocking occupants.
+     * @param isOccupied Return true for cells that block spill (non-empty foreign content).
+     * @param anchorRow/anchorCol The formula cell itself is never treated as a blocker.
+     */
+    OPENXLSX_EXPORT bool spillRangeIsClear(const XLFormulaArg&   result,
+                                           uint32_t              topRow,
+                                           uint16_t              leftCol,
+                                           const XLSpillOccupancy& isOccupied,
+                                           uint32_t              anchorRow = 0,
+                                           uint16_t              anchorCol = 0);
+
+    /**
+     * @brief Spill with #SPILL! detection: writes only when the target range is clear.
+     * @details On conflict, no cells are written and result.error is set to #SPILL!.
+     */
+    OPENXLSX_EXPORT XLSpillResult spillArrayChecked(const XLFormulaArg&     result,
+                                                    uint32_t                topRow,
+                                                    uint16_t                leftCol,
+                                                    const XLSpillWriter&    write,
+                                                    const XLSpillOccupancy& isOccupied,
+                                                    uint32_t                anchorRow = 0,
+                                                    uint16_t                anchorCol = 0);
+
     class OPENXLSX_EXPORT XLFormulaEngine
     {
     public:
@@ -361,8 +655,24 @@ namespace OpenXLSX
 
         XLFormulaEngine(const XLFormulaEngine&)            = delete;
         XLFormulaEngine& operator=(const XLFormulaEngine&) = delete;
-        XLFormulaEngine(XLFormulaEngine&&)                 = default;
-        XLFormulaEngine& operator=(XLFormulaEngine&&)      = default;
+        XLFormulaEngine(XLFormulaEngine&&)                 = delete;
+        XLFormulaEngine& operator=(XLFormulaEngine&&)      = delete;
+
+        // ---- Phase D: AST cache (formula string → parsed tree) ----
+
+        /** Enable/disable parse-tree caching (default: enabled). */
+        void setAstCacheEnabled(bool enabled) noexcept { m_astCacheEnabled = enabled; }
+        [[nodiscard]] bool astCacheEnabled() const noexcept { return m_astCacheEnabled; }
+
+        /** Max distinct formulas retained in the cache (default 512). LRU-ish drop of arbitrary entry when full. */
+        void setAstCacheCapacity(std::size_t capacity) noexcept;
+        [[nodiscard]] std::size_t astCacheCapacity() const noexcept { return m_astCacheCapacity; }
+
+        /** Number of cached ASTs. */
+        [[nodiscard]] std::size_t astCacheSize() const;
+
+        /** Drop all cached parse trees. */
+        void clearAstCache();
 
         /**
          * @brief Evaluate a formula string.
@@ -381,6 +691,23 @@ namespace OpenXLSX
         [[nodiscard]] XLCellValue evaluate(std::string_view formula, const XLCellResolver& resolver = {}, XLFormulaDiagnosticReporter* reporter = nullptr) const;
 
         /**
+         * @brief Evaluate with a full evaluation session (names, current cell, depth, …).
+         * @details Multi-cell array results are reduced via implicit intersection (top-left).
+         *          Use evaluateArray() when the full spill shape is required.
+         */
+        [[nodiscard]] XLCellValue evaluate(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter = nullptr) const;
+
+        /**
+         * @brief Evaluate a formula preserving full array/range shape (Phase B spill path).
+         */
+        [[nodiscard]] XLFormulaArg evaluateArray(std::string_view formula, const XLCellResolver& resolver = {}, XLFormulaDiagnosticReporter* reporter = nullptr) const;
+
+        /**
+         * @brief Session-aware array evaluation (FILTER/UNIQUE/SORT/SEQUENCE, range arithmetic, …).
+         */
+        [[nodiscard]] XLFormulaArg evaluateArray(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter = nullptr) const;
+
+        /**
          * @brief Create a CellResolver that reads live values from an evaluation context.
          * @param context The abstract sheet-read port.
          * @return A resolver callable capturing a reference to @p context.
@@ -397,13 +724,14 @@ namespace OpenXLSX
          */
         [[nodiscard]] static XLCellResolver makeResolver(const XLWorksheet& wks);
 
+        /**
+         * @brief Expand an A1 cell/range reference using the given resolver.
+         * @details Public so session-aware functions (INDIRECT, OFFSET) can build LazyRanges.
+         */
+        [[nodiscard]] static XLFormulaArg expandRange(std::string_view rangeRef, const XLCellResolver& resolver);
+
     private:
         // ---- Internal evaluation helpers ----
-
-        /**
-         * @brief Expand a range string "A1:B3" using the resolver into a flat value list.
-         */
-        static XLFormulaArg expandRange(std::string_view rangeRef, const XLCellResolver& resolver);
 
         /**
          * @brief Collect numeric values from a mixed argument list (scalars + range vectors).
@@ -411,22 +739,48 @@ namespace OpenXLSX
         static std::vector<double> collectNumbers(const std::vector<XLCellValue>& flat, bool countBlanks = false);
 
         /**
-         * @brief Evaluate a single AST node recursively.
-         * @throws XLFormulaError on unrecoverable error.
+         * @brief Evaluate a single AST node recursively under a session (scalar projection).
          */
-        [[nodiscard]] XLCellValue evalNode(const XLASTNode& node, const XLCellResolver& resolver) const;
+        [[nodiscard]] XLCellValue evalNode(const XLASTNode& node, XLEvalSession& session) const;
 
         /**
-         * @brief Expand a function argument into a flat vector of XLCellValue.
-         *        Handles both scalar values and ranges.
+         * @brief Evaluate a node as a full-shaped argument (ranges / arrays preserved).
          */
-        [[nodiscard]] XLFormulaArg expandArg(const XLASTNode& argNode, const XLCellResolver& resolver) const;
+        [[nodiscard]] XLFormulaArg evalAsArg(const XLASTNode& node, XLEvalSession& session) const;
+
+        /**
+         * @brief Expand a function argument (range / cell / INDIRECT / OFFSET / scalar).
+         */
+        [[nodiscard]] XLFormulaArg expandArg(const XLASTNode& argNode, XLEvalSession& session) const;
+
+        /**
+         * @brief Evaluate reference-returning functions (INDIRECT, OFFSET) as XLFormulaArg.
+         */
+        [[nodiscard]] XLFormulaArg evalRefFunction(const XLASTNode& node, XLEvalSession& session) const;
+
+        /**
+         * @brief Dispatch a FuncCall through the builtin table, returning full array shape.
+         */
+        [[nodiscard]] XLFormulaArg evalFunctionAsArg(const XLASTNode& node, XLEvalSession& session) const;
+
+        [[nodiscard]] static bool isRefReturningFunction(std::string_view name);
 
         // ---- Built-in function table ----
-        // Each entry maps an uppercase function name to its implementation.
-        using FuncArgs = std::vector<XLCellValue>;    ///< all arguments flattened
-        using FuncImpl = std::function<XLCellValue(const std::vector<XLFormulaArg>&)>;
+        // Session-aware: every builtin returns XLFormulaArg (scalar or multi-cell array).
+        using FuncImpl = std::function<XLFormulaArg(const std::vector<XLFormulaArg>&, XLEvalSession&)>;
         static const std::unordered_map<std::string, FuncImpl>& getBuiltins();
+
+        /** Normalize formula key for the AST cache (strip leading '=', trim). */
+        [[nodiscard]] static std::string cacheKey(std::string_view formula);
+
+        /** Parse (or fetch cached) AST. When @p reporter is non-null, cache is bypassed. */
+        [[nodiscard]] std::shared_ptr<XLASTNode> getOrParseAst(std::string_view formula,
+                                                               XLFormulaDiagnosticReporter* reporter) const;
+
+        bool                                              m_astCacheEnabled{true};
+        std::size_t                                       m_astCacheCapacity{512};
+        mutable std::mutex                                m_astCacheMutex;
+        mutable std::unordered_map<std::string, std::shared_ptr<XLASTNode>> m_astCache;
     };
 
 }    // namespace OpenXLSX

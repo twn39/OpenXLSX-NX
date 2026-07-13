@@ -14,6 +14,9 @@
 #include "XLCellValue.hpp"
 #include "XLFormulaEngine.hpp"
 
+#include <cstdint>
+#include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -51,14 +54,69 @@ namespace OpenXLSX
         [[nodiscard]] inline XLCellValue errName() { return makeError("#NAME?"); }
 
         // =====================================================================
-        // Argument helpers
+        // Argument helpers / Excel coercion (Phase A)
         // =====================================================================
 
         [[nodiscard]] std::string strTrim(std::string s);
 
-        /** Flatten numeric values from formula arguments (skips non-numeric cells). */
+        /**
+         * @brief Parse a fully-numeric string (optional leading/trailing space) to double.
+         * @return true when the entire trimmed string is a valid number.
+         */
+        [[nodiscard]] bool tryParseNumericString(std::string_view s, double& out);
+
+        /**
+         * @brief Excel-style scalar numeric coercion for math functions and arithmetic.
+         * @details Error → same error (propagated). Empty → 0 when @p blankAsZero, else #VALUE!.
+         *          Integer/Float/Boolean → numeric. Fully-numeric string → number. Else #VALUE!.
+         * @return A Float/Integer cell value, or an Error cell value.
+         */
+        [[nodiscard]] XLCellValue coerceToNumber(const XLCellValue& v, bool blankAsZero = true);
+
+        /**
+         * @brief Coerce the first scalar of an argument (implicit intersection / top-left).
+         * @return Error if the arg is missing/empty (no cells), or coerceToNumber of asScalar().
+         */
+        [[nodiscard]] XLCellValue coerceArgScalar(const XLFormulaArg& arg, bool blankAsZero = true);
+
+        /**
+         * @brief First error value found in argument cells (Excel left-to-right, top-to-bottom).
+         * @return Error value if any, otherwise Empty.
+         */
+        [[nodiscard]] XLCellValue firstError(const XLFormulaArg& arg);
+        [[nodiscard]] XLCellValue firstError(const std::vector<XLFormulaArg>& args);
+
+        /** Flatten numeric values from formula arguments (skips non-numeric cells and errors). */
         [[nodiscard]] std::vector<double> numerics(const std::vector<XLFormulaArg>& args);
         [[nodiscard]] std::vector<double> numerics(const XLFormulaArg& arg);
+
+        /**
+         * @brief Like numerics(), but if any cell is an Error, sets @p outError and returns {}.
+         * @details Used by SUM/AVERAGE/MIN/MAX so errors short-circuit instead of being skipped.
+         */
+        [[nodiscard]] std::vector<double> numericsOrError(const std::vector<XLFormulaArg>& args, XLCellValue& outError);
+        [[nodiscard]] std::vector<double> numericsOrError(const XLFormulaArg& arg, XLCellValue& outError);
+
+        // =====================================================================
+        // Deterministic RNG for RAND / RANDBETWEEN / RANDARRAY (Phase D)
+        // =====================================================================
+
+        /**
+         * @brief Seed the formula RNG (thread-local engines reseed on next use).
+         * @details When set, RAND/RANDBETWEEN/RANDARRAY produce reproducible sequences
+         *          within each thread. Call clearFormulaRandomSeed() to restore
+         *          non-deterministic seeding via std::random_device.
+         */
+        void setFormulaRandomSeed(uint64_t seed);
+
+        /** Clear the optional seed (next RNG construction uses random_device). */
+        void clearFormulaRandomSeed();
+
+        /** Currently configured seed, if any. */
+        [[nodiscard]] std::optional<uint64_t> formulaRandomSeed();
+
+        /** Thread-local mt19937_64 used by formula random functions. */
+        [[nodiscard]] std::mt19937_64& formulaRng();
 
     }    // namespace formula
 
@@ -77,7 +135,16 @@ namespace OpenXLSX
     using formula::errRef;
     using formula::errName;
     using formula::strTrim;
+    using formula::tryParseNumericString;
+    using formula::coerceToNumber;
+    using formula::coerceArgScalar;
+    using formula::firstError;
     using formula::numerics;
+    using formula::numericsOrError;
+    using formula::setFormulaRandomSeed;
+    using formula::clearFormulaRandomSeed;
+    using formula::formulaRandomSeed;
+    using formula::formulaRng;
 
 }    // namespace OpenXLSX
 

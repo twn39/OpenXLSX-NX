@@ -8,7 +8,10 @@
 #include "XLChart.hpp"
 #include "XLChart_Internal.hpp"
 #include "XLChart_Templates.hpp"
+#include "XLContentTypes.hpp"
+#include "XLDocument.hpp"
 #include "XLException.hpp"
+#include "XLXmlData.hpp"
 #include "XLXmlParser.hpp"
 
 using namespace OpenXLSX::chart_templates;

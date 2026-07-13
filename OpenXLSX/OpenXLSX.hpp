@@ -13,6 +13,7 @@
 #include "headers/XLSlicer.hpp"
 #include "headers/XLSlicerCache.hpp"
 #include "headers/XLException.hpp"
+#include "headers/XLCalculationEngine.hpp"
 #include "headers/XLFormula.hpp"
 #include "headers/XLFormulaEngine.hpp"
 #include "headers/XLPageSetup.hpp"

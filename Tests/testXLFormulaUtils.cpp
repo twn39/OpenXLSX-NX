@@ -53,3 +53,21 @@ TEST_CASE("formula::strTrim and toString", "[XLFormulaUtils]")
     REQUIRE(toString(XLCellValue(true)) == "TRUE");
     REQUIRE(toString(XLCellValue("hi")) == "hi");
 }
+
+TEST_CASE("formula::coerce and numericsOrError", "[XLFormulaUtils][PhaseA]")
+{
+    double d = 0.0;
+    REQUIRE(tryParseNumericString("3.14", d));
+    REQUIRE(d == Catch::Approx(3.14));
+    REQUIRE_FALSE(tryParseNumericString("3.14x", d));
+
+    REQUIRE(toDouble(coerceToNumber(XLCellValue(std::string("7")), true)) == Catch::Approx(7.0));
+    REQUIRE(toDouble(coerceToNumber(XLCellValue{}, true)) == Catch::Approx(0.0));
+
+    XLCellValue err;
+    err.setError("#N/A");
+    XLFormulaArg arg({XLCellValue(1.0), err}, 1, 2);
+    XLCellValue  out;
+    REQUIRE(numericsOrError(arg, out).empty());
+    REQUIRE(isError(out));
+}

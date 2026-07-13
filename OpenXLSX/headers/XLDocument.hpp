@@ -9,6 +9,8 @@
 
 // ===== External Includes ===== //
 #include <algorithm>    // std::find_if
+#include <cstdint>
+#include <functional>
 #include <gsl/gsl>
 #include <list>
 #include <map>
@@ -463,6 +465,30 @@ namespace OpenXLSX
          */
         void setFormulaNeedsRecalculation(bool status = true) { m_formulaNeedsRecalculation = status; }
 
+        /**
+         * @brief Listener for cell content changes (value or formula).
+         * @details Used by XLCalculationEngine to auto-dirty the dependency graph.
+         *          @p formulaChanged is true when the formula XML was modified.
+         */
+        using XLCellChangeListener =
+            std::function<void(std::string_view sheetName, uint32_t row, uint16_t col, bool formulaChanged)>;
+
+        /**
+         * @brief Register a cell-change listener. @p token must be unique (e.g. `this` of the engine).
+         */
+        void registerCellChangeListener(const void* token, XLCellChangeListener listener);
+
+        /**
+         * @brief Remove a previously registered listener.
+         */
+        void unregisterCellChangeListener(const void* token);
+
+        /**
+         * @brief Notify listeners that a cell changed (value and/or formula).
+         * @note Called from formula/value write paths; safe to call with empty sheetName.
+         */
+        void notifyCellChanged(std::string_view sheetName, uint32_t row, uint16_t col, bool formulaChanged);
+
     public:
         /**
          * @brief Fetch raw XML content for a specific package path.
@@ -497,6 +523,7 @@ namespace OpenXLSX
         mutable std::unique_ptr<std::shared_mutex>                           m_docMutex{std::make_unique<std::shared_mutex>()};
         mutable XLSharedStrings                                              m_sharedStrings{};
         mutable std::map<void*, std::unordered_map<uint32_t, SharedFormula>> m_sharedFormulas{};
+        std::unordered_map<const void*, XLCellChangeListener>                 m_cellChangeListeners{};
         std::map<std::string, std::string>                                   m_unhandledEntries{};
 
         bool m_formulaNeedsRecalculation{false};

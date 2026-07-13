@@ -46,7 +46,7 @@ Formula|ExpectedType|ExpectedValue
 =MID("Excel", 2, 3)|String|xce
 =CONCATENATE("A","B","C")|String|ABC
 =MOD(5, 2)|Number|1
-=MOD(-5, 2)|Number|-1
+=MOD(-5, 2)|Number|1
 =ROUND(2.15, 1)|Number|2.2
 =ROUNDUP(2.15, 1)|Number|2.2
 =ROUNDDOWN(2.15, 1)|Number|2.1

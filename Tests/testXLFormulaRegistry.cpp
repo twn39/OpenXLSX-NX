@@ -55,8 +55,9 @@ TEST_CASE("XLFormulaRegistryTests", "[XLFormulaRegistry]")
         args.emplace_back(XLCellValue(10.0));
         args.emplace_back(XLCellValue(5.5));
 
-        XLCellValue result = retrieved->execute(args);
-        REQUIRE(result.type() == XLValueType::Float);
-        REQUIRE(result.get<double>() == Catch::Approx(15.5));
+        XLEvalSession session;
+        XLFormulaArg  result = retrieved->execute(args, session);
+        REQUIRE(result.asScalar().type() == XLValueType::Float);
+        REQUIRE(result.asScalar().get<double>() == Catch::Approx(15.5));
     }
 }

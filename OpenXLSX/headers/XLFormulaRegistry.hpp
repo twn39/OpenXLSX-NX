@@ -40,6 +40,8 @@ namespace OpenXLSX
     void registerFinancialFunctions(XLFormulaRegistry& registry);
     void registerStatisticalFunctions(XLFormulaRegistry& registry);
     void registerInfoFunctions(XLFormulaRegistry& registry);
+    void registerArrayFunctions(XLFormulaRegistry& registry);
+    void registerEngineeringFunctions(XLFormulaRegistry& registry);
 }
 
 #endif // OPENXLSX_XLFORMULAREGISTRY_HPP

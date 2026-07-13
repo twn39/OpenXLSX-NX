@@ -3,6 +3,8 @@
 #include "XLWorksheet.hpp"
 #include "XLDocument.hpp"
 #include "XLException.hpp"
+#include "XLXmlHelpers.hpp"
+#include "pugixml.hpp"
 #include <algorithm>
 
 using namespace OpenXLSX;

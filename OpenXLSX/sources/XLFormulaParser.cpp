@@ -202,6 +202,14 @@ std::vector<XLToken> XLFormulaLexer::tokenize(std::string_view formula)
                 emit(XLTokenKind::Colon, startOffset);
                 ++i;
                 break;
+            case '{':
+                emit(XLTokenKind::LBrace, startOffset);
+                ++i;
+                break;
+            case '}':
+                emit(XLTokenKind::RBrace, startOffset);
+                ++i;
+                break;
             case '=':
                 emit(XLTokenKind::Eq, startOffset);
                 ++i;
@@ -474,7 +482,60 @@ std::unique_ptr<XLASTNode> XLFormulaParser::parsePrimary(ParseContext& ctx)
         return inner;
     }
 
-    if (tok.kind == XLTokenKind::Comma || tok.kind == XLTokenKind::Semicolon || tok.kind == XLTokenKind::RParen) {
+    // Excel array constant: {1,2;3,4}  (comma = column, semicolon = row)
+    if (tok.kind == XLTokenKind::LBrace) {
+        ctx.consume();
+        auto node = std::make_unique<XLASTNode>(XLNodeKind::ArrayLit);
+        std::size_t rows = 0;
+        std::size_t cols = 0;
+        std::size_t curCols = 0;
+
+        auto finishRow = [&]() {
+            if (curCols == 0) return;
+            if (cols == 0) cols = curCols;
+            else if (curCols != cols) {
+                ctx.reportError("Array constant rows must have the same length", ctx.current().offset);
+            }
+            ++rows;
+            curCols = 0;
+        };
+
+        if (ctx.current().kind != XLTokenKind::RBrace && ctx.current().kind != XLTokenKind::End) {
+            while (ctx.current().kind != XLTokenKind::RBrace && ctx.current().kind != XLTokenKind::End) {
+                // Array constants: numbers, strings, bools, unary +/- (via parseUnary)
+                node->children.push_back(parseUnary(ctx));
+                ++curCols;
+                if (ctx.current().kind == XLTokenKind::Comma) {
+                    ctx.consume();
+                    continue;
+                }
+                if (ctx.current().kind == XLTokenKind::Semicolon) {
+                    ctx.consume();
+                    finishRow();
+                    continue;
+                }
+                break;
+            }
+            finishRow();
+        }
+        if (ctx.current().kind == XLTokenKind::RBrace) {
+            ctx.consume();
+            ctx.panicMode = false;
+        }
+        else {
+            ctx.reportError("Missing closing '}' for array constant", ctx.current().offset);
+        }
+        if (rows == 0) {
+            rows = 1;
+            cols = 0;
+        }
+        node->number = static_cast<double>(rows);
+        node->text   = std::to_string(cols);
+        return node;
+    }
+
+    if (tok.kind == XLTokenKind::Comma || tok.kind == XLTokenKind::Semicolon || tok.kind == XLTokenKind::RParen ||
+        tok.kind == XLTokenKind::RBrace) {
         // Omitted argument or empty primary (e.g. FUNC(a,,b) or FUNC())
         // Return an empty ErrorLit without reporting error, and do NOT consume it
         auto node = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
@@ -513,8 +574,14 @@ std::unique_ptr<XLASTNode> XLFormulaParser::parseFuncCall(std::string name, Pars
     ctx.consume();    // eat '('
 
     auto node = std::make_unique<XLASTNode>(XLNodeKind::FuncCall);
-    // Store function name as uppercase
+    // Store function name as uppercase; strip Excel future-function prefixes (_xlfn. / _xlws.)
     std::transform(name.begin(), name.end(), name.begin(), ::toupper);
+    auto stripPrefix = [](std::string& n, const char* prefix) {
+        const std::size_t len = std::char_traits<char>::length(prefix);
+        if (n.size() > len && n.compare(0, len, prefix) == 0) n.erase(0, len);
+    };
+    stripPrefix(name, "_XLFN.");
+    stripPrefix(name, "_XLWS.");
     node->text = std::move(name);
 
     // Parse argument list (comma or semicolon separated)

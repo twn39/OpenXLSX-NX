@@ -16,41 +16,80 @@ using namespace OpenXLSX;
 
 namespace
 {
+    bool stat_isBlank(const XLCellValue& cell)
+    {
+        if (isEmpty(cell)) return true;
+        if (cell.type() == XLValueType::String && cell.get<std::string>().empty()) return true;
+        return false;
+    }
+
+    /**
+     * @brief Excel-like COUNTIF/SUMIF criteria matching.
+     * @details Supports comparison operators, wildcards (* ?), blank criteria ("" / "="),
+     *          and numeric vs text comparison with case-insensitive text equality.
+     */
     bool stat_matchesCriteria(const XLCellValue& cell, const std::string& criteria)
     {
-        if (criteria.empty()) return false;
+        // Blank criteria: match empty / blank cells (Excel COUNTIF(range,"")).
+        if (criteria.empty() || criteria == "=") return stat_isBlank(cell);
+        // "<>" alone: match non-blanks.
+        if (criteria == "<>") return !stat_isBlank(cell);
+
         std::string_view op;
         std::string_view rhs;
-        auto s = std::string_view(criteria);
+        auto             s = std::string_view(criteria);
         if (s.size() >= 2 && s[0] == '<' && s[1] == '>') {
-            op = "<>";
+            op  = "<>";
             rhs = s.substr(2);
-        } else if (s.size() >= 2 && s[0] == '<' && s[1] == '=') {
-            op = "<=";
+        }
+        else if (s.size() >= 2 && s[0] == '<' && s[1] == '=') {
+            op  = "<=";
             rhs = s.substr(2);
-        } else if (s.size() >= 2 && s[0] == '>' && s[1] == '=') {
-            op = ">=";
+        }
+        else if (s.size() >= 2 && s[0] == '>' && s[1] == '=') {
+            op  = ">=";
             rhs = s.substr(2);
-        } else if (s[0] == '<') {
-            op = "<";
+        }
+        else if (s[0] == '<') {
+            op  = "<";
             rhs = s.substr(1);
-        } else if (s[0] == '>') {
-            op = ">";
+        }
+        else if (s[0] == '>') {
+            op  = ">";
             rhs = s.substr(1);
-        } else if (s[0] == '=') {
-            op = "=";
+        }
+        else if (s[0] == '=') {
+            op  = "=";
             rhs = s.substr(1);
-        } else {
-            op = "=";
+        }
+        else {
+            op  = "=";
             rhs = s;
         }
-        double rhsNum = 0.0;
-        bool rhsIsNum = false;
-        try {
-            std::size_t idx = 0;
-            rhsNum = std::stod(std::string(rhs), &idx);
-            rhsIsNum = (idx == rhs.size());
-        } catch (...) {}
+
+        // "<>" / "=" with empty RHS after operator: blank / non-blank.
+        if (rhs.empty()) {
+            if (op == "=") return stat_isBlank(cell);
+            if (op == "<>") return !stat_isBlank(cell);
+        }
+
+        double rhsNum  = 0.0;
+        bool   rhsIsNum = false;
+        {
+            std::string rhsCopy(rhs);
+            // Trim spaces for numeric parse.
+            while (!rhsCopy.empty() && std::isspace(static_cast<unsigned char>(rhsCopy.front()))) rhsCopy.erase(rhsCopy.begin());
+            while (!rhsCopy.empty() && std::isspace(static_cast<unsigned char>(rhsCopy.back()))) rhsCopy.pop_back();
+            try {
+                std::size_t idx = 0;
+                rhsNum          = std::stod(rhsCopy, &idx);
+                rhsIsNum        = (idx == rhsCopy.size() && !rhsCopy.empty());
+            }
+            catch (...) {
+            }
+        }
+
+        // Numeric vs numeric.
         if (rhsIsNum && isNumeric(cell)) {
             double lhsNum = toDouble(cell);
             if (op == "=") return lhsNum == rhsNum;
@@ -60,36 +99,72 @@ namespace
             if (op == ">") return lhsNum > rhsNum;
             if (op == ">=") return lhsNum >= rhsNum;
         }
+
+        // Numeric criteria against blank: only "<>" matches blanks for inequalities? Excel: blank fails numeric compare for "=".
+        if (rhsIsNum && stat_isBlank(cell)) {
+            if (op == "<>") return true;
+            return false;
+        }
+
+        // Text path (case-insensitive equality; wildcards on = / <>).
         std::string cellStr = toString(cell);
-        std::string rhsStr = std::string(rhs);
+        std::string rhsStr(rhs);
+        // Strip surrounding quotes Excel sometimes stores.
+        if (rhsStr.size() >= 2 && rhsStr.front() == '"' && rhsStr.back() == '"') {
+            rhsStr = rhsStr.substr(1, rhsStr.size() - 2);
+        }
         std::string cellLo = cellStr, rhsLo = rhsStr;
-        std::transform(cellLo.begin(), cellLo.end(), cellLo.begin(), ::tolower);
-        std::transform(rhsLo.begin(), rhsLo.end(), rhsLo.begin(), ::tolower);
-        bool hasWildcard = rhsLo.find('*') != std::string::npos || rhsLo.find('?') != std::string::npos;
+        std::transform(cellLo.begin(), cellLo.end(), cellLo.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        std::transform(rhsLo.begin(), rhsLo.end(), rhsLo.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
         auto wildcardMatch = [](const std::string& text, const std::string& pattern) -> bool {
             std::size_t t = 0, p = 0;
             std::size_t starT = std::string::npos, starP = std::string::npos;
             while (t < text.size()) {
                 if (p < pattern.size() && (pattern[p] == '?' || pattern[p] == text[t])) {
-                    ++t; ++p;
-                } else if (p < pattern.size() && pattern[p] == '*') {
-                    starP = p++; starT = t;
-                } else if (starP != std::string::npos) {
-                    p = starP + 1; t = ++starT;
-                } else return false;
+                    ++t;
+                    ++p;
+                }
+                else if (p < pattern.size() && pattern[p] == '*') {
+                    starP = p++;
+                    starT = t;
+                }
+                else if (starP != std::string::npos) {
+                    p = starP + 1;
+                    t = ++starT;
+                }
+                else
+                    return false;
             }
             while (p < pattern.size() && pattern[p] == '*') ++p;
             return p == pattern.size();
         };
-        if (op == "=" || (op == "=" && !hasWildcard)) return hasWildcard ? wildcardMatch(cellLo, rhsLo) : cellLo == rhsLo;
+
+        const bool hasWildcard = rhsLo.find('*') != std::string::npos || rhsLo.find('?') != std::string::npos;
+
+        if (op == "=") return hasWildcard ? wildcardMatch(cellLo, rhsLo) : cellLo == rhsLo;
         if (op == "<>") return hasWildcard ? !wildcardMatch(cellLo, rhsLo) : cellLo != rhsLo;
+        // Lexicographic for text inequalities (Excel does locale-aware; we use simple).
         if (op == "<") return cellLo < rhsLo;
         if (op == "<=") return cellLo <= rhsLo;
         if (op == ">") return cellLo > rhsLo;
         if (op == ">=") return cellLo >= rhsLo;
         return false;
     }
-} // namespace
+
+    /** Criteria may be numeric cell values, not only strings. */
+    std::string stat_criteriaToString(const XLCellValue& crit)
+    {
+        if (isEmpty(crit)) return "";
+        if (isNumeric(crit)) {
+            double d = toDouble(crit);
+            if (std::floor(d) == d && std::abs(d) < 1e15) return std::to_string(static_cast<int64_t>(d));
+            return std::to_string(d);
+        }
+        if (crit.type() == XLValueType::Boolean) return crit.get<bool>() ? "TRUE" : "FALSE";
+        return toString(crit);
+    }
+}    // namespace
 
 namespace
 {
@@ -295,7 +370,7 @@ XLCellValue Formula::fnCountif(const std::vector<XLFormulaArg>& args)
 {
     // COUNTIF(range, criteria)
     if (args.size() < 2 || args[0].empty() || args[1].empty()) return errValue();
-    std::string criteria = toString(args[1][0]);
+    std::string criteria = stat_criteriaToString(args[1][0]);
     int64_t     cnt      = 0;
     for (const auto& v : args[0])
         if (stat_matchesCriteria(v, criteria)) ++cnt;
@@ -307,10 +382,12 @@ XLCellValue Formula::fnSumif(const std::vector<XLFormulaArg>& args)
     // SUMIF(range, criteria, [sum_range])
     if (args.size() < 2 || args[0].empty() || args[1].empty()) return errValue();
     const auto& range    = args[0];
-    std::string criteria = toString(args[1][0]);
+    std::string criteria = stat_criteriaToString(args[1][0]);
     const auto& sumRange = (args.size() > 2) ? args[2] : args[0];
-    double      total    = 0.0;
-    for (std::size_t i = 0; i < range.size(); ++i) {
+    // Excel aligns on the criteria range size; sum_range is offset from top-left of criteria range.
+    const std::size_t n = range.size();
+    double            total = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
         if (stat_matchesCriteria(range[i], criteria)) {
             if (i < sumRange.size() && isNumeric(sumRange[i])) total += toDouble(sumRange[i]);
         }
@@ -321,9 +398,13 @@ XLCellValue Formula::fnSumif(const std::vector<XLFormulaArg>& args)
 XLCellValue Formula::fnCountifs(const std::vector<XLFormulaArg>& args)
 {
     // COUNTIFS(crit_range1, crit1, crit_range2, crit2, ...)
-    if (args.size() < 2) return errValue();
-    std::size_t sz  = args[0].size();
-    int64_t     cnt = 0;
+    if (args.size() < 2 || (args.size() % 2) != 0) return errValue();
+    std::size_t sz = args[0].size();
+    for (std::size_t p = 0; p + 1 < args.size(); p += 2) {
+        if (args[p].empty()) return errValue();
+        sz = std::min(sz, args[p].size());
+    }
+    int64_t cnt = 0;
     for (std::size_t i = 0; i < sz; ++i) {
         bool match = true;
         for (std::size_t p = 0; p + 1 < args.size(); p += 2) {
@@ -331,11 +412,7 @@ XLCellValue Formula::fnCountifs(const std::vector<XLFormulaArg>& args)
                 match = false;
                 break;
             }
-            if (i >= args[p].size()) {
-                match = false;
-                break;
-            }
-            if (!stat_matchesCriteria(args[p][i], toString(args[p + 1][0]))) {
+            if (!stat_matchesCriteria(args[p][i], stat_criteriaToString(args[p + 1][0]))) {
                 match = false;
                 break;
             }
@@ -349,20 +426,22 @@ XLCellValue Formula::fnSumifs(const std::vector<XLFormulaArg>& args)
 {
     // SUMIFS(sum_range, crit_range1, crit1, crit_range2, crit2, ...)
     if (args.size() < 3 || args[0].empty()) return errValue();
-    const auto& sumRange = args[0];
-    double      total    = 0.0;
-    for (std::size_t i = 0; i < sumRange.size(); ++i) {
+    if (((args.size() - 1) % 2) != 0) return errValue();
+    const auto&   sumRange = args[0];
+    std::size_t   sz       = sumRange.size();
+    for (std::size_t p = 1; p + 1 < args.size(); p += 2) {
+        if (args[p].empty()) return errValue();
+        sz = std::min(sz, args[p].size());
+    }
+    double total = 0.0;
+    for (std::size_t i = 0; i < sz; ++i) {
         bool match = true;
         for (std::size_t p = 1; p + 1 < args.size(); p += 2) {
-            if (args[p].empty() || args[p + 1].empty()) {
+            if (args[p + 1].empty()) {
                 match = false;
                 break;
             }
-            if (i >= args[p].size()) {
-                match = false;
-                break;
-            }
-            if (!stat_matchesCriteria(args[p][i], toString(args[p + 1][0]))) {
+            if (!stat_matchesCriteria(args[p][i], stat_criteriaToString(args[p + 1][0]))) {
                 match = false;
                 break;
             }
@@ -390,7 +469,7 @@ XLCellValue Formula::fnMaxifs(const std::vector<XLFormulaArg>& args)
                 match = false;
                 break;
             }
-            if (!stat_matchesCriteria(args[p][i], toString(args[p + 1][0]))) {
+            if (!stat_matchesCriteria(args[p][i], stat_criteriaToString(args[p + 1][0]))) {
                 match = false;
                 break;
             }
@@ -425,7 +504,7 @@ XLCellValue Formula::fnMinifs(const std::vector<XLFormulaArg>& args)
                 match = false;
                 break;
             }
-            if (!stat_matchesCriteria(args[p][i], toString(args[p + 1][0]))) {
+            if (!stat_matchesCriteria(args[p][i], stat_criteriaToString(args[p + 1][0]))) {
                 match = false;
                 break;
             }
@@ -447,12 +526,14 @@ XLCellValue Formula::fnAverageif(const std::vector<XLFormulaArg>& args)
     // AVERAGEIF(range, criteria, [average_range])
     if (args.size() < 2 || args[0].empty() || args[1].empty()) return errValue();
     const auto& range    = args[0];
-    std::string criteria = toString(args[1][0]);
+    std::string criteria = stat_criteriaToString(args[1][0]);
     const auto& avgRange = (args.size() > 2 && !args[2].empty()) ? args[2] : args[0];
     double      total    = 0.0;
     int64_t     cnt      = 0;
-    for (std::size_t i = 0; i < range.size(); ++i) {
+    const std::size_t n  = range.size();
+    for (std::size_t i = 0; i < n; ++i) {
         if (stat_matchesCriteria(range[i], criteria)) {
+            // Excel only averages numeric cells in the average range.
             if (i < avgRange.size() && isNumeric(avgRange[i])) {
                 total += toDouble(avgRange[i]);
                 ++cnt;
@@ -677,24 +758,38 @@ XLCellValue Formula::fnPearson(const std::vector<XLFormulaArg>& args)
 
 XLCellValue Formula::fnAverageifs(const std::vector<XLFormulaArg>& args)
 {
-    // Needs proper SUMIFS / COUNTIFS logic.
-    // Excel AVERAGEIFS: AVERAGEIFS(average_range, criteria_range1, criteria1, ...)
-    // If we have fnSumifs and fnCountifs, we can reuse them.
-    // Wait, fnSumifs is expecting sum_range first. So is fnAverageifs.
-    // Let's just call them.
-    XLCellValue sum = fnSumifs(args);
-    if (sum.type() == XLValueType::Error) return sum;
-
-    // For COUNTIFS, we skip the average_range (args[0]) and pass the rest.
-    std::vector<XLFormulaArg> countArgs;
-    for (size_t i = 1; i < args.size(); ++i) { countArgs.push_back(args[i]); }
-    XLCellValue count = fnCountifs(countArgs);
-    if (count.type() == XLValueType::Error) return count;
-
-    double dCount = count.get<double>();
-    if (dCount == 0) return errDiv0();
-
-    return XLCellValue(sum.get<double>() / dCount);
+    // AVERAGEIFS(average_range, criteria_range1, criteria1, ...)
+    // Only rows that match all criteria AND have a numeric average cell contribute
+    // (cannot use raw COUNTIFS, which would count non-numeric matches).
+    if (args.size() < 3 || args[0].empty()) return errValue();
+    if (((args.size() - 1) % 2) != 0) return errValue();
+    const auto& avgRange = args[0];
+    std::size_t sz       = avgRange.size();
+    for (std::size_t p = 1; p + 1 < args.size(); p += 2) {
+        if (args[p].empty()) return errValue();
+        sz = std::min(sz, args[p].size());
+    }
+    double  total = 0.0;
+    int64_t cnt   = 0;
+    for (std::size_t i = 0; i < sz; ++i) {
+        bool match = true;
+        for (std::size_t p = 1; p + 1 < args.size(); p += 2) {
+            if (args[p + 1].empty()) {
+                match = false;
+                break;
+            }
+            if (!stat_matchesCriteria(args[p][i], stat_criteriaToString(args[p + 1][0]))) {
+                match = false;
+                break;
+            }
+        }
+        if (match && isNumeric(avgRange[i])) {
+            total += toDouble(avgRange[i]);
+            ++cnt;
+        }
+    }
+    if (cnt == 0) return errDiv0();
+    return XLCellValue(total / static_cast<double>(cnt));
 }
 
 XLCellValue Formula::fnCovarianceP(const std::vector<XLFormulaArg>& args)

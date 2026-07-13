@@ -911,3 +911,40 @@ bool XLDocument::hasXmlData(std::string_view path) const
     return std::find_if(m_data.begin(), m_data.end(), [&](const XLXmlData& item) { return item.getXmlPath() == path; }) != m_data.end();
 }
 
+
+// =============================================================================
+// Cell change listeners (calculation engine auto-dirty)
+// =============================================================================
+
+void XLDocument::registerCellChangeListener(const void* token, XLCellChangeListener listener)
+{
+    if (token == nullptr || !listener) return;
+    std::unique_lock lock(*m_docMutex);
+    m_cellChangeListeners[token] = std::move(listener);
+}
+
+void XLDocument::unregisterCellChangeListener(const void* token)
+{
+    if (token == nullptr) return;
+    std::unique_lock lock(*m_docMutex);
+    m_cellChangeListeners.erase(token);
+}
+
+void XLDocument::notifyCellChanged(std::string_view sheetName, uint32_t row, uint16_t col, bool formulaChanged)
+{
+    // Copy listeners under lock, invoke outside to avoid re-entrancy deadlocks.
+    std::vector<XLCellChangeListener> snapshot;
+    {
+        std::shared_lock lock(*m_docMutex);
+        snapshot.reserve(m_cellChangeListeners.size());
+        for (const auto& [_, cb] : m_cellChangeListeners) snapshot.push_back(cb);
+    }
+    for (const auto& cb : snapshot) {
+        try {
+            cb(sheetName, row, col, formulaChanged);
+        }
+        catch (...) {
+            // listeners must not break write paths
+        }
+    }
+}
