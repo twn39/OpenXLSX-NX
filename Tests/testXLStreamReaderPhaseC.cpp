@@ -170,7 +170,9 @@ TEST_CASE("StreamReaderFormattedStrings", "[XLStreamReader][Format]")
         REQUIRE(strings[0].find('%') != std::string::npos);
         REQUIRE(strings[1] == "ok");
 
-        // also exercise formattedValue API (keep worksheet alive for reader pointer)
+        // Close entry stream before document close / reopen. Leaving the zip entry open while
+        // closing the archive can lock the file on Windows and break the second open below.
+        reader.close();
         doc.close();
 
         XLDocument doc2;

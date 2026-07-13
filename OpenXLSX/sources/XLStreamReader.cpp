@@ -199,9 +199,10 @@ namespace OpenXLSX
     void XLStreamReader::cleanup()
     {
         if (!m_zipStream) return;
-        // Prefer archive handle (independent of worksheet lifetime). Skip if package already closed.
+        // Archive copy shares LibZipApp with the document. closeEntryStream is idempotent if
+        // XLZipArchive::close() already closed this entry (important on Windows file locks).
         try {
-            if (m_archive.isOpen()) m_archive.closeEntryStream(m_zipStream);
+            m_archive.closeEntryStream(m_zipStream);
         }
         catch (...) {
             // Best-effort; document may already be torn down.

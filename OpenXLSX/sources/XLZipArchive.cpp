@@ -1,4 +1,5 @@
 // ===== External Includes ===== //
+#include <algorithm>
 #include <cstring>
 #include <deque>
 #include <filesystem>
@@ -32,13 +33,25 @@ struct XLZipArchive::LibZipApp
     ZipArchivePtr archive{nullptr};
     std::string   currentPath;
     bool          isModified = false;    // Track if we explicitly want to save
-    
+
     // Stable deque string cache for Zero-Copy zip_source_buffer_create
-    std::deque<std::string> stringCache; 
+    std::deque<std::string> stringCache;
+
+    // Open zip_file_t* entry streams (XLStreamReader). Must be closed before zip_close/zip_discard
+    // — especially on Windows, where leaving them open can lock the .xlsx and break reopen.
+    mutable std::vector<void*> openEntryStreams;
 
     LibZipApp() = default;
     LibZipApp(const LibZipApp&)            = delete;
     LibZipApp& operator=(const LibZipApp&) = delete;
+
+    void closeAllEntryStreams() const
+    {
+        for (void* stream : openEntryStreams) {
+            if (stream) zip_fclose(static_cast<zip_file_t*>(stream));
+        }
+        openEntryStreams.clear();
+    }
 };
 
 XLZipArchive::XLZipArchive() : m_archive(nullptr) {}
@@ -104,6 +117,9 @@ void XLZipArchive::open(std::string_view fileName)
 void XLZipArchive::close()
 {
     if (isOpen()) {
+        // Close any streaming entry handles before zip_close / zip_discard.
+        m_archive->closeAllEntryStreams();
+
         ZipArchivePtr ptr = std::move(m_archive->archive);
 
         // If save() was called, we should commit changes.
@@ -125,7 +141,7 @@ void XLZipArchive::close()
         }
         // If m_archive->isModified is false, ptr leaves scope and ZipArchiveDeleter
         // safely calls zip_discard.
-        
+
         // Clear string cache AFTER libzip finishes reading pointers
         m_archive->stringCache.clear();
     }
@@ -271,6 +287,7 @@ void* XLZipArchive::openEntryStream(std::string_view name) const
     if (!isOpen()) throw XLInternalError("Archive not open");
     zip_file_t* f = zip_fopen(m_archive->archive.get(), std::string(name).c_str(), 0);
     if (!f) throw XLInternalError("Failed to open entry stream: " + std::string(name));
+    m_archive->openEntryStreams.push_back(f);
     return f;
 }
 
@@ -282,7 +299,15 @@ int64_t XLZipArchive::readEntryStream(void* stream, char* buffer, uint64_t size)
 
 void XLZipArchive::closeEntryStream(void* stream) const
 {
-    if (stream) zip_fclose(static_cast<zip_file_t*>(stream));
+    if (!stream) return;
+    // If the stream was already closed by close() / closeAllEntryStreams, do not zip_fclose again.
+    if (m_archive) {
+        auto& streams = m_archive->openEntryStreams;
+        auto  it      = std::find(streams.begin(), streams.end(), stream);
+        if (it == streams.end()) return;
+        streams.erase(it);
+    }
+    zip_fclose(static_cast<zip_file_t*>(stream));
 }
 
 bool XLZipArchive::hasEntry(std::string_view entryName) const
