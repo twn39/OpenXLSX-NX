@@ -345,6 +345,12 @@ namespace OpenXLSX
         class XLPivotCacheDefinition createPivotCacheDefinition();
         class XLPivotCacheRecords    createPivotCacheRecords(std::string_view cacheDefPath);
 
+        /**
+         * @brief Remove a managed package XML part (archive entry, content type, in-memory XLXmlData).
+         * @details Also removes the companion part relationships file under _rels when present. Used by pivot/slicer GC.
+         */
+        void deleteManagedXmlPart(std::string_view path);
+
         std::string createTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName) override;
         std::string findOrCreateTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName) override;
 

@@ -327,29 +327,45 @@ TEST_CASE("AdvancedPivotTableNamedRangeTableSourceBinding", "[XLPivotTable]")
     wks.cell("B1").value() = "Value";
     wks.cell("A2").value() = "Fruit";
     wks.cell("B2").value() = 100;
+    wks.cell("A3").value() = "Veg";
+    wks.cell("B3").value() = 50;
 
-    // Simulate binding to an Excel Table or a global named range where no explicit sheet name is given
+    // Real Excel Table as pivot source (worksheetSource/@name).
+    REQUIRE_NOTHROW(wks.tables().add("MyTable1", "A1:B3"));
+
     auto options = XLPivotTableOptions("NamedRangePivot", "MyTable1", "D1")
         .addRowField("Category")
         .addDataField("Value", "Total Value", XLPivotSubtotal::Sum);
 
-    // This currently will throw or fallback to "Field1" because MyTable1 is not parsed as "Sheet1!A1:B2"
-    // OpenXLSX currently tightly couples parsing the string with `sourceRef.find(':')` to extract headers.
-    
-    // Let's assert it falls back safely without crashing.
     REQUIRE_NOTHROW(wks.addPivotTable(options));
-    
     REQUIRE_NOTHROW(doc.save());
     doc.close();
 
     XLDocument doc2;
     REQUIRE_NOTHROW(doc2.open(__global_unique_testXLPivotTableAdvanced_4()));
     std::string ptCacheStr = doc2.extractXmlFromArchive("xl/pivotCache/pivotCacheDefinition1.xml");
-    
-    // It should have safely defaulted the cache source to MyTable1 and fallen back to a default count
-    bool hasName = ptCacheStr.find("name=\"MyTable1\"") != std::string::npos || ptCacheStr.find("ref=\"MyTable1\"") != std::string::npos;
-    REQUIRE(hasName);
-    
+    std::string ptDefXmlStr = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
+
+    REQUIRE(ptCacheStr.find("name=\"MyTable1\"") != std::string::npos);
+    // Headers must be resolved from the table range (not Field1 fallback).
+    REQUIRE(ptCacheStr.find("name=\"Category\"") != std::string::npos);
+    REQUIRE(ptCacheStr.find("name=\"Value\"") != std::string::npos);
+    REQUIRE(ptDefXmlStr.find("axis=\"axisRow\"") != std::string::npos);
+
+    // Unknown table / name must hard-fail (no silent Field1).
+    XLDocument doc3;
+    doc3.create(__global_unique_testXLPivotTableAdvanced_4() + ".bad.xlsx", XLForceOverwrite);
+    auto w3 = doc3.workbook().worksheet("Sheet1");
+    w3.cell("A1").value() = "H";
+    w3.cell("B1").value() = "V";
+    w3.cell("A2").value() = "x";
+    w3.cell("B2").value() = 1;
+    REQUIRE_THROWS_AS(
+        w3.addPivotTable(XLPivotTableOptions("Bad", "NoSuchTable", "D1").addRowField("H").addDataField("V")),
+        OpenXLSX::XLInputError);
+    doc3.close();
+    std::remove((__global_unique_testXLPivotTableAdvanced_4() + ".bad.xlsx").c_str());
+
     std::remove(__global_unique_testXLPivotTableAdvanced_4().c_str());
 }
 
@@ -448,4 +464,142 @@ TEST_CASE("GeneratePivotTableDemo", "[.demo]")
     wks2.addPivotTable(options);
     doc.save();
     doc.close();
+}
+
+TEST_CASE("PivotTableShowValuesAsAndFieldLayout", "[XLPivotTable][P1]")
+{
+    static std::string filename = OpenXLSX::TestHelpers::getUniqueFilename("__PivotShowValuesAs_xlsx") + ".xlsx";
+    XLDocument doc;
+    doc.create(filename, XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    wks.cell("A1").value() = "Region";
+    wks.cell("B1").value() = "Month";
+    wks.cell("C1").value() = "Revenue";
+    wks.cell("A2").value() = "East";
+    wks.cell("B2").value() = "Jan";
+    wks.cell("C2").value() = 100;
+    wks.cell("A3").value() = "West";
+    wks.cell("B3").value() = "Jan";
+    wks.cell("C3").value() = 200;
+    wks.cell("A4").value() = "East";
+    wks.cell("B4").value() = "Feb";
+    wks.cell("C4").value() = 150;
+
+    XLPivotField rowFld;
+    rowFld.name = "Region";
+    rowFld.compact = true;
+    rowFld.outline = true;
+    rowFld.insertBlankRow = true;
+
+    XLPivotShowValuesAsOptions sva;
+    sva.type = XLPivotShowValuesAs::PercentOf;
+    sva.baseField = "Region";
+    sva.baseItem = "East";
+
+    auto options = XLPivotTableOptions("SVAPivot", "Sheet1!A1:C4", "E1")
+                       .addRowField(rowFld)
+                       .addColumnField("Month")
+                       .addDataField("Revenue", "Pct of East", XLPivotSubtotal::Sum, 0, sva)
+                       .setLocationRange("E1:K20");
+
+    REQUIRE_NOTHROW(wks.addPivotTable(options));
+    REQUIRE_NOTHROW(doc.save());
+    doc.close();
+
+    XLDocument doc2;
+    REQUIRE_NOTHROW(doc2.open(filename));
+    std::string ptXml = doc2.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
+
+    REQUIRE(ptXml.find("showDataAs=\"percent\"") != std::string::npos);
+    REQUIRE(ptXml.find("baseField=\"0\"") != std::string::npos); // Region is field 0
+    REQUIRE(ptXml.find("insertBlankRow=\"1\"") != std::string::npos);
+    REQUIRE(ptXml.find("compact=\"1\"") != std::string::npos);
+    REQUIRE(ptXml.find("ref=\"E1:K20\"") != std::string::npos);
+
+    // options() round-trip (best effort)
+    auto pts = doc2.workbook().worksheet("Sheet1").pivotTables();
+    REQUIRE(pts.size() == 1);
+    auto recovered = pts[0].options();
+    REQUIRE(recovered.name() == "SVAPivot");
+    REQUIRE(recovered.rows().size() == 1);
+    REQUIRE(recovered.rows()[0].name == "Region");
+    REQUIRE(recovered.data().size() == 1);
+    REQUIRE(recovered.data()[0].showValuesAs.type == XLPivotShowValuesAs::PercentOf);
+    REQUIRE(recovered.data()[0].showValuesAs.baseField == "Region");
+    REQUIRE(recovered.locationRange() == "E1:K20");
+
+    // x14 ShowValuesAs
+    XLDocument doc3;
+    doc3.create(filename + ".x14.xlsx", XLForceOverwrite);
+    auto w3 = doc3.workbook().worksheet("Sheet1");
+    w3.cell("A1").value() = "Year";
+    w3.cell("B1").value() = "Sales";
+    w3.cell("A2").value() = 2021;
+    w3.cell("B2").value() = 10;
+    w3.cell("A3").value() = 2022;
+    w3.cell("B3").value() = 20;
+    XLPivotShowValuesAsOptions sva2;
+    sva2.type = XLPivotShowValuesAs::RunningTotalIn;
+    sva2.baseField = "Year";
+    // Running total needs base field only; ensure Year has deep shared items via selected empty but we need base field deep:
+    // force deep by using base field requirement — deepSharedFields includes baseField.
+    REQUIRE_NOTHROW(w3.addPivotTable(XLPivotTableOptions("RunTotal", "Sheet1!A1:B3", "D1")
+                                         .addRowField("Year")
+                                         .addDataField("Sales", "RT", XLPivotSubtotal::Sum, 0, sva2)));
+    doc3.save();
+    std::string pt3 = doc3.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
+    // RunningTotalIn is classic showDataAs runTotal (not x14)
+    REQUIRE(pt3.find("showDataAs=\"runTotal\"") != std::string::npos);
+    doc3.close();
+    std::remove((filename + ".x14.xlsx").c_str());
+
+    // x14 Index
+    XLDocument doc4;
+    doc4.create(filename + ".idx.xlsx", XLForceOverwrite);
+    auto w4 = doc4.workbook().worksheet("Sheet1");
+    w4.cell("A1").value() = "Cat";
+    w4.cell("B1").value() = "Val";
+    w4.cell("A2").value() = "A";
+    w4.cell("B2").value() = 1;
+    XLPivotShowValuesAsOptions sva3;
+    sva3.type = XLPivotShowValuesAs::Index;
+    REQUIRE_NOTHROW(w4.addPivotTable(XLPivotTableOptions("Idx", "Sheet1!A1:B2", "D1")
+                                         .addRowField("Cat")
+                                         .addDataField("Val", "I", XLPivotSubtotal::Sum, 0, sva3)));
+    doc4.save();
+    std::string pt4 = doc4.extractXmlFromArchive("xl/pivotTables/pivotTable1.xml");
+    REQUIRE(pt4.find("pivotShowAs=\"index\"") != std::string::npos);
+    doc4.close();
+    std::remove((filename + ".idx.xlsx").c_str());
+
+    std::remove(filename.c_str());
+}
+
+TEST_CASE("PivotTableShowValuesAsValidation", "[XLPivotTable][P1]")
+{
+    XLDocument doc;
+    std::string filename = OpenXLSX::TestHelpers::getUniqueFilename("__PivotSVAVal_xlsx") + ".xlsx";
+    doc.create(filename, XLForceOverwrite);
+    auto wks = doc.workbook().worksheet("Sheet1");
+    wks.cell("A1").value() = "R";
+    wks.cell("B1").value() = "V";
+    wks.cell("A2").value() = "x";
+    wks.cell("B2").value() = 1;
+
+    XLPivotShowValuesAsOptions sva;
+    sva.type = XLPivotShowValuesAs::PercentOf;
+    // missing baseField
+    REQUIRE_THROWS_AS(wks.addPivotTable(XLPivotTableOptions("T", "Sheet1!A1:B2", "D1")
+                                            .addRowField("R")
+                                            .addDataField("V", "P", XLPivotSubtotal::Sum, 0, sva)),
+                      XLInputError);
+    sva.baseField = "R";
+    // missing baseItem
+    REQUIRE_THROWS_AS(wks.addPivotTable(XLPivotTableOptions("T", "Sheet1!A1:B2", "D1")
+                                            .addRowField("R")
+                                            .addDataField("V", "P", XLPivotSubtotal::Sum, 0, sva)),
+                      XLInputError);
+    doc.close();
+    std::remove(filename.c_str());
 }

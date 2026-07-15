@@ -19,104 +19,384 @@
 #include "XLStreamWriter.hpp"
 #include "XLTables.hpp"
 #include "XLThreadedComments.hpp"
-#include <unordered_set>
+#include "XLException.hpp"
 #include <algorithm>
+#include <cctype>
+#include <unordered_set>
 
 using namespace OpenXLSX;
+
+namespace {
+
+std::string stripLeadingSlash(std::string p)
+{
+    if (!p.empty() && p.front() == '/') p.erase(0, 1);
+    return p;
+}
+
+std::string unquoteSheetName(std::string sheet)
+{
+    if (sheet.size() >= 2 && sheet.front() == '\'' && sheet.back() == '\'')
+        return sheet.substr(1, sheet.size() - 2);
+    // Excel escapes doubled single-quotes inside quoted sheet names
+    std::string out;
+    out.reserve(sheet.size());
+    for (size_t i = 0; i < sheet.size(); ++i) {
+        if (sheet[i] == '\'' && i + 1 < sheet.size() && sheet[i + 1] == '\'') {
+            out.push_back('\'');
+            ++i;
+        }
+        else {
+            out.push_back(sheet[i]);
+        }
+    }
+    return out;
+}
+
+std::string normalizeRangeKey(std::string range)
+{
+    auto bang = range.find('!');
+    if (bang == std::string::npos) return range;
+    std::string sheet = unquoteSheetName(range.substr(0, bang));
+    std::string ref   = range.substr(bang + 1);
+    // drop $
+    ref.erase(std::remove(ref.begin(), ref.end(), '$'), ref.end());
+    return sheet + "!" + ref;
+}
+
+/** Resolve a relationship Target relative to a package part path into an absolute package path. */
+std::string resolveRelTarget(std::string_view sourcePartPath, std::string target)
+{
+    if (target.empty()) return {};
+    if (target.front() == '/') return stripLeadingSlash(std::string(target));
+
+    std::string source(sourcePartPath);
+    auto slash = source.find_last_of('/');
+    std::string baseDir = (slash == std::string::npos) ? std::string() : source.substr(0, slash + 1);
+    std::string combined = baseDir + target;
+    std::string abs = eliminateDotAndDotDotFromPath(combined);
+    return stripLeadingSlash(abs);
+}
+
+struct PivotSourceResolved {
+    std::string identityKey;   ///< cache reuse key
+    std::string sheet;         ///< worksheet name for header/data scan
+    std::string ref;           ///< A1:D10 style (no sheet)
+    std::string nameAttr;      ///< worksheetSource/@name when table or defined name
+    bool        namedSource{false};
+};
+
+bool looksLikeSheetRange(std::string_view s)
+{
+    return s.find('!') != std::string_view::npos;
+}
+
+bool parseSheetAndRef(std::string_view formula, std::string& sheet, std::string& ref)
+{
+    std::string f(formula);
+    if (!f.empty() && f.front() == '=') f.erase(0, 1);
+    // trim
+    while (!f.empty() && std::isspace(static_cast<unsigned char>(f.front()))) f.erase(0, 1);
+    while (!f.empty() && std::isspace(static_cast<unsigned char>(f.back()))) f.pop_back();
+
+    auto bang = f.find('!');
+    if (bang == std::string::npos) return false;
+    sheet = unquoteSheetName(f.substr(0, bang));
+    ref   = f.substr(bang + 1);
+    ref.erase(std::remove(ref.begin(), ref.end(), '$'), ref.end());
+    return !sheet.empty() && ref.find(':') != std::string::npos;
+}
+
+PivotSourceResolved resolvePivotSource(XLWorksheet& self, const std::string& source)
+{
+    PivotSourceResolved out;
+    auto& doc = self.parentDoc();
+    auto  wb  = doc.workbook();
+
+    if (source.empty())
+        throw XLInputError("XLWorksheet::addPivotTable: sourceRange is empty");
+
+    if (looksLikeSheetRange(source)) {
+        std::string sheet, ref;
+        if (!parseSheetAndRef(source, sheet, ref))
+            throw XLInputError("XLWorksheet::addPivotTable: invalid source range \"" + source + "\"");
+        out.sheet        = sheet;
+        out.ref          = ref;
+        out.namedSource  = false;
+        out.identityKey  = "range:" + normalizeRangeKey(sheet + "!" + ref);
+        return out;
+    }
+
+    // Excel Table name (search all worksheets)
+    for (const auto& sheetName : wb.worksheetNames()) {
+        XLWorksheet wks = wb.worksheet(sheetName);
+        auto&       tc  = wks.tables();
+        for (size_t i = 0; i < tc.count(); ++i) {
+            XLTable t = tc[i];
+            if (t.name() == source || t.displayName() == source) {
+                out.sheet       = sheetName;
+                out.ref         = t.rangeReference();
+                out.nameAttr    = std::string(source);
+                // Prefer canonical table name for cache identity
+                out.nameAttr    = t.name();
+                out.namedSource = true;
+                out.identityKey = "table:" + t.name();
+                if (out.ref.find(':') == std::string::npos)
+                    throw XLInputError("XLWorksheet::addPivotTable: table \"" + t.name() + "\" has invalid range");
+                return out;
+            }
+        }
+    }
+
+    // Defined name
+    if (wb.definedNames().exists(source)) {
+        auto dn = wb.definedNames().get(source);
+        std::string sheet, ref;
+        if (!parseSheetAndRef(dn.refersTo(), sheet, ref))
+            throw XLInputError("XLWorksheet::addPivotTable: defined name \"" + source +
+                               "\" does not resolve to a worksheet range");
+        out.sheet       = sheet;
+        out.ref         = ref;
+        out.nameAttr    = std::string(source);
+        out.namedSource = true;
+        out.identityKey = "name:" + std::string(source);
+        return out;
+    }
+
+    throw XLInputError(
+        "XLWorksheet::addPivotTable: source \"" + source +
+        "\" is not a Sheet!A1:B2 range, Excel Table name, or defined name");
+}
+
+std::string relsPathForPart(std::string_view partPath)
+{
+    std::string p = stripLeadingSlash(std::string(partPath));
+    auto        slash = p.find_last_of('/');
+    if (slash == std::string::npos) return "_rels/" + p + ".rels";
+    return p.substr(0, slash) + "/_rels/" + p.substr(slash + 1) + ".rels";
+}
+
+std::string cachePathFromPivotTable(XLDocument& doc, const XLPivotTable& pt)
+{
+    const std::string ptPath = pt.getXmlPath();
+    // Prefer workbook pivotCaches by cacheId (stable)
+    try {
+        return pt.cacheDefinition().getXmlPath();
+    }
+    catch (...) {
+    }
+
+    // Fallback: pivot table relationships (xmlRelationships may create empty .rels if missing).
+    auto ptRels = doc.xmlRelationships(ptPath);
+    for (const auto& rel : ptRels.relationships()) {
+        if (rel.type() == XLRelationshipType::PivotCacheDefinition) {
+            return resolveRelTarget(ptPath, rel.target());
+        }
+    }
+    return {};
+}
+
+int countPivotsUsingCache(XLDocument& doc, const std::string& cachePath)
+{
+    const std::string want = stripLeadingSlash(cachePath);
+    int               n    = 0;
+    // Use relationship-first public discovery on each worksheet (matches ECMA-376).
+    for (const auto& sheetName : doc.workbook().worksheetNames()) {
+        XLWorksheet wks = doc.workbook().worksheet(sheetName);
+        for (auto& pt : wks.pivotTables()) {
+            try {
+                if (stripLeadingSlash(pt.cacheDefinition().getXmlPath()) == want) ++n;
+            }
+            catch (...) {
+            }
+        }
+    }
+    return n;
+}
+
+void removeWorksheetPivotIndexEntry(XLWorksheet& wks, std::string_view rId)
+{
+    XMLNode ptNode = wks.xmlDocument().document_element().child("pivotTables");
+    if (ptNode.empty()) return;
+    for (auto pt = ptNode.child("pivotTable"); pt;) {
+        auto next = pt.next_sibling("pivotTable");
+        if (std::string(pt.attribute("r:id").value()) == rId) {
+            ptNode.remove_child(pt);
+        }
+        pt = next;
+    }
+    if (ptNode.first_child().empty()) {
+        wks.xmlDocument().document_element().remove_child(ptNode);
+    }
+}
+
+void deleteOrphanPivotCache(XLDocument& doc, const std::string& cachePath, uint32_t cacheId)
+{
+    if (cachePath.empty()) return;
+
+    // Remove workbook pivotCaches entry + relationship
+    auto      wb      = doc.workbook();
+    XMLNode   wbRoot  = wb.xmlDocument().document_element();
+    XMLNode   caches  = wbRoot.child("pivotCaches");
+    std::string rId;
+    if (!caches.empty()) {
+        for (auto pc = caches.child("pivotCache"); pc;) {
+            auto next = pc.next_sibling("pivotCache");
+            if (pc.attribute("cacheId").as_uint() == cacheId) {
+                rId = pc.attribute("r:id").value();
+                caches.remove_child(pc);
+            }
+            pc = next;
+        }
+        // Prefer element-count: leftover whitespace text nodes must not keep an empty pivotCaches.
+        if (caches.child("pivotCache").empty()) wbRoot.remove_child(caches);
+    }
+    if (!rId.empty()) {
+        try {
+            doc.workbookRelationships().deleteRelationship(rId);
+        }
+        catch (...) {
+        }
+    }
+
+    // Delete cache records if linked (only when a .rels part already exists).
+    const std::string cacheRels = relsPathForPart(cachePath);
+    if (doc.archive().hasEntry(cacheRels)) {
+        auto crels = doc.xmlRelationships(cachePath);
+        for (const auto& rel : crels.relationships()) {
+            if (rel.type() == XLRelationshipType::PivotCacheRecords) {
+                doc.deleteManagedXmlPart(resolveRelTarget(cachePath, rel.target()));
+            }
+        }
+    }
+    doc.deleteManagedXmlPart(cachePath);
+}
+
+}    // namespace
 
 std::vector<XLPivotTable> XLWorksheet::pivotTables()
 {
     std::vector<XLPivotTable> result;
+    std::unordered_set<std::string> seenPaths;
+
+    auto loadPivotAt = [&](const std::string& targetPath, const std::string& rId) {
+        if (targetPath.empty() || !seenPaths.insert(targetPath).second) return;
+        XLXmlData* xmlData = parentDoc().getXmlData(XLInternalAccess{}, targetPath, true);
+        if (xmlData == nullptr) {
+            // Load from archive if present
+            if (parentDoc().archive().hasEntry(targetPath)) {
+                xmlData = parentDoc().addXmlData(XLInternalAccess{}, targetPath, rId, XLContentType::PivotTable);
+            }
+            else {
+                return;
+            }
+        }
+        result.emplace_back(xmlData);
+    };
+
+    // Canonical discovery: worksheet package relationships (ECMA-376).
+    for (const auto& rel : relationships().relationships()) {
+        if (rel.type() != XLRelationshipType::PivotTable) continue;
+        std::string targetPath = resolveRelTarget(getXmlPath(), rel.target());
+        loadPivotAt(targetPath, rel.id());
+    }
+
+    // Legacy dual-index: worksheet <pivotTables> (OpenXLSX-written files).
     XMLNode ptNode = xmlDocument().document_element().child("pivotTables");
     if (!ptNode.empty()) {
         for (auto pt : ptNode.children("pivotTable")) {
             std::string rId = pt.attribute("r:id").value();
-            if (!rId.empty()) {
-                std::string targetPath = relationships().relationshipById(rId).target();
-                // Resolve to absolute path
-                if (!targetPath.empty() && targetPath[0] != '/') {
-                    std::string sourcePath = getXmlPath();
-                    auto slashPos = sourcePath.find_last_of('/');
-                    if (slashPos != std::string::npos) {
-                        targetPath = sourcePath.substr(0, slashPos + 1) + targetPath;
-                    } else {
-                        targetPath = "/" + targetPath;
-                    }
-                }
-                
-                // Normalizing path
-                while (targetPath.find("/../") != std::string::npos) {
-                    auto pos = targetPath.find("/../");
-                    auto prevSlash = pos > 0 ? targetPath.find_last_of('/', pos - 1) : std::string::npos;
-                    if (prevSlash != std::string::npos) {
-                        targetPath.erase(prevSlash + 1, pos - prevSlash + 3);
-                    } else {
-                        targetPath.erase(0, pos + 4);
-                    }
-                }
-                
-                if (!targetPath.empty() && targetPath[0] == '/') targetPath = targetPath.substr(1);
-
-                XLXmlData* xmlData = const_cast<XLDocument&>(parentDoc()).getXmlData(XLInternalAccess{}, targetPath, true);
-                if (xmlData == nullptr) {
-                    xmlData = const_cast<XLDocument&>(parentDoc()).addXmlData(XLInternalAccess{}, targetPath, rId, XLContentType::PivotTable);
-                }
-                result.emplace_back(xmlData);
+            if (rId.empty()) continue;
+            try {
+                std::string targetPath = resolveRelTarget(getXmlPath(), relationships().relationshipById(rId).target());
+                loadPivotAt(targetPath, rId);
+            }
+            catch (...) {
             }
         }
     }
+
     return result;
 }
 
 bool XLWorksheet::deletePivotTable(std::string_view name)
 {
-    XMLNode ptNode = xmlDocument().document_element().child("pivotTables");
-    if (ptNode.empty()) return false;
+    auto& doc = parentDoc();
 
     std::string targetRId;
-    XMLNode targetNode;
+    std::string ptPath;
+    XLXmlData*  ptXml = nullptr;
 
-    for (auto pt : ptNode.children("pivotTable")) {
-        std::string rId = pt.attribute("r:id").value();
-        if (!rId.empty()) {
-            std::string targetPath = relationships().relationshipById(rId).target();
-            if (!targetPath.empty() && targetPath[0] != '/') {
-                std::string sourcePath = getXmlPath();
-                auto slashPos = sourcePath.find_last_of('/');
-                if (slashPos != std::string::npos) targetPath = sourcePath.substr(0, slashPos + 1) + targetPath;
-            }
-            
-            while (targetPath.find("/../") != std::string::npos) {
-                auto pos = targetPath.find("/../");
-                auto prevSlash = pos > 0 ? targetPath.find_last_of('/', pos - 1) : std::string::npos;
-                if (prevSlash != std::string::npos) targetPath.erase(prevSlash + 1, pos - prevSlash + 3);
-                else targetPath.erase(0, pos + 4);
-            }
-            if (!targetPath.empty() && targetPath[0] == '/') targetPath = targetPath.substr(1);
+    for (const auto& rel : relationships().relationships()) {
+        if (rel.type() != XLRelationshipType::PivotTable) continue;
+        std::string path = resolveRelTarget(getXmlPath(), rel.target());
+        XLXmlData*  xml  = doc.getXmlData(XLInternalAccess{}, path, true);
+        if (xml == nullptr && doc.archive().hasEntry(path)) {
+            xml = doc.addXmlData(XLInternalAccess{}, path, rel.id(), XLContentType::PivotTable);
+        }
+        if (!xml) continue;
+        XLPivotTable ptObj(xml);
+        if (ptObj.name() == name) {
+            targetRId = rel.id();
+            ptPath    = path;
+            ptXml     = xml;
+            break;
+        }
+    }
 
-            XLXmlData* xmlData = const_cast<XLDocument&>(parentDoc()).getXmlData(XLInternalAccess{}, targetPath, true);
-            if (xmlData == nullptr) {
-                xmlData = const_cast<XLDocument&>(parentDoc()).addXmlData(XLInternalAccess{}, targetPath, rId, XLContentType::PivotTable);
+    // Fallback: legacy index only
+    if (!ptXml) {
+        XMLNode ptNode = xmlDocument().document_element().child("pivotTables");
+        for (auto pt : ptNode.children("pivotTable")) {
+            std::string rId = pt.attribute("r:id").value();
+            if (rId.empty()) continue;
+            try {
+                std::string path = resolveRelTarget(getXmlPath(), relationships().relationshipById(rId).target());
+                XLXmlData*  xml  = doc.getXmlData(XLInternalAccess{}, path, true);
+                if (!xml && doc.archive().hasEntry(path))
+                    xml = doc.addXmlData(XLInternalAccess{}, path, rId, XLContentType::PivotTable);
+                if (!xml) continue;
+                XLPivotTable ptObj(xml);
+                if (ptObj.name() == name) {
+                    targetRId = rId;
+                    ptPath    = path;
+                    ptXml     = xml;
+                    break;
+                }
             }
-            XLPivotTable ptObj(xmlData);
-            if (ptObj.name() == name) {
-                targetRId = rId;
-                targetNode = pt;
-                break;
+            catch (...) {
             }
         }
     }
 
-    if (!targetNode.empty()) {
-        ptNode.remove_child(targetNode);
-        if (ptNode.first_child().empty()) {
-            xmlDocument().document_element().remove_child(ptNode);
-        }
-        relationships().deleteRelationship(targetRId);
-        return true;
+    if (!ptXml || targetRId.empty()) return false;
+
+    XLPivotTable ptObj(ptXml);
+    uint32_t     cacheId = ptObj.xmlDocument().document_element().attribute("cacheId").as_uint(0);
+    std::string  cachePath;
+    try {
+        cachePath = ptObj.cacheDefinition().getXmlPath();
+    }
+    catch (...) {
+        cachePath = cachePathFromPivotTable(doc, ptObj);
     }
 
-    return false;
+    // Detach sheet relationship + optional non-standard index node.
+    relationships().deleteRelationship(targetRId);
+    removeWorksheetPivotIndexEntry(*this, targetRId);
+
+    // Drop pivot table part (+ companion .rels) from package.
+    doc.deleteManagedXmlPart(ptPath);
+
+    // Orphan cache GC (reference count across workbook).
+    if (!cachePath.empty() && cacheId != 0) {
+        const int remaining = countPivotsUsingCache(doc, cachePath);
+        if (remaining == 0) {
+            deleteOrphanPivotCache(doc, cachePath, cacheId);
+        }
+    }
+
+    return true;
 }
 
 XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
@@ -124,54 +404,74 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     auto& doc = parentDoc();
     auto  wb  = parentDoc().workbook();
 
+    if (options.name().size() > 255)
+        throw XLInputError("XLWorksheet::addPivotTable: pivot table name exceeds 255 characters");
+    if (options.targetCell().empty())
+        throw XLInputError("XLWorksheet::addPivotTable: targetCell is empty");
+
+    // Validate axis field mutual exclusion (excelize: same field cannot be in rows/cols/filter together).
+    {
+        std::unordered_set<std::string> used;
+        auto checkAxis = [&](const std::vector<XLPivotField>& fields, const char* axis) {
+            for (const auto& f : fields) {
+                if (f.name.empty())
+                    throw XLInputError(std::string("XLWorksheet::addPivotTable: empty field name on ") + axis);
+                if (!used.insert(f.name).second)
+                    throw XLInputError("XLWorksheet::addPivotTable: field \"" + f.name +
+                                       "\" cannot appear in more than one of rows/columns/filters");
+            }
+        };
+        checkAxis(options.rows(), "rows");
+        checkAxis(options.columns(), "columns");
+        checkAxis(options.filters(), "filters");
+    }
+
+    const PivotSourceResolved src = resolvePivotSource(*this, options.sourceRange());
+
     XMLNode wbNode          = wb.xmlDocument().document_element();
     XMLNode pivotCachesNode = wbNode.child("pivotCaches");
-
-    std::string targetSourceRange = options.sourceRange();
-    auto bang = targetSourceRange.find('!');
-    if (bang != std::string::npos) {
-        std::string sheet = targetSourceRange.substr(0, bang);
-        if (sheet.length() >= 2 && sheet.front() == '\'' && sheet.back() == '\'') {
-            targetSourceRange = sheet.substr(1, sheet.length() - 2) + "!" + targetSourceRange.substr(bang + 1);
-        }
-    }
 
     uint32_t newCacheId = 0;
     XLPivotCacheDefinition cacheDef(nullptr);
 
+    // Reuse pivot cache when the resolved identity matches (range / table / defined name).
     if (!pivotCachesNode.empty()) {
         for (auto cache : pivotCachesNode.children("pivotCache")) {
             std::string rId = cache.attribute("r:id").value();
-            if (!rId.empty()) {
-                std::string targetPath = doc.workbookRelationships().relationshipById(rId).target();
-                if (!targetPath.empty() && targetPath[0] != '/') targetPath = "/xl/" + targetPath;
+            if (rId.empty()) continue;
+            std::string targetPath = doc.workbookRelationships().relationshipById(rId).target();
+            if (!targetPath.empty() && targetPath[0] != '/') targetPath = "/xl/" + targetPath;
+            targetPath = stripLeadingSlash(eliminateDotAndDotDotFromPath(targetPath));
 
-                while (targetPath.find("/../") != std::string::npos) {
-                    auto pos = targetPath.find("/../");
-                    auto prevSlash = pos > 0 ? targetPath.find_last_of('/', pos - 1) : std::string::npos;
-                    if (prevSlash != std::string::npos) targetPath.erase(prevSlash + 1, pos - prevSlash + 3);
-                    else targetPath.erase(0, pos + 4);
-                }
-                if (!targetPath.empty() && targetPath[0] == '/') targetPath = targetPath.substr(1);
+            XLXmlData* xmlData = doc.getXmlData(XLInternalAccess{}, targetPath, true);
+            if (xmlData == nullptr) continue;
+            XLPivotCacheDefinition existingCache(xmlData);
+            XMLNode                wsSrc = existingCache.xmlDocument().document_element().child("cacheSource").child("worksheetSource");
+            if (wsSrc.empty()) continue;
 
-                XLXmlData* xmlData = doc.getXmlData(XLInternalAccess{}, targetPath, true);
-                if (xmlData != nullptr) {
-                    XLPivotCacheDefinition existingCache(xmlData);
-                    std::string existingRange = existingCache.sourceRange();
-                    auto exBang = existingRange.find('!');
-                    if (exBang != std::string::npos) {
-                        std::string sheet = existingRange.substr(0, exBang);
-                        if (sheet.length() >= 2 && sheet.front() == '\'' && sheet.back() == '\'') {
-                            existingRange = sheet.substr(1, sheet.length() - 2) + "!" + existingRange.substr(exBang + 1);
-                        }
-                    }
-                    if (existingRange == targetSourceRange) {
-                        newCacheId = cache.attribute("cacheId").as_uint();
-                        cacheDef = existingCache;
-                        break;
-                    }
+            std::string existingKey;
+            std::string nameAttr = wsSrc.attribute("name").value();
+            if (!nameAttr.empty()) {
+                existingKey = "table:" + nameAttr;    // also covers defined-name identity stored as @name
+                // Prefer exact identityKey match for table: vs name:
+                if (src.identityKey == "table:" + nameAttr || src.identityKey == "name:" + nameAttr ||
+                    src.nameAttr == nameAttr) {
+                    newCacheId = cache.attribute("cacheId").as_uint();
+                    cacheDef   = existingCache;
+                    break;
                 }
             }
+            else {
+                std::string sheet = wsSrc.attribute("sheet").value();
+                std::string ref   = wsSrc.attribute("ref").value();
+                existingKey       = "range:" + normalizeRangeKey(sheet + "!" + ref);
+                if (existingKey == src.identityKey) {
+                    newCacheId = cache.attribute("cacheId").as_uint();
+                    cacheDef   = existingCache;
+                    break;
+                }
+            }
+            (void)existingKey;
         }
     }
 
@@ -206,6 +506,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
     std::string ptRelPath = getPathARelativeToPathB(pivotTable.getXmlPath(), getXmlPath());
 
+    // Optional dual-index for older OpenXLSX readers; discovery is relationship-first.
     XMLNode ptRelPathNode = xmlDocument().document_element().child("pivotTables");
     if (ptRelPathNode.empty()) {
         XMLNode docElement = xmlDocument().document_element();
@@ -223,18 +524,31 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
     XMLNode cacheDefRoot = cacheDef.xmlDocument().document_element();
 
-    std::string sourceSheet = "";
-    std::string sourceRef   = targetSourceRange;
-    size_t      exclaPos    = targetSourceRange.find('!');
-    if (exclaPos != std::string::npos) {
-        sourceSheet = targetSourceRange.substr(0, exclaPos);
-        sourceRef   = targetSourceRange.substr(exclaPos + 1);
-    }
+    const std::string& sourceSheet = src.sheet;
+    const std::string& sourceRef   = src.ref;
 
     if (isNewCache) {
-        XMLNode sourceNode   = cacheDefRoot.child("cacheSource").child("worksheetSource");
-        sourceNode.attribute("ref").set_value(sourceRef.c_str());
-        if (!sourceSheet.empty()) { sourceNode.attribute("sheet").set_value(sourceSheet.c_str()); }
+        XMLNode sourceNode = cacheDefRoot.child("cacheSource").child("worksheetSource");
+        if (src.namedSource) {
+            if (sourceNode.attribute("name")) sourceNode.attribute("name").set_value(src.nameAttr.c_str());
+            else sourceNode.append_attribute("name").set_value(src.nameAttr.c_str());
+            // Keep sheet+ref when known so headers can be rebuilt without resolving names again.
+            if (sourceNode.attribute("ref")) sourceNode.attribute("ref").set_value(sourceRef.c_str());
+            else sourceNode.append_attribute("ref").set_value(sourceRef.c_str());
+            if (!sourceSheet.empty()) {
+                if (sourceNode.attribute("sheet")) sourceNode.attribute("sheet").set_value(sourceSheet.c_str());
+                else sourceNode.append_attribute("sheet").set_value(sourceSheet.c_str());
+            }
+        }
+        else {
+            if (sourceNode.attribute("name")) sourceNode.remove_attribute("name");
+            if (sourceNode.attribute("ref")) sourceNode.attribute("ref").set_value(sourceRef.c_str());
+            else sourceNode.append_attribute("ref").set_value(sourceRef.c_str());
+            if (!sourceSheet.empty()) {
+                if (sourceNode.attribute("sheet")) sourceNode.attribute("sheet").set_value(sourceSheet.c_str());
+                else sourceNode.append_attribute("sheet").set_value(sourceSheet.c_str());
+            }
+        }
     }
 
     XMLNode ptRoot = pivotTable.xmlDocument().document_element();
@@ -285,79 +599,114 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
     // Fields used as row/col/filter axes must always use sharedItems (for filtering/grouping)
     std::unordered_set<std::string> axisFieldNames;
-    for (const auto& f : options.rows())    axisFieldNames.insert(f.name);
+    for (const auto& f : options.rows()) axisFieldNames.insert(f.name);
     for (const auto& f : options.columns()) axisFieldNames.insert(f.name);
     for (const auto& f : options.filters()) axisFieldNames.insert(f.name);
-    
-    if (isNewCache) {
-        try {
-            XLWorksheet     srcWks = sourceSheet.empty() ? wb.worksheet(name()) : wb.worksheet(sourceSheet);
-            XLCellReference startRef(sourceRef.substr(0, sourceRef.find(':')));
-            XLCellReference endRef(sourceRef.substr(sourceRef.find(':') + 1));
 
-            for (uint16_t col = startRef.column(); col <= endRef.column(); ++col) {
-                XLCellValue val        = srcWks.cell(startRef.row(), col).value();
-                std::string headerName = val.type() == XLValueType::String ? val.get<std::string>() : "Field" + std::to_string(col);
-                headers.push_back(headerName);
-            }
+    // Deep shared-item lists only when needed (excelize-style on-demand scan).
+    std::unordered_set<std::string> deepSharedFields;
+    for (const auto& f : options.filters()) deepSharedFields.insert(f.name);
+    for (const auto& f : options.rows())
+        if (!f.selectedItems.empty()) deepSharedFields.insert(f.name);
+    for (const auto& f : options.columns())
+        if (!f.selectedItems.empty()) deepSharedFields.insert(f.name);
+    for (const auto& f : options.data()) {
+        const auto t = f.showValuesAs.type;
+        if (t == XLPivotShowValuesAs::Normal) continue;
+        if (pivotShowValuesAsNeedsBaseField(t)) {
+            if (f.showValuesAs.baseField.empty())
+                throw XLInputError("XLWorksheet::addPivotTable: ShowValuesAs requires baseField for field \"" +
+                                   f.name + "\"");
+            deepSharedFields.insert(f.showValuesAs.baseField);
         }
-        catch (...) {
-            // Fallback if parsing fails
-            if (headers.empty()) headers.push_back("Field1");
+        if (pivotShowValuesAsNeedsBaseItem(t) && f.showValuesAs.baseItem.empty())
+            throw XLInputError("XLWorksheet::addPivotTable: ShowValuesAs requires baseItem for field \"" + f.name +
+                               "\"");
+    }
+    // Filters always need deep lists for dropdowns; axis fields without selection use placeholders.
+
+    if (isNewCache) {
+        if (sourceSheet.empty() || sourceRef.find(':') == std::string::npos) {
+            throw XLInputError("XLWorksheet::addPivotTable: resolved source range is invalid");
         }
+        XLWorksheet     srcWks = wb.worksheet(sourceSheet);
+        XLCellReference startRef(sourceRef.substr(0, sourceRef.find(':')));
+        XLCellReference endRef(sourceRef.substr(sourceRef.find(':') + 1));
+        if (endRef.row() < startRef.row() || endRef.column() < startRef.column()) {
+            throw XLInputError("XLWorksheet::addPivotTable: source range is inverted or empty");
+        }
+
+        for (uint16_t col = startRef.column(); col <= endRef.column(); ++col) {
+            XLCellValue val = srcWks.cell(startRef.row(), col).value();
+            std::string headerName;
+            if (val.type() == XLValueType::String) headerName = val.get<std::string>();
+            else if (val.type() == XLValueType::Empty)
+                throw XLInputError("XLWorksheet::addPivotTable: header cell is empty in column " + std::to_string(col));
+            else
+                headerName = val.getString();
+            if (headerName.empty())
+                throw XLInputError("XLWorksheet::addPivotTable: empty header name in source range");
+            headers.push_back(std::move(headerName));
+        }
+        if (headers.empty())
+            throw XLInputError("XLWorksheet::addPivotTable: source has no header columns");
 
         std::vector<std::vector<XLCellValue>> uniqueValuesPerColumn(headers.size());
         sharedItemStrings.resize(headers.size());
         columnIsNumeric.resize(headers.size(), false);
 
-        try {
-            XLWorksheet     srcWks = sourceSheet.empty() ? wb.worksheet(name()) : wb.worksheet(sourceSheet);
-            XLCellReference startRef(sourceRef.substr(0, sourceRef.find(':')));
-            XLCellReference endRef(sourceRef.substr(sourceRef.find(':') + 1));
-
-            size_t colIdx = 0;
-            for (uint16_t col = startRef.column(); col <= endRef.column(); ++col) {
-                if (colIdx >= headers.size()) break;
-                std::vector<XLCellValue> uniques;
-                std::vector<std::string> uniqueStrs;
-                std::unordered_set<std::string> seen;
-                bool allNumeric = true;
-                bool anyValue = false;
-                for (uint32_t row = startRef.row() + 1; row <= endRef.row(); ++row) {
-                    XLCellValue val = srcWks.cell(row, col).value();
-                    std::string strVal;
-                    if (val.type() == XLValueType::Empty) {
-                        strVal = "";
-                        allNumeric = false;
-                    } else if (val.type() == XLValueType::Boolean) {
-                        strVal = val.get<bool>() ? "1" : "0";
-                        allNumeric = false;
-                        anyValue = true;
-                    } else if (val.type() == XLValueType::Integer || val.type() == XLValueType::Float) {
-                        strVal = val.getString();
-                        anyValue = true;
-                    } else {
-                        strVal = val.getString();
-                        allNumeric = false;
-                        anyValue = true;
-                    }
-                    if (seen.find(strVal) == seen.end()) {
-                        seen.insert(strVal);
-                        uniques.push_back(val);
-                        uniqueStrs.push_back(strVal);
-                    }
+        size_t colIdx = 0;
+        for (uint16_t col = startRef.column(); col <= endRef.column(); ++col) {
+            if (colIdx >= headers.size()) break;
+            std::vector<XLCellValue> uniques;
+            std::vector<std::string> uniqueStrs;
+            std::unordered_set<std::string> seen;
+            bool allNumeric = true;
+            bool anyValue = false;
+            for (uint32_t row = startRef.row() + 1; row <= endRef.row(); ++row) {
+                XLCellValue val = srcWks.cell(row, col).value();
+                std::string strVal;
+                if (val.type() == XLValueType::Empty) {
+                    strVal = "";
+                    allNumeric = false;
+                } else if (val.type() == XLValueType::Boolean) {
+                    strVal = val.get<bool>() ? "1" : "0";
+                    allNumeric = false;
+                    anyValue = true;
+                } else if (val.type() == XLValueType::Integer || val.type() == XLValueType::Float) {
+                    strVal = val.getString();
+                    anyValue = true;
+                } else {
+                    strVal = val.getString();
+                    allNumeric = false;
+                    anyValue = true;
                 }
-                // A column is "numeric" (inline in records) only if ALL values are numbers
-                // AND the field is NOT used as a row/col/filter axis (those need sharedItems for grouping)
-                bool isAxisField = (axisFieldNames.count(headers[colIdx]) > 0);
-                columnIsNumeric[colIdx] = allNumeric && anyValue && !isAxisField;
-                uniqueValuesPerColumn[colIdx] = std::move(uniques);
-                sharedItemStrings[colIdx] = std::move(uniqueStrs);
-                colIdx++;
+                if (seen.find(strVal) == seen.end()) {
+                    seen.insert(strVal);
+                    uniques.push_back(val);
+                    uniqueStrs.push_back(strVal);
+                }
             }
-        }
-        catch (...) {
-            // Fallback if parsing fails
+            // A column is "numeric" (inline in records) only if ALL values are numbers
+            // AND the field is NOT used as a row/col/filter axis (those need sharedItems for grouping)
+            bool isAxisField = (axisFieldNames.count(headers[colIdx]) > 0);
+            columnIsNumeric[colIdx] = allNumeric && anyValue && !isAxisField;
+            // Keep distinct value lists only when deep shared items are required.
+            const bool needDeep = deepSharedFields.count(headers[colIdx]) > 0;
+            if (needDeep) {
+                uniqueValuesPerColumn[colIdx] = std::move(uniques);
+                sharedItemStrings[colIdx]     = std::move(uniqueStrs);
+            }
+            else if (columnIsNumeric[colIdx]) {
+                // Pure numeric data fields: keep uniques for min/max metadata only.
+                uniqueValuesPerColumn[colIdx] = std::move(uniques);
+            }
+            else {
+                uniqueValuesPerColumn[colIdx].clear();
+                sharedItemStrings[colIdx].clear();
+            }
+            (void)isAxisField;
+            colIdx++;
         }
 
         XMLNode cacheFieldsNode = cacheDefRoot.child("cacheFields");
@@ -366,21 +715,26 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         if (!cacheFieldsNode.attribute("count")) cacheFieldsNode.append_attribute("count").set_value(headers.size());
         else cacheFieldsNode.attribute("count").set_value(headers.size());
 
-        size_t colIdx = 0;
+        size_t fieldColIdx = 0;
         for (const auto& h : headers) {
             XMLNode fieldNode = cacheFieldsNode.append_child("cacheField");
             fieldNode.append_attribute("name").set_value(h.c_str());
             fieldNode.append_attribute("numFmtId").set_value("0");
 
             XMLNode sharedItemsNode = fieldNode.append_child("sharedItems");
-            const auto& uniques = uniqueValuesPerColumn[colIdx];
+            const auto& uniques  = uniqueValuesPerColumn[fieldColIdx];
+            const bool  needDeep = deepSharedFields.count(h) > 0;
 
-            if (uniques.empty()) {
+            if (!needDeep && !columnIsNumeric[fieldColIdx]) {
+                // excelize-style lightweight placeholder
+                sharedItemsNode.append_attribute("containsBlank").set_value("1");
+                sharedItemsNode.append_child("m");
+            } else if (uniques.empty()) {
                 // No data: blank placeholder
                 sharedItemsNode.append_attribute("containsBlank").set_value("1");
                 sharedItemsNode.append_attribute("count").set_value("0");
                 sharedItemsNode.append_child("m");
-            } else if (columnIsNumeric[colIdx]) {
+            } else if (columnIsNumeric[fieldColIdx] && !needDeep) {
                 // Pure numeric field (data aggregation field, not an axis/filter field).
                 // Excel uses self-closing sharedItems with metadata only, no child elements.
                 // This matches what Excel generates after repair.
@@ -471,7 +825,7 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                 }
                 sharedItemsNode.append_attribute("count").set_value(valCount);
             }
-            colIdx++;
+            fieldColIdx++;
         }
 
         // Do NOT create pivotCacheRecords — set refreshOnLoad=1 so Excel rebuilds
@@ -492,12 +846,11 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
                     std::string tagName = item.name();
                     if (tagName == "m") {
                         uniqueStrs.push_back("");
-                    } else if (tagName == "b") {
-                        uniqueStrs.push_back(item.attribute("val").value());
-                    } else if (tagName == "n") {
-                        uniqueStrs.push_back(item.attribute("val").value());
-                    } else if (tagName == "s") {
-                        uniqueStrs.push_back(item.attribute("val").value());
+                    } else if (tagName == "b" || tagName == "n" || tagName == "s" || tagName == "d" || tagName == "e") {
+                        // OOXML shared items use @v (not @val).
+                        const char* v = item.attribute("v").value();
+                        if (!v || !*v) v = item.attribute("val").value();    // tolerate legacy mis-writes
+                        uniqueStrs.emplace_back(v ? v : "");
                     }
                 }
             }
@@ -544,28 +897,49 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     std::vector<int> dataIndices;
     std::vector<int> filterIndices;
 
-    auto findFieldIndex = [&](const std::string& name) -> int {
-        auto it = std::find(headers.begin(), headers.end(), name);
+    auto findFieldIndex = [&](const std::string& fieldName) -> int {
+        auto it = std::find(headers.begin(), headers.end(), fieldName);
         if (it != headers.end()) return gsl::narrow_cast<int>(std::distance(headers.begin(), it));
         return -1;
     };
+    auto requireFieldIndex = [&](const std::string& fieldName, const char* role) -> int {
+        int idx = findFieldIndex(fieldName);
+        if (idx < 0)
+            throw XLInputError(std::string("XLWorksheet::addPivotTable: ") + role + " field \"" + fieldName +
+                               "\" not found in source headers");
+        return idx;
+    };
 
     for (const auto& rowFld : options.rows()) {
-        int idx = findFieldIndex(rowFld.name);
-        if (idx >= 0) rowIndices.push_back(idx);
+        rowIndices.push_back(requireFieldIndex(rowFld.name, "row"));
     }
     for (const auto& colFld : options.columns()) {
-        int idx = findFieldIndex(colFld.name);
-        if (idx >= 0) colIndices.push_back(idx);
+        colIndices.push_back(requireFieldIndex(colFld.name, "column"));
     }
     for (const auto& dataFld : options.data()) {
-        int idx = findFieldIndex(dataFld.name);
-        if (idx >= 0) dataIndices.push_back(idx);
+        dataIndices.push_back(requireFieldIndex(dataFld.name, "data"));
     }
     for (const auto& filterFld : options.filters()) {
-        int idx = findFieldIndex(filterFld.name);
-        if (idx >= 0) filterIndices.push_back(idx);
+        filterIndices.push_back(requireFieldIndex(filterFld.name, "filter"));
     }
+
+    // SelectedItems must exist in the field's distinct values (when shared items are available).
+    auto validateSelected = [&](const XLPivotField& fld, int fieldIdx) {
+        if (fld.selectedItems.empty() || fieldIdx < 0 ||
+            static_cast<size_t>(fieldIdx) >= sharedItemStrings.size())
+            return;
+        const auto& uniques = sharedItemStrings[static_cast<size_t>(fieldIdx)];
+        if (uniques.empty()) return;
+        for (const auto& sel : fld.selectedItems) {
+            if (std::find(uniques.begin(), uniques.end(), sel) == uniques.end()) {
+                throw XLInputError("XLWorksheet::addPivotTable: selected item \"" + sel + "\" not found in field \"" +
+                                   fld.name + "\"");
+            }
+        }
+    };
+    for (const auto& rf : options.rows()) validateSelected(rf, findFieldIndex(rf.name));
+    for (const auto& cf : options.columns()) validateSelected(cf, findFieldIndex(cf.name));
+    for (const auto& ff : options.filters()) validateSelected(ff, findFieldIndex(ff.name));
 
     auto findRowField = [&](const std::string& name) -> const XLPivotField* {
         for (const auto& rf : options.rows()) {
@@ -579,13 +953,6 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
         return nullptr;
     };
-    auto findFilterField = [&](const std::string& name) -> const XLPivotField* {
-        for (const auto& ff : options.filters()) {
-            if (ff.name == name) return &ff;
-        }
-        return nullptr;
-    };
-
     auto buildItemsNode = [&](XMLNode ptFieldNode, int fieldIdx, const std::vector<std::string>& selectedItems) {
         XMLNode itemsNode = ptFieldNode.append_child("items");
         if (selectedItems.empty() || fieldIdx >= static_cast<int>(sharedItemStrings.size())) {
@@ -609,48 +976,55 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         }
     };
 
+    auto applyAxisLayout = [&](XMLNode ptFieldNode, const XLPivotField* fld) {
+        const bool classic = options.classicLayout();
+        const bool compact = classic ? false : (fld ? fld->compact : false);
+        const bool outline = classic ? false : (fld ? fld->outline : false);
+        const bool showAll = fld ? fld->showAll : false;
+        ptFieldNode.append_attribute("compact").set_value(compact ? "1" : "0");
+        ptFieldNode.append_attribute("outline").set_value(outline ? "1" : "0");
+        ptFieldNode.append_attribute("showAll").set_value(showAll ? "1" : "0");
+        if (fld && fld->insertBlankRow) ptFieldNode.append_attribute("insertBlankRow").set_value("1");
+        if (fld && !fld->defaultSubtotal) ptFieldNode.append_attribute("defaultSubtotal").set_value("0");
+        if (fld && !fld->customName.empty()) ptFieldNode.append_attribute("name").set_value(fld->customName.c_str());
+    };
+
     int i = 0;
     for (const auto& h : headers) {
         XMLNode ptFieldNode = pivotFieldsNode.append_child("pivotField");
 
-        bool isRow  = std::find(rowIndices.begin(), rowIndices.end(), i) != rowIndices.end();
-        bool isCol  = std::find(colIndices.begin(), colIndices.end(), i) != colIndices.end();
-        bool isData = std::find(dataIndices.begin(), dataIndices.end(), i) != dataIndices.end();
+        bool isRow    = std::find(rowIndices.begin(), rowIndices.end(), i) != rowIndices.end();
+        bool isCol    = std::find(colIndices.begin(), colIndices.end(), i) != colIndices.end();
+        bool isData   = std::find(dataIndices.begin(), dataIndices.end(), i) != dataIndices.end();
         bool isFilter = std::find(filterIndices.begin(), filterIndices.end(), i) != filterIndices.end();
 
         if (isRow) {
             ptFieldNode.append_attribute("axis").set_value("axisRow");
-            ptFieldNode.append_attribute("compact").set_value("0");
-            ptFieldNode.append_attribute("outline").set_value("0");
-            ptFieldNode.append_attribute("showAll").set_value("0");
-            // Note: defaultSubtotal is omitted — Excel's repaired format doesn't include it
-            
             const XLPivotField* rf = findRowField(h);
+            applyAxisLayout(ptFieldNode, rf);
             buildItemsNode(ptFieldNode, i, rf ? rf->selectedItems : std::vector<std::string>{});
         }
         else if (isCol) {
             ptFieldNode.append_attribute("axis").set_value("axisCol");
-            ptFieldNode.append_attribute("compact").set_value("0");
-            ptFieldNode.append_attribute("outline").set_value("0");
-            ptFieldNode.append_attribute("showAll").set_value("0");
-            // Note: defaultSubtotal is omitted — Excel's repaired format doesn't include it
-            
             const XLPivotField* cf = findColField(h);
+            applyAxisLayout(ptFieldNode, cf);
             buildItemsNode(ptFieldNode, i, cf ? cf->selectedItems : std::vector<std::string>{});
         }
         else if (isFilter) {
             ptFieldNode.append_attribute("axis").set_value("axisPage");
-            ptFieldNode.append_attribute("compact").set_value("0");
-            ptFieldNode.append_attribute("outline").set_value("0");
-            ptFieldNode.append_attribute("showAll").set_value("0");
-            // Note: defaultSubtotal is omitted — Excel's repaired format doesn't include it
-            
-            // For axisPage (filter/slicer field): list ALL member indices so Excel can
-            // display the filter dropdown properly. This matches Excel's repaired format.
-            size_t memberCount = (static_cast<size_t>(i) < sharedItemStrings.size())
-                                     ? sharedItemStrings[i].size() : 0;
-            XMLNode itemsNode = ptFieldNode.append_child("items");
-            uint32_t itemCount = static_cast<uint32_t>(memberCount) + 1;  // +1 for default/total
+            const XLPivotField* ff = nullptr;
+            for (const auto& f : options.filters())
+                if (f.name == h) {
+                    ff = &f;
+                    break;
+                }
+            applyAxisLayout(ptFieldNode, ff);
+
+            // Page fields: list member indices when deep shared items exist.
+            size_t memberCount =
+                (static_cast<size_t>(i) < sharedItemStrings.size()) ? sharedItemStrings[i].size() : 0;
+            XMLNode  itemsNode = ptFieldNode.append_child("items");
+            uint32_t itemCount = static_cast<uint32_t>(memberCount) + 1;
             itemsNode.append_attribute("count").set_value(itemCount);
             for (size_t xi = 0; xi < memberCount; ++xi) {
                 XMLNode item = itemsNode.append_child("item");
@@ -661,9 +1035,17 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
         else if (isData) {
             ptFieldNode.append_attribute("dataField").set_value("1");
             ptFieldNode.append_attribute("showAll").set_value("0");
+            if (options.classicLayout()) {
+                ptFieldNode.append_attribute("compact").set_value("0");
+                ptFieldNode.append_attribute("outline").set_value("0");
+            }
         }
         else {
             ptFieldNode.append_attribute("showAll").set_value("0");
+            if (options.classicLayout()) {
+                ptFieldNode.append_attribute("compact").set_value("0");
+                ptFieldNode.append_attribute("outline").set_value("0");
+            }
         }
         i++;
     }
@@ -799,66 +1181,74 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
 
             XMLNode dfield = dataFieldsNode.append_child("dataField");
 
-            std::string prefix = "Sum of ";
-            std::string subType = "sum";
+            const char* subType = pivotSubtotalToString(dataFld.subtotal);
+            std::string prefix  = "Sum of ";
             switch (dataFld.subtotal) {
-                case XLPivotSubtotal::Average:
-                    subType = "average";
-                    prefix = "Average of ";
-                    break;
-                case XLPivotSubtotal::Count:
-                    subType = "count";
-                    prefix = "Count of ";
-                    break;
-                case XLPivotSubtotal::Max:
-                    subType = "max";
-                    prefix = "Max of ";
-                    break;
-                case XLPivotSubtotal::Min:
-                    subType = "min";
-                    prefix = "Min of ";
-                    break;
-                case XLPivotSubtotal::Product:
-                    subType = "product";
-                    prefix = "Product of ";
-                    break;
-                case XLPivotSubtotal::CountNums:
-                    subType = "countNums";
-                    prefix = "Count Nums of ";
-                    break;
-                case XLPivotSubtotal::StdDev:
-                    subType = "stdDev";
-                    prefix = "StdDev of ";
-                    break;
-                case XLPivotSubtotal::StdDevP:
-                    subType = "stdDevp";
-                    prefix = "StdDevP of ";
-                    break;
-                case XLPivotSubtotal::Var:
-                    subType = "var";
-                    prefix = "Var of ";
-                    break;
-                case XLPivotSubtotal::VarP:
-                    subType = "varp";
-                    prefix = "VarP of ";
-                    break;
-                default:
-                    subType = "sum";
-                    prefix = "Sum of ";
-                    break;
+                case XLPivotSubtotal::Average: prefix = "Average of "; break;
+                case XLPivotSubtotal::Count: prefix = "Count of "; break;
+                case XLPivotSubtotal::Max: prefix = "Max of "; break;
+                case XLPivotSubtotal::Min: prefix = "Min of "; break;
+                case XLPivotSubtotal::Product: prefix = "Product of "; break;
+                case XLPivotSubtotal::CountNums: prefix = "Count Nums of "; break;
+                case XLPivotSubtotal::StdDev: prefix = "StdDev of "; break;
+                case XLPivotSubtotal::StdDevP: prefix = "StdDevP of "; break;
+                case XLPivotSubtotal::Var: prefix = "Var of "; break;
+                case XLPivotSubtotal::VarP: prefix = "VarP of "; break;
+                default: prefix = "Sum of "; break;
             }
 
             std::string dName = dataFld.customName.empty() ? (prefix + dataFld.name) : dataFld.customName;
             dfield.append_attribute("name").set_value(dName.c_str());
             dfield.append_attribute("fld").set_value(idx);
 
-            // baseField/baseItem: 0/0 matches what Excel writes for normal sum/aggregate.
-            // The magic value -1/1048832 used previously is rejected by Excel's validator.
             if (dataFld.subtotal != XLPivotSubtotal::Sum) {
-                dfield.append_attribute("subtotal").set_value(subType.c_str());
+                dfield.append_attribute("subtotal").set_value(subType);
             }
-            dfield.append_attribute("baseField").set_value("0");
-            dfield.append_attribute("baseItem").set_value("0");
+
+            // Show Values As
+            const auto sva = dataFld.showValuesAs;
+            int        baseFieldIdx = 0;
+            int        baseItemIdx  = 0;
+            if (sva.type != XLPivotShowValuesAs::Normal) {
+                if (pivotShowValuesAsNeedsBaseField(sva.type)) {
+                    baseFieldIdx = findFieldIndex(sva.baseField);
+                    if (baseFieldIdx < 0)
+                        throw XLInputError("XLWorksheet::addPivotTable: ShowValuesAs baseField \"" + sva.baseField +
+                                           "\" not found");
+                }
+                if (pivotShowValuesAsNeedsBaseItem(sva.type)) {
+                    if (baseFieldIdx < 0 || static_cast<size_t>(baseFieldIdx) >= sharedItemStrings.size())
+                        throw XLInputError("XLWorksheet::addPivotTable: ShowValuesAs baseItem requires shared items");
+                    const auto& labels = sharedItemStrings[static_cast<size_t>(baseFieldIdx)];
+                    auto        it     = std::find(labels.begin(), labels.end(), sva.baseItem);
+                    if (it == labels.end())
+                        throw XLInputError("XLWorksheet::addPivotTable: ShowValuesAs baseItem \"" + sva.baseItem +
+                                           "\" not found in field \"" + sva.baseField + "\"");
+                    baseItemIdx = static_cast<int>(std::distance(labels.begin(), it));
+                }
+
+                const char* showStr = pivotShowValuesAsToString(sva.type);
+                if (pivotShowValuesAsNeedsX14(sva.type)) {
+                    // Modern types live in x14:dataField@pivotShowAs
+                    XMLNode extLst = dfield.append_child("extLst");
+                    XMLNode ext    = extLst.append_child("ext");
+                    ext.append_attribute("uri").set_value("{E15A36E0-9728-4e99-A89B-3F7291B0FE68}");
+                    ext.append_attribute("xmlns:x14")
+                        .set_value("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main");
+                    XMLNode x14 = ext.append_child("x14:dataField");
+                    x14.append_attribute("pivotShowAs").set_value(showStr);
+                }
+                else {
+                    dfield.append_attribute("showDataAs").set_value(showStr);
+                }
+                dfield.append_attribute("baseField").set_value(baseFieldIdx);
+                dfield.append_attribute("baseItem").set_value(baseItemIdx);
+            }
+            else {
+                // Excel-compatible defaults for normal aggregates
+                dfield.append_attribute("baseField").set_value("0");
+                dfield.append_attribute("baseItem").set_value("0");
+            }
 
             if (dataFld.numFmtId != 0) {
                 dfield.append_attribute("numFmtId").set_value(dataFld.numFmtId);
@@ -928,19 +1318,26 @@ XLPivotTable XLWorksheet::addPivotTable(const XLPivotTableOptions& options)
     uint32_t gridWidth = R_cols + totalDataCols;
     uint32_t gridHeight = H + totalDataRows;
 
-    XLCellReference targetRef(options.targetCell());
-    uint32_t startRow = targetRef.row();
-    uint16_t startCol = targetRef.column();
+    // Explicit location range (excelize PivotTableRange) wins over estimated box.
+    std::string ptRange = options.locationRange();
+    if (ptRange.empty() && options.targetCell().find(':') != std::string::npos)
+        ptRange = options.targetCell();
 
-    // The grid area starts after filter fields plus a blank spacer row
-    uint32_t gridStartRow = startRow;
-    if (numFilters > 0) {
-        gridStartRow += numFilters + 1;
+    if (ptRange.empty()) {
+        XLCellReference targetRef(options.targetCell());
+        uint32_t        startRow = targetRef.row();
+        uint16_t        startCol = targetRef.column();
+
+        // The grid area starts after filter fields plus a blank spacer row
+        uint32_t gridStartRow = startRow;
+        if (numFilters > 0) {
+            gridStartRow += numFilters + 1;
+        }
+
+        XLCellReference gridStartRef(gridStartRow, startCol);
+        XLCellReference gridEndRef(gridStartRow + gridHeight - 1, startCol + gridWidth - 1);
+        ptRange = gridStartRef.address() + ":" + gridEndRef.address();
     }
-
-    XLCellReference gridStartRef(gridStartRow, startCol);
-    XLCellReference gridEndRef(gridStartRow + gridHeight - 1, startCol + gridWidth - 1);
-    std::string ptRange = gridStartRef.address() + ":" + gridEndRef.address();
 
     locNode.attribute("ref").set_value(ptRange.c_str());
     

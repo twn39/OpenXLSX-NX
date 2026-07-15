@@ -290,21 +290,44 @@ TEST_CASE("PivotTableAdvancedSlicersandRefreshOnLoad", "[XLPivotTable]")
     ptList[0].changeSourceRange("Sheet1!A1:B10");
     REQUIRE(ptList[0].sourceRange() == "Sheet1!A1:B10");
     
-    // 3. Delete: Remove the pivot table
+    // 3. Delete: Remove the pivot table (+ package part / orphan cache GC)
     bool deleted = crudWks.deletePivotTable("MyPivot");
     REQUIRE(deleted == true);
     REQUIRE(crudWks.pivotTables().empty() == true);
-    
+    // Orphan cache must be removed when last consumer is deleted.
+    {
+        auto cacheListAfter = doc3.workbook().xmlDocument().document_element().child("pivotCaches");
+        REQUIRE(cacheListAfter.empty());
+    }
+    REQUIRE_FALSE(doc3.archive().hasEntry("xl/pivotTables/pivotTable1.xml"));
+
     // Deleting non-existent
     REQUIRE(crudWks.deletePivotTable("NonExistent") == false);
 
-    // --- NEW: Test Pivot Cache Sharing ---
-    auto pt2 = crudWks.addPivotTable(XLPivotTableOptions("AnotherPivot", "Sheet1!A1:B10", "D1")
-                                     .addRowField("Region"));
+    // --- Pivot cache sharing (two tables, one cache) ---
+    auto pt2 = crudWks.addPivotTable(XLPivotTableOptions("AnotherPivot", "Sheet1!A1:B3", "D1")
+                                     .addRowField("Region")
+                                     .addDataField("Sales"));
+    auto pt3 = crudWks.addPivotTable(XLPivotTableOptions("SharedCachePivot", "Sheet1!A1:B3", "G1")
+                                     .addRowField("Region")
+                                     .addDataField("Sales"));
+    (void)pt2;
+    (void)pt3;
 
     auto cacheList = doc3.workbook().xmlDocument().document_element().child("pivotCaches");
     int cacheCount = 0;
     for (auto c : cacheList.children("pivotCache")) { cacheCount++; }
-    REQUIRE(cacheCount == 1); // Should reuse existing cache since range matches
+    REQUIRE(cacheCount == 1); // Same resolved source → one cache
+
+    // Deleting one pivot must keep the shared cache.
+    REQUIRE(crudWks.deletePivotTable("AnotherPivot") == true);
+    cacheCount = 0;
+    for (auto c : cacheList.children("pivotCache")) { cacheCount++; }
+    REQUIRE(cacheCount == 1);
+    REQUIRE(crudWks.pivotTables().size() == 1);
+
+    // Deleting the last pivot drops the cache.
+    REQUIRE(crudWks.deletePivotTable("SharedCachePivot") == true);
+    REQUIRE(doc3.workbook().xmlDocument().document_element().child("pivotCaches").empty());
     doc3.close();
 }

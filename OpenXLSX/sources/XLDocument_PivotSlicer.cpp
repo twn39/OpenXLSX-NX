@@ -18,6 +18,35 @@
 
 using namespace OpenXLSX;
 
+void XLDocument::deleteManagedXmlPart(std::string_view path)
+{
+    std::string p(path);
+    if (!p.empty() && p.front() == '/') p.erase(0, 1);
+    if (p.empty()) return;
+
+    // Companion relationships part: xl/foo/_rels/bar.xml.rels
+    const auto lastSlash = p.find_last_of('/');
+    if (lastSlash != std::string::npos) {
+        const std::string folder   = p.substr(0, lastSlash);
+        const std::string filename = p.substr(lastSlash + 1);
+        const std::string relsPath = folder + "/_rels/" + filename + ".rels";
+        if (m_archive.hasEntry(relsPath)) {
+            m_archive.deleteEntry(relsPath);
+        }
+        m_unhandledEntries.erase(relsPath);
+        m_data.remove_if([&relsPath](const XLXmlData& d) { return d.getXmlPath() == relsPath; });
+    }
+
+    if (m_archive.hasEntry(p)) {
+        m_archive.deleteEntry(p);
+    }
+    if (m_contentTypes.hasOverride("/" + p)) {
+        m_contentTypes.deleteOverride("/" + p);
+    }
+    m_unhandledEntries.erase(p);
+    m_data.remove_if([&p](const XLXmlData& d) { return d.getXmlPath() == p; });
+}
+
 XLPivotTable XLDocument::createPivotTable()
 {
     using namespace std::literals::string_literals;
