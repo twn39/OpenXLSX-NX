@@ -17,8 +17,12 @@
 #include "XLUtilities.hpp"
 #include <algorithm>
 #include <charconv>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <fmt/format.h>
 #include <pugixml.hpp>
+#include <random>
 #include <sstream>
 
 using namespace OpenXLSX;
@@ -512,6 +516,10 @@ void XLWorksheet::updateSheetName(const std::string& oldName, const std::string&
 
 void XLWorksheet::updateDimension()
 {
+    // Streamed sheets keep used-range in the temp/memory XML via XLStreamWriter::patchDimension.
+    // Mutating the (possibly stale) DOM here would re-introduce O(n) materialization (P0b).
+    if (m_xmlData && m_xmlData->m_isStreamed) return;
+
     uint32_t rows          = rowCount();
     uint16_t cols          = columnCount();
     auto     rootNode      = xmlDocument().document_element();
@@ -538,6 +546,14 @@ void XLWorksheet::setStreamExtents(uint32_t lastRow, uint16_t maxCol) noexcept
         m_xmlData->m_streamLastRow = lastRow;
         m_xmlData->m_streamMaxCol  = maxCol;
     }
+}
+
+void XLWorksheet::setStreamMaterialization(std::string filePath, std::string memoryPayload) noexcept
+{
+    if (!m_xmlData) return;
+    m_xmlData->m_isStreamed      = true;
+    m_xmlData->m_streamFilePath  = std::move(filePath);
+    m_xmlData->m_streamMemory    = std::move(memoryPayload);
 }
 
 bool XLWorksheet::isStreamedSheet() const noexcept { return m_xmlData && m_xmlData->m_isStreamed; }
@@ -670,77 +686,243 @@ XLStreamReader XLWorksheet::streamReader(const XLStreamReadOptions& options) con
 
 XLStreamWriter XLWorksheet::streamWriter(bool useSharedStrings, size_t maxUniqueStrings)
 {
+    XLStreamWriteOptions opts;
+    opts.useSharedStrings = useSharedStrings;
+    opts.maxUniqueStrings = maxUniqueStrings;
+    return streamWriter(opts);
+}
+
+XLStreamWriter XLWorksheet::streamWriter(const XLStreamWriteOptions& options)
+{
     if (m_xmlData->m_streamWriterOpen) {
         throw XLInputError("XLWorksheet::streamWriter: a stream writer is already active on this worksheet; call close() first");
     }
 
-    if (m_xmlData->m_isStreamed && !m_xmlData->m_streamFilePath.empty()) {
-        std::error_code ec;
-        if (std::filesystem::exists(m_xmlData->m_streamFilePath, ec)) { std::filesystem::remove(m_xmlData->m_streamFilePath, ec); }
+    // Drop any previous stream materialization for this sheet.
+    if (m_xmlData->m_isStreamed) {
+        if (!m_xmlData->m_streamFilePath.empty()) {
+            std::error_code ec;
+            if (std::filesystem::exists(m_xmlData->m_streamFilePath, ec)) { std::filesystem::remove(m_xmlData->m_streamFilePath, ec); }
+        }
         m_xmlData->m_streamFilePath.clear();
-        m_xmlData->m_isStreamed = false;
+        m_xmlData->m_streamMemory.clear();
+        m_xmlData->m_isStreamed    = false;
         m_xmlData->m_streamLastRow = 0;
         m_xmlData->m_streamMaxCol  = 0;
     }
 
-    XMLDocument& doc       = xmlDocument();
-    XMLNode      root      = doc.document_element();
-    XMLNode      sheetData = root.child("sheetData");
+    const uint32_t existingRows = rowCount();
+    const bool     useFresh =
+        (options.openMode == XLStreamOpenMode::Fresh) ||
+        (options.openMode == XLStreamOpenMode::Auto && existingRows == 0);
 
-    if (sheetData.empty()) { sheetData = ensureChild(root, "sheetData", m_nodeOrder); }
+    XLStreamWriter writer(this, options);
 
-    struct StringWriter : pugi::xml_writer
-    {
-        std::string result;
-        void        write(const void* data, size_t size) override { result.append(static_cast<const char*>(data), size); }
-    } sw;
-
-    doc.save(sw, "", pugi::format_raw | pugi::format_no_declaration);
-    std::string xmlStr = sw.result;
-
-    std::string topHalf    = "";
-    std::string bottomHalf = "";
-
-    // Split accurately
-    size_t pos = xmlStr.find("<sheetData/>");
-    if (pos != std::string::npos) {
-        topHalf    = xmlStr.substr(0, pos) + "<sheetData>";
-        bottomHalf = "</sheetData>" + xmlStr.substr(pos + 12);
+    if (useFresh) {
+        // Lightweight skeleton — no full DOM serialization (export-friendly).
+        writer.m_preContent =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+            "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\""
+            " xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\""
+            " xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\""
+            " mc:Ignorable=\"x14ac xr xr2 xr3\""
+            " xmlns:x14ac=\"http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac\""
+            " xmlns:xr=\"http://schemas.microsoft.com/office/spreadsheetml/2014/revision\""
+            " xmlns:xr2=\"http://schemas.microsoft.com/office/spreadsheetml/2015/revision2\""
+            " xmlns:xr3=\"http://schemas.microsoft.com/office/spreadsheetml/2016/revision3\">"
+            "<dimension ref=\"A1:XFD1048576\"/>"
+            "<sheetFormatPr baseColWidth=\"10\" defaultRowHeight=\"16\"/>";
+        writer.m_bottomHalf =
+            "</sheetData>"
+            "<pageMargins left=\"0.7\" right=\"0.7\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/>"
+            "</worksheet>";
+        writer.m_preHasOpenSheetData = false;
+        writer.m_baseLastRow         = 0;
+        writer.m_baseMaxCol          = 0;
+        writer.m_currentRow          = 1;
     }
     else {
-        pos = xmlStr.find("</sheetData>");
+        // Hybrid: serialize current DOM and append new rows inside sheetData.
+        XMLDocument& doc       = xmlDocument();
+        XMLNode      root      = doc.document_element();
+        XMLNode      sheetData = root.child("sheetData");
+        if (sheetData.empty()) { sheetData = ensureChild(root, "sheetData", m_nodeOrder); }
+
+        struct StringWriter : pugi::xml_writer
+        {
+            std::string result;
+            void        write(const void* data, size_t size) override { result.append(static_cast<const char*>(data), size); }
+        } sw;
+
+        doc.save(sw, "", pugi::format_raw | pugi::format_no_declaration);
+        std::string xmlStr = sw.result;
+
+        std::string topHalf;
+        std::string bottomHalf;
+        size_t      pos = xmlStr.find("<sheetData/>");
         if (pos != std::string::npos) {
-            // We have existing rows: <sheetData><row ... /></sheetData>
-            // So we take everything UP TO </sheetData> as topHalf, allowing stream to append inside sheetData.
-            topHalf    = xmlStr.substr(0, pos);
-            bottomHalf = xmlStr.substr(pos);    // starts with </sheetData>
+            topHalf    = xmlStr.substr(0, pos) + "<sheetData>";
+            bottomHalf = "</sheetData>" + xmlStr.substr(pos + 12);
         }
         else {
-            pos = xmlStr.find("<sheetData></sheetData>");
+            pos = xmlStr.find("</sheetData>");
             if (pos != std::string::npos) {
-                topHalf    = xmlStr.substr(0, pos) + "<sheetData>";
-                bottomHalf = "</sheetData>" + xmlStr.substr(pos + 23);
+                topHalf    = xmlStr.substr(0, pos);
+                bottomHalf = xmlStr.substr(pos);
             }
             else {
-                size_t endTag = xmlStr.find("</worksheet>");
-                topHalf       = xmlStr.substr(0, endTag) + "<sheetData>";
-                bottomHalf    = "</sheetData></worksheet>";
+                pos = xmlStr.find("<sheetData></sheetData>");
+                if (pos != std::string::npos) {
+                    topHalf    = xmlStr.substr(0, pos) + "<sheetData>";
+                    bottomHalf = "</sheetData>" + xmlStr.substr(pos + 23);
+                }
+                else {
+                    size_t endTag = xmlStr.find("</worksheet>");
+                    topHalf       = xmlStr.substr(0, endTag) + "<sheetData>";
+                    bottomHalf    = "</sheetData></worksheet>";
+                }
             }
+        }
+
+        const std::string xmlDecl = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
+        const size_t      headerBytes = xmlDecl.size() + topHalf.size();
+        const size_t      hybridSpill = options.hybridHeaderSpillThreshold;
+
+        writer.m_bottomHalf          = std::move(bottomHalf);
+        writer.m_preHasOpenSheetData = true;
+
+        // P1: large hybrid headers stay on disk until first row / Phase-0 inject (reduces dual-string peak).
+        if (hybridSpill > 0 && headerBytes >= hybridSpill) {
+            const auto base = options.tempDir.empty() ? std::filesystem::temp_directory_path() : options.tempDir;
+            std::mt19937 rng(std::random_device {}());
+            writer.m_preHeaderPath =
+                base / (std::string("openxlsx_hybrid_hdr_") +
+                        std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "_" +
+                        std::to_string(rng()) + ".xml");
+            std::ofstream out(writer.m_preHeaderPath, std::ios::binary);
+            if (out) {
+                out.write(xmlDecl.data(), static_cast<std::streamsize>(xmlDecl.size()));
+                out.write(topHalf.data(), static_cast<std::streamsize>(topHalf.size()));
+                if (out.good()) {
+                    writer.m_preHeaderFileBacked = true;
+                    writer.m_preContent.clear();
+                }
+                else {
+                    writer.m_preHeaderPath.clear();
+                    writer.m_preContent = xmlDecl + topHalf;
+                }
+            }
+            else {
+                writer.m_preContent = xmlDecl + topHalf;
+            }
+        }
+        else {
+            writer.m_preContent = xmlDecl + topHalf;
         }
     }
 
-    XLStreamWriter writer(this, useSharedStrings, maxUniqueStrings);
-    writer.m_bottomHalf = bottomHalf;
-
-    if (writer.m_stream.is_open()) {
-        std::string header = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
-        writer.m_stream << header << topHalf;
-    }
-
-    m_xmlData->m_isStreamed     = true;
-    m_xmlData->m_streamFilePath = writer.getTempFilePath();
+    // Mark as streamed early so save paths treat the sheet correctly; path/memory filled on close.
+    m_xmlData->m_isStreamed = true;
 
     return writer;
+}
+
+std::string XLWorksheet::registerStreamHyperlinks(const std::vector<XLStreamHyperlink>& links)
+{
+    if (links.empty()) return {};
+    std::string xml = "<hyperlinks>";
+    for (const auto& h : links) {
+        xml += "<hyperlink ref=\"";
+        appendEscaped(xml, h.cellRef);
+        xml += '"';
+        if (h.external) {
+            const auto rel = relationships().addRelationship(XLRelationshipType::Hyperlink, h.target, true);
+            xml += " r:id=\"";
+            xml += rel.id();
+            xml += '"';
+        }
+        else {
+            xml += " location=\"";
+            appendEscaped(xml, h.target);
+            xml += '"';
+            if (!h.display.empty()) {
+                xml += " display=\"";
+                appendEscaped(xml, h.display);
+                xml += '"';
+            }
+        }
+        if (!h.tooltip.empty()) {
+            xml += " tooltip=\"";
+            appendEscaped(xml, h.tooltip);
+            xml += '"';
+        }
+        xml += "/>";
+    }
+    xml += "</hyperlinks>";
+    return xml;
+}
+
+std::string XLWorksheet::registerStreamTable(const XLStreamTableOptions& table)
+{
+    const auto colon = table.range.find(':');
+    if (colon == std::string::npos) throw XLInputError("XLStreamWriter::addTable: range must be like A1:D10");
+
+    XLCellReference topLeft(table.range.substr(0, colon));
+    XLCellReference bottomRight(table.range.substr(colon + 1));
+    const uint16_t  cMin = std::min(topLeft.column(), bottomRight.column());
+    const uint16_t  cMax = std::max(topLeft.column(), bottomRight.column());
+    const uint16_t  colCount = static_cast<uint16_t>(cMax - cMin + 1);
+
+    const uint32_t  tableId        = partFactory().nextTableId();
+    const std::string tablesFilename = "xl/tables/table" + std::to_string(tableId) + ".xml";
+    const std::string tablesRelativePath = getPathARelativeToPathB(tablesFilename, getXmlPath());
+
+    std::string tableXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+                           "<table xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" id=\"";
+    tableXml += std::to_string(tableId);
+    tableXml += "\" name=\"";
+    appendEscaped(tableXml, table.name);
+    tableXml += "\" displayName=\"";
+    appendEscaped(tableXml, table.name);
+    tableXml += "\" ref=\"";
+    tableXml += table.range;
+    tableXml += "\" totalsRowShown=\"0\"><autoFilter ref=\"";
+    tableXml += table.range;
+    tableXml += "\"/><tableColumns count=\"";
+    tableXml += std::to_string(colCount);
+    tableXml += "\">";
+    for (uint16_t i = 0; i < colCount; ++i) {
+        std::string header =
+            (i < table.headers.size() && !table.headers[i].empty()) ? table.headers[i] : ("Column" + std::to_string(i + 1));
+        tableXml += "<tableColumn id=\"";
+        tableXml += std::to_string(i + 1);
+        tableXml += "\" name=\"";
+        appendEscaped(tableXml, header);
+        tableXml += "\"/>";
+    }
+    tableXml += "</tableColumns><tableStyleInfo name=\"";
+    appendEscaped(tableXml, table.styleName);
+    tableXml += "\" showFirstColumn=\"";
+    tableXml += table.showFirstColumn ? "1" : "0";
+    tableXml += "\" showLastColumn=\"";
+    tableXml += table.showLastColumn ? "1" : "0";
+    tableXml += "\" showRowStripes=\"";
+    tableXml += table.showRowStripes ? "1" : "0";
+    tableXml += "\" showColumnStripes=\"";
+    tableXml += table.showColumnStripes ? "1" : "0";
+    tableXml += "\"/></table>";
+
+    XLPackageServices& pkg = package();
+    pkg.archive().addEntry(tablesFilename, tableXml);
+    pkg.contentTypes().addOverride("/" + tablesFilename, XLContentType::Table);
+    pkg.emplaceXmlPart(tablesFilename, "", XLContentType::Table);
+
+    const auto rel = relationships().addRelationship(XLRelationshipType::Table, tablesRelativePath);
+
+    std::string parts = "<tableParts count=\"1\"><tablePart r:id=\"";
+    parts += rel.id();
+    parts += "\"/></tableParts>";
+    return parts;
 }
 
 void XLWorksheet::autoFitColumn(uint16_t columnNumber)

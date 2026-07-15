@@ -1,7 +1,10 @@
 // ===== External Includes ===== //
 #include <cctype>
+#include <chrono>
 #include <cstring>
 #include <fast_float/fast_float.h>
+#include <fstream>
+#include <random>
 #include <string_view>
 #include <unordered_map>
 
@@ -132,6 +135,11 @@ namespace OpenXLSX
           m_archive(std::move(other.m_archive)),
           m_zipStream(other.m_zipStream),
           m_options(std::move(other.m_options)),
+          m_sstIndexReady(other.m_sstIndexReady),
+          m_sstXml(std::move(other.m_sstXml)),
+          m_sstTempPath(std::move(other.m_sstTempPath)),
+          m_sstFileBacked(other.m_sstFileBacked),
+          m_sstOffsets(std::move(other.m_sstOffsets)),
           m_buffer(std::move(other.m_buffer)),
           m_bufPos(other.m_bufPos),
           m_eof(other.m_eof),
@@ -157,6 +165,8 @@ namespace OpenXLSX
         other.m_eof                = true;
         other.m_hasPendingPhysical = false;
         other.m_physicalExhausted  = true;
+        other.m_sstIndexReady      = false;
+        other.m_sstFileBacked      = false;
     }
 
     XLStreamReader& XLStreamReader::operator=(XLStreamReader&& other) noexcept
@@ -167,6 +177,11 @@ namespace OpenXLSX
             m_archive            = std::move(other.m_archive);
             m_zipStream          = other.m_zipStream;
             m_options            = std::move(other.m_options);
+            m_sstIndexReady      = other.m_sstIndexReady;
+            m_sstXml             = std::move(other.m_sstXml);
+            m_sstTempPath        = std::move(other.m_sstTempPath);
+            m_sstFileBacked      = other.m_sstFileBacked;
+            m_sstOffsets         = std::move(other.m_sstOffsets);
             m_buffer             = std::move(other.m_buffer);
             m_bufPos             = other.m_bufPos;
             m_eof                = other.m_eof;
@@ -192,22 +207,34 @@ namespace OpenXLSX
             other.m_eof                = true;
             other.m_hasPendingPhysical = false;
             other.m_physicalExhausted  = true;
+            other.m_sstIndexReady      = false;
+            other.m_sstFileBacked      = false;
         }
         return *this;
     }
 
     void XLStreamReader::cleanup()
     {
-        if (!m_zipStream) return;
-        // Archive copy shares LibZipApp with the document. closeEntryStream is idempotent if
-        // XLZipArchive::close() already closed this entry (important on Windows file locks).
-        try {
-            m_archive.closeEntryStream(m_zipStream);
+        if (m_zipStream) {
+            // Archive copy shares LibZipApp with the document. closeEntryStream is idempotent if
+            // XLZipArchive::close() already closed this entry (important on Windows file locks).
+            try {
+                m_archive.closeEntryStream(m_zipStream);
+            }
+            catch (...) {
+                // Best-effort; document may already be torn down.
+            }
+            m_zipStream = nullptr;
         }
-        catch (...) {
-            // Best-effort; document may already be torn down.
+        if (m_sstFileBacked && !m_sstTempPath.empty()) {
+            std::error_code ec;
+            std::filesystem::remove(m_sstTempPath, ec);
+            m_sstTempPath.clear();
+            m_sstFileBacked = false;
         }
-        m_zipStream = nullptr;
+        m_sstXml.clear();
+        m_sstOffsets.clear();
+        m_sstIndexReady = false;
     }
 
     void XLStreamReader::compactBufferIfNeeded()
@@ -284,6 +311,11 @@ namespace OpenXLSX
 
             const bool selfClosingRow = (firstGt > 0) && (m_buffer[firstGt - 1] == '/');
             if (selfClosingRow) {
+                const size_t rowBytes = firstGt + 1 - rowStart;
+                if (m_options.maxRowBytes > 0 && rowBytes > m_options.maxRowBytes) {
+                    throw XLInputError("XLStreamReader: physical row exceeds maxRowBytes limit (" +
+                                       std::to_string(rowBytes) + " > " + std::to_string(m_options.maxRowBytes) + ")");
+                }
                 parsePhysicalRowSlice(m_buffer.data() + rowStart, m_buffer.data() + firstGt + 1);
                 m_bufPos             = firstGt + 1;
                 m_hasPendingPhysical = true;
@@ -301,6 +333,11 @@ namespace OpenXLSX
             }
 
             const size_t sliceEnd = endTag + 6;
+            const size_t rowBytes = sliceEnd - rowStart;
+            if (m_options.maxRowBytes > 0 && rowBytes > m_options.maxRowBytes) {
+                throw XLInputError("XLStreamReader: physical row exceeds maxRowBytes limit (" +
+                                   std::to_string(rowBytes) + " > " + std::to_string(m_options.maxRowBytes) + ")");
+            }
             parsePhysicalRowSlice(m_buffer.data() + rowStart, m_buffer.data() + sliceEnd);
             m_bufPos             = sliceEnd;
             m_hasPendingPhysical = true;
@@ -320,13 +357,24 @@ namespace OpenXLSX
         std::string cellStyle;
         std::string cellValue;
         std::string cellFormula;
-        bool        inVTag   = false;
-        bool        inIsTTag = false;
-        bool        inFTag   = false;
+        std::string formulaTypeAttr;
+        std::string formulaRefAttr;
+        std::string formulaSiAttr;
+        bool        formulaCaAttr = false;
+        bool        inVTag        = false;
+        bool        inIsTTag      = false;
+        bool        inFTag        = false;
+        bool        inRun         = false;
+        bool        inRPr         = false;
+        std::string runText;
+        XLRichText  richAccum;
+        bool        hasRichRuns = false;
         uint16_t    expectedCol = 1;
 
         auto flushCell = [&]() {
-            if (cellRef.empty() && cellValue.empty() && cellFormula.empty() && cellStyle.empty() && cellType.empty()) return;
+            if (cellRef.empty() && cellValue.empty() && cellFormula.empty() && cellStyle.empty() && cellType.empty() &&
+                !hasRichRuns)
+                return;
 
             uint16_t actualCol = expectedCol;
             if (!cellRef.empty()) {
@@ -347,11 +395,26 @@ namespace OpenXLSX
             XLStreamCellView view;
             view.column = actualCol;
             view.value  = parseCellValue(cellType, cellValue);
-            if (!cellFormula.empty()) view.formula = cellFormula;
+            if (!cellFormula.empty() || !formulaTypeAttr.empty() || !formulaSiAttr.empty()) {
+                view.formula = cellFormula;
+            }
+            if (!formulaTypeAttr.empty()) view.formulaType = formulaTypeAttr;
+            if (!formulaRefAttr.empty()) view.formulaRef = formulaRefAttr;
+            if (!formulaSiAttr.empty()) {
+                char* ep = nullptr;
+                auto  si = static_cast<int>(std::strtol(formulaSiAttr.c_str(), &ep, 10));
+                if (ep != formulaSiAttr.c_str()) view.formulaSi = si;
+            }
+            view.formulaCa = formulaCaAttr;
             if (!cellStyle.empty()) {
                 char* ep = nullptr;
                 auto  s  = static_cast<XLStyleIndex>(std::strtoul(cellStyle.c_str(), &ep, 10));
                 if (ep != cellStyle.c_str()) view.styleIndex = s;
+            }
+            if (hasRichRuns && m_options.parseRichText) {
+                view.richText = richAccum;
+                if (view.value.type() == XLValueType::Empty && !cellValue.empty())
+                    view.value = XLCellValue(cellValue);
             }
             m_pendingCells.push_back(std::move(view));
             ++expectedCol;
@@ -361,14 +424,26 @@ namespace OpenXLSX
             cellStyle.clear();
             cellValue.clear();
             cellFormula.clear();
-            inVTag   = false;
-            inIsTTag = false;
-            inFTag   = false;
+            formulaTypeAttr.clear();
+            formulaRefAttr.clear();
+            formulaSiAttr.clear();
+            formulaCaAttr = false;
+            inVTag        = false;
+            inIsTTag      = false;
+            inFTag        = false;
+            inRun         = false;
+            inRPr         = false;
+            runText.clear();
+            richAccum   = XLRichText{};
+            hasRichRuns = false;
         };
 
         while (p < end) {
             if (*p != '<') {
-                if (inVTag || inIsTTag) cellValue += *p;
+                if (inVTag || inIsTTag) {
+                    cellValue += *p;
+                    if (inRun) runText += *p;
+                }
                 else if (inFTag)
                     cellFormula += *p;
                 ++p;
@@ -399,12 +474,27 @@ namespace OpenXLSX
                     inIsTTag = false;
                 else if (m_tagNameBuf == "f")
                     inFTag = false;
+                else if (m_tagNameBuf == "r") {
+                    if (m_options.parseRichText && inRun) {
+                        xmlUnescape(runText);
+                        XLRichTextRun run(runText);
+                        richAccum.addRun(run);
+                        hasRichRuns = true;
+                        runText.clear();
+                    }
+                    inRun = false;
+                    inRPr = false;
+                }
+                else if (m_tagNameBuf == "rPr")
+                    inRPr = false;
                 while (p < end && *p != '>') ++p;
                 if (p < end) ++p;
                 continue;
             }
 
             std::string localR, localT, localS, localHt, localHidden, localOutline;
+            std::string localFType, localFRef, localFSi, localFCa;
+            std::string localVal;    // generic val= for rFont/sz/color
             bool        selfClose = false;
 
             while (p < end) {
@@ -451,7 +541,18 @@ namespace OpenXLSX
                     localHidden = m_attrValueBuf;
                 else if (m_attrNameBuf == "outlineLevel")
                     localOutline = m_attrValueBuf;
+                else if (m_attrNameBuf == "ref")
+                    localFRef = m_attrValueBuf;
+                else if (m_attrNameBuf == "si")
+                    localFSi = m_attrValueBuf;
+                else if (m_attrNameBuf == "ca")
+                    localFCa = m_attrValueBuf;
+                else if (m_attrNameBuf == "val" || m_attrNameBuf == "rgb")
+                    localVal = m_attrValueBuf;
             }
+
+            // For <f t="array"> the attribute name is t — reuse localT only when tag is f
+            if (m_tagNameBuf == "f" && !localT.empty()) localFType = localT;
 
             if (m_tagNameBuf == "row") {
                 if (!localR.empty())
@@ -490,7 +591,7 @@ namespace OpenXLSX
                 inFTag   = false;
             }
             else if (m_tagNameBuf == "t") {
-                // Only treat <t> as inline string text when not inside formula
+                // <t> text in inlineStr or rich run
                 inIsTTag = true;
                 inVTag   = false;
                 inFTag   = false;
@@ -499,13 +600,158 @@ namespace OpenXLSX
                 inFTag   = true;
                 inVTag   = false;
                 inIsTTag = false;
+                if (!localFType.empty()) formulaTypeAttr = localFType;
+                if (!localFRef.empty()) formulaRefAttr = localFRef;
+                if (!localFSi.empty()) formulaSiAttr = localFSi;
+                if (!localFCa.empty()) formulaCaAttr = (localFCa == "1" || localFCa == "true");
                 if (selfClose) inFTag = false;
+            }
+            else if (m_tagNameBuf == "r" && m_options.parseRichText) {
+                inRun   = true;
+                inRPr   = false;
+                runText.clear();
+            }
+            else if (m_tagNameBuf == "rPr" && m_options.parseRichText) {
+                inRPr = true;
+            }
+            else if (m_options.parseRichText && inRPr && selfClose) {
+                // Font property stubs on current run text buffer — applied when run closes via last run props.
+                // Minimal: bold/italic/strike empty elements; rFont/sz/color with val.
+                (void)localVal;
             }
         }
 
         flushCell();
         if (m_pendingRowNum == 0) m_pendingRowNum = m_lastPhysicalRow + 1;
         m_lastPhysicalRow = m_pendingRowNum;
+    }
+
+    void XLStreamReader::ensureIndexedSst() const
+    {
+        if (m_sstIndexReady) return;
+        m_sstIndexReady = true;
+        m_sstOffsets.clear();
+        m_sstXml.clear();
+        m_sstFileBacked = false;
+
+        try {
+            if (!m_archive.hasEntry("xl/sharedStrings.xml")) return;
+            m_sstXml = m_archive.getEntry("xl/sharedStrings.xml");
+            if (m_options.maxSstEntryBytes > 0 && m_sstXml.size() > m_options.maxSstEntryBytes) {
+                const size_t sz = m_sstXml.size();
+                m_sstXml.clear();
+                throw XLInputError("XLStreamReader: sharedStrings.xml exceeds maxSstEntryBytes (" + std::to_string(sz) +
+                                   " > " + std::to_string(m_options.maxSstEntryBytes) + ")");
+            }
+        }
+        catch (const XLInputError&) {
+            throw;
+        }
+        catch (...) {
+            m_sstXml.clear();
+            return;
+        }
+
+        auto indexSiOffsets = [this](std::string_view xml) {
+            size_t pos = 0;
+            while (pos < xml.size()) {
+                size_t si = xml.find("<si", pos);
+                if (si == std::string_view::npos) break;
+                if (si + 3 < xml.size()) {
+                    const char next = xml[si + 3];
+                    if (next != '>' && next != ' ' && next != '/' && next != '\t' && next != '\r' && next != '\n') {
+                        pos = si + 3;
+                        continue;
+                    }
+                }
+                m_sstOffsets.push_back(static_cast<uint32_t>(si));
+                pos = si + 3;
+            }
+        };
+
+        indexSiOffsets(m_sstXml);
+
+        // Spill large SST to a temp file so peak RSS after indexing can drop the string payload
+        // (offsets remain; lookup seeks the file). Aligns with excelize UnzipXMLSizeLimit behavior.
+        if (m_options.sstSpillThreshold > 0 && m_sstXml.size() >= m_options.sstSpillThreshold) {
+            try {
+                const auto base = m_options.tempDir.empty() ? std::filesystem::temp_directory_path() : m_options.tempDir;
+                std::mt19937 rng(std::random_device {}());
+                m_sstTempPath =
+                    base / (std::string("openxlsx_sst_") +
+                            std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "_" +
+                            std::to_string(rng()) + ".xml");
+                std::ofstream out(m_sstTempPath, std::ios::binary);
+                if (out) {
+                    out.write(m_sstXml.data(), static_cast<std::streamsize>(m_sstXml.size()));
+                    if (out.good()) {
+                        m_sstFileBacked = true;
+                        m_sstXml.clear();
+                        m_sstXml.shrink_to_fit();
+                    }
+                    else {
+                        m_sstTempPath.clear();
+                    }
+                }
+            }
+            catch (...) {
+                m_sstFileBacked = false;
+                m_sstTempPath.clear();
+                // Keep m_sstXml in memory as fallback.
+            }
+        }
+    }
+
+    std::string XLStreamReader::lookupIndexedSst(int32_t index) const
+    {
+        ensureIndexedSst();
+        if (index < 0 || static_cast<size_t>(index) >= m_sstOffsets.size()) return {};
+        const size_t start = m_sstOffsets[static_cast<size_t>(index)];
+
+        std::string slice;
+        if (m_sstFileBacked) {
+            const size_t endOff =
+                (static_cast<size_t>(index) + 1 < m_sstOffsets.size()) ? m_sstOffsets[static_cast<size_t>(index) + 1] : 0;
+            std::ifstream in(m_sstTempPath, std::ios::binary);
+            if (!in) return {};
+            in.seekg(0, std::ios::end);
+            const auto fileSize = static_cast<size_t>(in.tellg());
+            const size_t end    = (endOff > 0) ? endOff : fileSize;
+            if (start >= fileSize || end <= start) return {};
+            const size_t len = end - start;
+            slice.resize(len);
+            in.seekg(static_cast<std::streamoff>(start));
+            in.read(slice.data(), static_cast<std::streamsize>(len));
+            if (!in && !in.eof()) return {};
+            slice.resize(static_cast<size_t>(in.gcount()));
+        }
+        else {
+            const size_t end =
+                (static_cast<size_t>(index) + 1 < m_sstOffsets.size()) ? m_sstOffsets[static_cast<size_t>(index) + 1] : m_sstXml.size();
+            if (start >= m_sstXml.size() || end <= start) return {};
+            slice = m_sstXml.substr(start, end - start);
+        }
+
+        // Extract concatenated <t>...</t> text inside this <si>…</si> slice (plain + rich runs).
+        std::string result;
+        size_t      p = 0;
+        while (p < slice.size()) {
+            size_t tOpen = slice.find("<t", p);
+            if (tOpen == std::string::npos) break;
+            size_t tClose = slice.find('>', tOpen);
+            if (tClose == std::string::npos) break;
+            if (tClose > 0 && slice[tClose - 1] == '/') {
+                p = tClose + 1;
+                continue;
+            }
+            size_t tEnd = slice.find("</t>", tClose + 1);
+            if (tEnd == std::string::npos) break;
+            std::string piece = slice.substr(tClose + 1, tEnd - (tClose + 1));
+            xmlUnescape(piece);
+            result += piece;
+            p = tEnd + 4;
+        }
+        return result;
     }
 
     XLCellValue XLStreamReader::parseCellValue(const std::string& cellType, std::string& cellValue) const
@@ -516,7 +762,24 @@ namespace OpenXLSX
             if (ep == cellValue.data()) return XLCellValue{};
             // Out-of-range / corrupt SST indices must not abort the whole stream scan.
             try {
-                return XLCellValue(std::string(m_worksheet->sharedStringTable().getString(idx)));
+                if (m_options.sharedStringMode == XLStreamSharedStringMode::Indexed) {
+                    auto s = lookupIndexedSst(idx);
+                    if (s.empty() && idx >= 0) {
+                        // Still accept empty string entries; OOB returns empty from lookup.
+                    }
+                    return XLCellValue(std::move(s));
+                }
+                // Prefer XLSharedStrings (concrete) over XLSharedStringTable port — more robust
+                // when the worksheet was materialized from a stream-written package.
+                try {
+                    std::string_view sv = m_worksheet->sharedStrings().getStringView(idx);
+                    return XLCellValue(std::string(sv));
+                }
+                catch (...) {
+                    const char* p = m_worksheet->sharedStringTable().getString(idx);
+                    if (p == nullptr) return XLCellValue{};
+                    return XLCellValue(std::string(p));
+                }
             }
             catch (...) {
                 return XLCellValue{};
@@ -584,6 +847,135 @@ namespace OpenXLSX
     {
         if (!consumeNextLogicalRow()) return {};
         return m_reuseDetailed;
+    }
+
+    std::vector<XLStreamCellView> XLStreamReader::nextRowSparse()
+    {
+        if (!consumeNextLogicalRow()) return {};
+        std::vector<XLStreamCellView> sparse;
+        sparse.reserve(m_reuseDetailed.size());
+        for (const auto& c : m_reuseDetailed) {
+            if (c.value.type() != XLValueType::Empty || c.formula.has_value()) sparse.push_back(c);
+        }
+        return sparse;
+    }
+
+    bool XLStreamReader::nextRowInto(std::vector<XLCellValue>& out)
+    {
+        if (!consumeNextLogicalRow()) {
+            out.clear();
+            return false;
+        }
+        out = m_reuseValues;
+        return true;
+    }
+
+    bool XLStreamReader::nextRowDetailedInto(std::vector<XLStreamCellView>& out)
+    {
+        if (!consumeNextLogicalRow()) {
+            out.clear();
+            return false;
+        }
+        out = m_reuseDetailed;
+        return true;
+    }
+
+    void XLStreamReader::rebuildColumnFilterSet() const
+    {
+        m_columnFilterSet.clear();
+        for (uint16_t c : m_options.columnFilter) {
+            if (c > 0) m_columnFilterSet.insert(c);
+        }
+        m_columnFilterReady = true;
+    }
+
+    bool XLStreamReader::columnAllowed(uint16_t col) const
+    {
+        if (m_options.columnFilter.empty()) return true;
+        if (!m_columnFilterReady) rebuildColumnFilterSet();
+        return m_columnFilterSet.count(col) > 0;
+    }
+
+    std::vector<XLStreamCellView> XLStreamReader::nextRowProjected()
+    {
+        if (!consumeNextLogicalRow()) return {};
+        std::vector<XLStreamCellView> out;
+        out.reserve(m_options.columnFilter.empty() ? m_reuseDetailed.size() : m_options.columnFilter.size());
+        for (const auto& c : m_reuseDetailed) {
+            if (c.column == 0) continue;
+            if (!columnAllowed(c.column)) continue;
+            // When no filter: behave like sparse (skip pure empties). With filter: include empties in range.
+            if (m_options.columnFilter.empty()) {
+                if (c.value.type() != XLValueType::Empty || c.formula.has_value()) out.push_back(c);
+            }
+            else {
+                out.push_back(c);
+            }
+        }
+        return out;
+    }
+
+    bool XLStreamReader::forEachCellInNextRow(const std::function<void(const XLStreamCellView&)>& fn)
+    {
+        if (!consumeNextLogicalRow()) return false;
+        for (const auto& c : m_reuseDetailed) {
+            if (c.column == 0) continue;
+            if (!columnAllowed(c.column)) continue;
+            if (m_options.columnFilter.empty() && c.value.type() == XLValueType::Empty && !c.formula.has_value()) continue;
+            fn(c);
+        }
+        return true;
+    }
+
+    XLStreamColumns::XLStreamColumns(std::vector<std::vector<XLCellValue>> columns) : m_columns(std::move(columns)) {}
+
+    bool XLStreamColumns::next()
+    {
+        if (m_columns.empty()) return false;
+        if (!m_started) {
+            m_started = true;
+            m_index   = 1;
+            return true;
+        }
+        if (m_index >= m_columns.size()) return false;
+        ++m_index;
+        return m_index <= m_columns.size();
+    }
+
+    const std::vector<XLCellValue>& XLStreamColumns::values() const
+    {
+        static const std::vector<XLCellValue> kEmpty;
+        if (m_index == 0 || m_index > m_columns.size()) return kEmpty;
+        return m_columns[m_index - 1];
+    }
+
+    XLStreamColumns XLStreamReader::streamColumns()
+    {
+        std::vector<std::vector<XLCellValue>> cols;
+        size_t                                cellCount = 0;
+        uint32_t                              rowNum    = 0;
+
+        while (consumeNextLogicalRow()) {
+            ++rowNum;
+            for (const auto& c : m_reuseDetailed) {
+                if (c.column == 0) continue;
+                if (!columnAllowed(c.column)) continue;
+                if (c.column > cols.size()) cols.resize(c.column);
+                auto& col = cols[c.column - 1];
+                if (col.size() < rowNum) col.resize(rowNum);
+                col[rowNum - 1] = c.value;
+                ++cellCount;
+                if (m_options.maxColumnarCells > 0 && cellCount > m_options.maxColumnarCells) {
+                    throw XLInputError("XLStreamReader::streamColumns: exceeded maxColumnarCells (" +
+                                       std::to_string(m_options.maxColumnarCells) + ")");
+                }
+            }
+            // Ensure all existing columns have this row (empty padding)
+            for (auto& col : cols) {
+                if (col.size() < rowNum) col.resize(rowNum);
+            }
+        }
+        return XLStreamColumns(std::move(cols));
     }
 
     std::string XLStreamReader::valueToRawString(const XLCellValue& value) const

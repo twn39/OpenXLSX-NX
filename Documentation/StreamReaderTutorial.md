@@ -27,6 +27,9 @@ doc.close();
 XLStreamReadOptions opts;
 opts.emptyRows = XLStreamEmptyRowPolicy::EmitEmptyRows; // or SkipMissingRows (default)
 opts.applyNumberFormats = true;                         // for nextRowStrings / formattedValue
+opts.sharedStringMode = XLStreamSharedStringMode::Indexed; // optional large-SST path
+opts.sstSpillThreshold = 16 * 1024 * 1024;              // spill Indexed SST payload to temp file
+opts.maxRowBytes = 64 * 1024 * 1024;                    // guard against pathological wide rows
 
 auto reader = wks.streamReader(opts);
 ```
@@ -64,6 +67,40 @@ auto s = reader.formattedValue(cells[0]);
 ```
 
 When `applyNumberFormats` is false, strings are raw conversions of the stored value (similar to excelize `RawCellValue`).
+
+## Column projection (wide tables)
+
+```cpp
+XLStreamReadOptions opts;
+opts.columnFilter = {1, 3, 5};    // 1-based columns A, C, E
+auto reader = wks.streamReader(opts);
+
+while (reader.hasNext()) {
+    auto cells = reader.nextRowProjected();   // only filtered columns
+    // or:
+    // reader.forEachCellInNextRow([](const XLStreamCellView& c) { ... });
+}
+```
+
+Keep the `XLWorksheet` alive for the lifetime of the reader.
+
+## Rich text, formula metadata, columns (P2)
+
+```cpp
+XLStreamReadOptions opts;
+opts.parseRichText = true;
+auto reader = wks.streamReader(opts);
+auto row = reader.nextRowDetailed();
+// row[i].formulaType / formulaRef / formulaSi / formulaCa
+// row[i].richText  when inlineStr had <r> runs
+
+// Column-oriented pass (one full scan into columnar buffers; excelize Cols-like)
+auto cols = wks.streamReader().streamColumns();
+while (cols.next()) {
+    uint16_t c = cols.currentColumn(); // 1-based
+    const auto& vals = cols.values();  // top-to-bottom
+}
+```
 
 ## Compatibility notes
 

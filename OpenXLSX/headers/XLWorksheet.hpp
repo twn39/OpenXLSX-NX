@@ -22,6 +22,7 @@
 #    include "XLRow.hpp"
 #    include "XLSparkline.hpp"
 #    include "XLStreamReader.hpp"
+#    include "XLStreamWriter.hpp"
 
 namespace OpenXLSX
 {
@@ -37,7 +38,6 @@ namespace OpenXLSX
     struct XLSlicerOptions;
     class XLSlicerCollection;
     class XLRelationships;
-    class XLStreamWriter;
     class XLTableCollection;
     class XLThreadedComments;
 
@@ -146,6 +146,11 @@ namespace OpenXLSX
          * @warning Initiating a stream writer locks the DOM for this sheet.
          */
         XLStreamWriter streamWriter(bool useSharedStrings = false, size_t maxUniqueStrings = 100000);
+
+        /**
+         * @brief Stream writer with full options (open mode, spill threshold, shared strings, …).
+         */
+        XLStreamWriter streamWriter(const XLStreamWriteOptions& options);
 
         /**
          * @brief Create a stream reader for memory efficient reading of large documents
@@ -276,7 +281,19 @@ namespace OpenXLSX
          */
         void setStreamWriterOpen(bool open) noexcept;
         void setStreamExtents(uint32_t lastRow, uint16_t maxCol) noexcept;
+        void setStreamMaterialization(std::string filePath, std::string memoryPayload) noexcept;
         bool isStreamedSheet() const noexcept;
+
+        /**
+         * @brief Register a table part for stream-written sheets; returns tableParts XML fragment.
+         * @note Called from XLStreamWriter::close when addTable() was used.
+         */
+        std::string registerStreamTable(const XLStreamTableOptions& table);
+
+        /**
+         * @brief Register stream hyperlinks: adds external relationships and returns &lt;hyperlinks&gt; XML.
+         */
+        std::string registerStreamHyperlinks(const std::vector<XLStreamHyperlink>& links);
 
         XLMergeCells&      merges();
         XLDataValidations& dataValidations();

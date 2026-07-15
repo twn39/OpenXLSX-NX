@@ -266,6 +266,11 @@ std::string XLZipArchive::getEntry(std::string_view name) const
         throw XLInternalError("Entry not found: " + std::string(name));
     }
 
+    if (m_maxEntryUncompressedSize > 0 && st.size > m_maxEntryUncompressedSize) {
+        throw XLInputError("ZIP entry \"" + std::string(name) + "\" uncompressed size " + std::to_string(st.size) +
+                           " exceeds maxEntryUncompressedSize " + std::to_string(m_maxEntryUncompressedSize));
+    }
+
     zip_file_t* f = zip_fopen(m_archive->archive.get(), std::string(name).c_str(), 0);
     if (!f) throw XLInternalError("Failed to open entry: " + std::string(name));
 

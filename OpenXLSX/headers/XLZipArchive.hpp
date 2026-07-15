@@ -10,6 +10,7 @@
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
 
+#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -124,6 +125,13 @@ namespace OpenXLSX
         [[nodiscard]] std::string getEntry(std::string_view name) const;
 
         /**
+         * @brief Cap uncompressed size accepted by getEntry (0 = unlimited).
+         * @details Zip-bomb / OOM guard for bulk XML loads (styles, SST, worksheets).
+         */
+        void   setMaxEntryUncompressedSize(size_t maxBytes) noexcept { m_maxEntryUncompressedSize = maxBytes; }
+        size_t maxEntryUncompressedSize() const noexcept { return m_maxEntryUncompressedSize; }
+
+        /**
          * @brief Opens a stream for reading a specific entry.
          * @param name The name of the entry to open.
          * @return An opaque pointer to the stream.
@@ -172,7 +180,8 @@ namespace OpenXLSX
     private:
         struct LibZipApp;
         std::shared_ptr<LibZipApp> m_archive; /**< */
-        int m_compressionLevel{1}; /**< Compression level for the archive. Default is 1. */
+        int    m_compressionLevel{1}; /**< Compression level for the archive. Default is 1. */
+        size_t m_maxEntryUncompressedSize{0}; /**< 0 = unlimited; enforced in getEntry. */
     };
 }    // namespace OpenXLSX
 

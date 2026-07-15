@@ -130,6 +130,12 @@ namespace OpenXLSX
         inline void setCompressionLevel(int level) { m_zipArchive->setCompressionLevel(level); }
         inline int  compressionLevel() const { return m_zipArchive->compressionLevel(); }
 
+        inline void setMaxEntryUncompressedSize(size_t maxBytes)
+        {
+            m_zipArchive->setMaxEntryUncompressedSize(maxBytes);
+        }
+        inline size_t maxEntryUncompressedSize() const { return m_zipArchive->maxEntryUncompressedSize(); }
+
     private:
         /**
          * @brief
@@ -205,6 +211,9 @@ namespace OpenXLSX
 
             inline virtual void setCompressionLevel(int level) = 0;
             inline virtual int  compressionLevel() const = 0;
+
+            inline virtual void   setMaxEntryUncompressedSize(size_t maxBytes) = 0;
+            inline virtual size_t maxEntryUncompressedSize() const            = 0;
         };
 
         /**
@@ -291,6 +300,12 @@ namespace OpenXLSX
 
             inline void setCompressionLevel(int level) override { ZipType.setCompressionLevel(level); }
             inline int  compressionLevel() const override { return ZipType.compressionLevel(); }
+
+            inline void setMaxEntryUncompressedSize(size_t maxBytes) override
+            {
+                ZipType.setMaxEntryUncompressedSize(maxBytes);
+            }
+            inline size_t maxEntryUncompressedSize() const override { return ZipType.maxEntryUncompressedSize(); }
 
         private:
             mutable T ZipType;

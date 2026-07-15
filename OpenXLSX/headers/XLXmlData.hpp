@@ -216,6 +216,8 @@ namespace OpenXLSX
     public:
         bool        m_isStreamed{false};
         std::string m_streamFilePath;
+        /** In-memory streamed worksheet XML when the sink never spilled to disk. */
+        std::string m_streamMemory;
         /** True while an XLStreamWriter object for this part is still open (not yet close()/destroyed). */
         bool        m_streamWriterOpen{false};
         /** Filled by XLStreamWriter::close() for diagnostics / dimension awareness. */

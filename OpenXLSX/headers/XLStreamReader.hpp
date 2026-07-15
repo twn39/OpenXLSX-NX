@@ -8,10 +8,14 @@
 #include "OpenXLSX-Exports.hpp"
 #include "IZipArchive.hpp"
 #include "XLCellValue.hpp"
+#include "XLRichText.hpp"
 #include "XLStyles_Common.hpp"    // XLStyleIndex
 #include <cstdint>
+#include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace OpenXLSX
@@ -37,6 +41,21 @@ namespace OpenXLSX
     };
 
     /**
+     * @brief How shared-string cells (t="s") are resolved during streaming reads.
+     */
+    enum class XLStreamSharedStringMode : uint8_t {
+        /**
+         * @brief Use the workbook's in-memory shared string table (default, fastest for small SST).
+         */
+        Eager = 0,
+        /**
+         * @brief Build a byte-offset index into sharedStrings.xml and resolve strings on demand.
+         * @details Reduces peak memory when the SST is huge; first access may load the SST part once for indexing.
+         */
+        Indexed = 1
+    };
+
+    /**
      * @brief Options for XLStreamReader construction.
      */
     struct OPENXLSX_EXPORT XLStreamReadOptions
@@ -47,6 +66,39 @@ namespace OpenXLSX
          * @details Style lookup uses the workbook styles table (may load styles once).
          */
         bool applyNumberFormats{false};
+        XLStreamSharedStringMode sharedStringMode{XLStreamSharedStringMode::Eager};
+        /**
+         * @brief Reject a single physical &lt;row&gt; larger than this many bytes (0 = unlimited).
+         * @details Guards against pathological wide rows that defeat streaming memory bounds.
+         *          Default 64 MiB.
+         */
+        size_t maxRowBytes{64 * 1024 * 1024};
+        /**
+         * @brief When Indexed SST exceeds this size, keep payload on a temp file and mmap-style seek.
+         * @details 0 = always keep SST fully in memory. Default 16 MiB (excelize UnzipXMLSizeLimit default).
+         */
+        size_t sstSpillThreshold{16 * 1024 * 1024};
+        /** Empty = system temp directory (used when SST spills). */
+        std::filesystem::path tempDir{};
+        /**
+         * @brief 1-based column projection mask. Empty = all columns.
+         * @details Used by nextRowProjected / forEachCellInNextRow; dense nextRow() still returns full width.
+         */
+        std::vector<uint16_t> columnFilter{};
+        /**
+         * @brief Reject sharedStrings (or other bulk loads via this reader) larger than this (0 = unlimited).
+         * @details Default 256 MiB — zip-bomb style guard for Indexed SST getEntry.
+         */
+        size_t maxSstEntryBytes{256 * 1024 * 1024};
+        /**
+         * @brief When true, parse inlineStr &lt;r&gt; runs into XLRichText on XLStreamCellView.
+         * @details Plain &lt;t&gt; text still fills value as String; richText is set when runs exist.
+         */
+        bool parseRichText{false};
+        /**
+         * @brief Max cells buffered when materializing streamColumns() (0 = unlimited). Default 50M cells.
+         */
+        size_t maxColumnarCells{50ull * 1000 * 1000};
     };
 
     /**
@@ -58,6 +110,38 @@ namespace OpenXLSX
         std::optional<std::string>  formula{};
         std::optional<XLStyleIndex> styleIndex{};
         uint16_t                    column{0};    // 1-based; 0 if unknown
+
+        // Formula metadata (OOXML &lt;f&gt; attributes)
+        std::optional<std::string> formulaType{};    // array | shared | dataTable
+        std::optional<std::string> formulaRef{};
+        std::optional<int>         formulaSi{};
+        bool                       formulaCa{false};
+
+        // Rich text (when parseRichText and inlineStr has &lt;r&gt; runs)
+        std::optional<XLRichText> richText{};
+    };
+
+    /**
+     * @brief Column-oriented cursor over a worksheet (excelize Cols-like).
+     * @details Performs one full row-stream pass into a columnar buffer, then yields columns.
+     *          Memory is O(non-empty cells); use maxColumnarCells to cap.
+     */
+    class OPENXLSX_EXPORT XLStreamColumns
+    {
+    public:
+        XLStreamColumns() = default;
+        explicit XLStreamColumns(std::vector<std::vector<XLCellValue>> columns);
+
+        bool next();
+        /** 1-based current column index (0 before first next / after end). */
+        uint16_t currentColumn() const { return m_index; }
+        const std::vector<XLCellValue>& values() const;
+        size_t columnCount() const { return m_columns.size(); }
+
+    private:
+        std::vector<std::vector<XLCellValue>> m_columns;
+        uint16_t                              m_index{0};    // 1-based after successful next()
+        bool                                  m_started{false};
     };
 
     /**
@@ -109,6 +193,40 @@ namespace OpenXLSX
         std::vector<std::string> nextRowStrings();
 
         /**
+         * @brief Next row containing only non-empty cells (no sparse padding).
+         */
+        std::vector<XLStreamCellView> nextRowSparse();
+
+        /**
+         * @brief Fill @p out with the next dense row values; returns false at end.
+         * @details Reuses @p out capacity to reduce allocations in tight ETL loops.
+         */
+        bool nextRowInto(std::vector<XLCellValue>& out);
+
+        /**
+         * @brief Fill @p out with the next detailed row; returns false at end.
+         */
+        bool nextRowDetailedInto(std::vector<XLStreamCellView>& out);
+
+        /**
+         * @brief Next row with only columns listed in options.columnFilter (or non-empty cells if filter empty).
+         * @details Sparse: no empty padding between columns. Ideal for wide-table ETL projection.
+         */
+        std::vector<XLStreamCellView> nextRowProjected();
+
+        /**
+         * @brief Consume the next logical row and invoke @p fn for each projected cell.
+         * @return false at end of sheet.
+         */
+        bool forEachCellInNextRow(const std::function<void(const XLStreamCellView&)>& fn);
+
+        /**
+         * @brief Materialize all columns via one full stream pass (excelize Cols equivalent).
+         * @details Invalidates further nextRow* use on this reader (consumes the stream).
+         */
+        XLStreamColumns streamColumns();
+
+        /**
          * @brief Format a single cell view using workbook styles when applyNumberFormats is enabled.
          */
         std::string formattedValue(const XLStreamCellView& cell) const;
@@ -154,6 +272,10 @@ namespace OpenXLSX
         XLCellValue parseCellValue(const std::string& cellType, std::string& cellValue) const;
         std::string resolveFormatCode(XLStyleIndex styleIndex) const;
         std::string valueToRawString(const XLCellValue& value) const;
+        void        ensureIndexedSst() const;
+        std::string lookupIndexedSst(int32_t index) const;
+        bool        columnAllowed(uint16_t col) const;
+        void        rebuildColumnFilterSet() const;
 
         static std::string builtinNumFmtCode(uint32_t numFmtId);
 
@@ -161,6 +283,15 @@ namespace OpenXLSX
         IZipArchive         m_archive{};    // copy of archive handle for independent stream close
         void*               m_zipStream{nullptr};
         XLStreamReadOptions m_options{};
+        mutable std::unordered_set<uint16_t> m_columnFilterSet{};
+        mutable bool                         m_columnFilterReady{false};
+
+        // Indexed SST (lazy): in-memory string or file-backed for large tables
+        mutable bool                  m_sstIndexReady{false};
+        mutable std::string           m_sstXml;             // small SST or empty when file-backed
+        mutable std::filesystem::path m_sstTempPath;        // large SST spilled to disk
+        mutable bool                  m_sstFileBacked{false};
+        mutable std::vector<uint32_t> m_sstOffsets;    // start offset of each <si> element
 
         std::string m_buffer;
         size_t      m_bufPos{0};

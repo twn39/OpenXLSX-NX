@@ -408,13 +408,16 @@ void XLDocument::close()
     m_filePath.clear();
     m_xmlSavingDeclaration = XLXmlSavingDeclaration("1.0", "UTF-8", false);
 
-    // Clean up temporary streaming files
+    // Clean up temporary streaming files / memory payloads
     for (auto& item : m_data) {
-        if (item.m_isStreamed && !item.m_streamFilePath.empty()) {
-            std::error_code ec;
-            if (std::filesystem::exists(item.m_streamFilePath, ec)) { std::filesystem::remove(item.m_streamFilePath, ec); }
+        if (item.m_isStreamed) {
+            if (!item.m_streamFilePath.empty()) {
+                std::error_code ec;
+                if (std::filesystem::exists(item.m_streamFilePath, ec)) { std::filesystem::remove(item.m_streamFilePath, ec); }
+            }
             item.m_isStreamed = false;
             item.m_streamFilePath.clear();
+            item.m_streamMemory.clear();
         }
     }
 
@@ -571,7 +574,14 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
             (item.getXmlPath() == "docProps/custom.xml"))
             xmlIsStandalone = XLXmlStandalone;
 
-        if (item.m_isStreamed) { m_archive.addEntryFromFile(item.getXmlPath(), item.m_streamFilePath); }
+        if (item.m_isStreamed) {
+            if (!item.m_streamFilePath.empty()) {
+                m_archive.addEntryFromFile(item.getXmlPath(), item.m_streamFilePath);
+            }
+            else {
+                m_archive.addEntry(item.getXmlPath(), item.m_streamMemory);
+            }
+        }
         else {
             auto allocData = item.getRawAllocatedData(
                 XLXmlSavingDeclaration(m_xmlSavingDeclaration.version(), m_xmlSavingDeclaration.encoding(), xmlIsStandalone));

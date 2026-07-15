@@ -151,6 +151,14 @@ namespace OpenXLSX
         void open(std::string_view fileName);
 
         /**
+         * @brief Cap uncompressed size for archive.getEntry() loads (0 = unlimited).
+         * @details Zip-bomb / OOM guard applied when bulk-loading XML parts into memory.
+         *          Call after open() or create(); default is unlimited for compatibility.
+         */
+        void setMaxEntryUncompressedSize(size_t maxBytes) { m_archive.setMaxEntryUncompressedSize(maxBytes); }
+        [[nodiscard]] size_t maxEntryUncompressedSize() const { return m_archive.maxEntryUncompressedSize(); }
+
+        /**
          * @brief Open an existing encrypted .xlsx package.
          * @param fileName Path to the file to open.
          * @param password The user password for decryption.

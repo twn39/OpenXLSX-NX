@@ -131,6 +131,69 @@ auto stream = wks.streamWriter();
 
 // Optional SST with unique-string cap (fallback to inlineStr when exceeded)
 auto streamSst = wks.streamWriter(/*useSharedStrings=*/true, /*maxUniqueStrings=*/100000);
+
+// Recommended: also set a hard SST byte budget (default 64 MiB) so unique long
+// strings cannot grow memory unboundedly (excelize StreamWriter OOM class of bugs).
+XLStreamWriteOptions opts;
+opts.useSharedStrings = true;
+opts.maxUniqueStrings = 100000;
+opts.maxSstBytes      = 64 * 1024 * 1024; // 0 = unlimited
+auto streamBudget     = wks.streamWriter(opts);
+```
+
+## Freeze panes (structured)
+
+```cpp
+auto stream = wks.streamWriter();
+stream.freezePanes("B2");              // freeze row 1 + column A
+// or:
+XLStreamPanesOptions panes;
+panes.freezeCols = 1;
+panes.freezeRows = 1;
+stream.setPanes(panes);
+stream.appendRow({XLCellValue("H1"), XLCellValue("H2")});
+```
+
+## Date / time cells
+
+```cpp
+stream.appendRow({
+    XLStreamCell::withDateTime(XLDateTime::fromString("2024-06-15 12:30:00"))
+});
+// Applies a cached default number format (yyyy-mm-dd hh:mm:ss) unless a style is passed.
+```
+
+## Hyperlinks, AutoFilter, shared/array formulas (P2)
+
+```cpp
+stream.appendRow({XLCellValue("Name"), XLCellValue("Go")});
+stream.addHyperlink("B1", "https://example.com", "tooltip");
+stream.addInternalHyperlink("A2", "Sheet1!A1");
+stream.setAutoFilter("A1:B10");
+
+stream.appendRow({
+    XLStreamCell::withArrayFormula("SUM(A1:A2)", "A3"),
+    XLStreamCell::withSharedFormula(/*si=*/0, "B1+1", "B1:B2"),
+});
+stream.appendRow({
+    XLCellValue(1),
+    XLStreamCell::withSharedFormula(0), // dependent shared cell
+});
+```
+
+## Close path (memory)
+
+On `close()` / destruction the writer:
+
+1. Writes the sheet footer (`</sheetData>`, merges, page breaks, table parts).
+2. **Patches `<dimension>` in-place** using a fixed-width placeholder (`A1:XFD1048576` slot) — **no full-file reload** of the worksheet XML.
+3. **Package-only materializes** to a temp file or memory buffer used by `doc.save()`; streamed sheets skip DOM `updateDimension()`.
+
+```cpp
+XLStreamWriteOptions opts;
+opts.memorySpillThreshold = 0; // always spill rows to temp file
+opts.dimensionMode        = XLStreamDimensionMode::FixedSlot; // default
+// opts.dimensionMode = XLStreamDimensionMode::OmitPatch; // leave max-range placeholder
 ```
 
 ## Supported Types

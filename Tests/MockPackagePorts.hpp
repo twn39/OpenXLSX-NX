@@ -73,11 +73,15 @@ namespace OpenXLSX::test
         void setCompressionLevel(int level) { m_level = level; }
         int  compressionLevel() const { return m_level; }
 
+        void   setMaxEntryUncompressedSize(size_t maxBytes) { m_maxEntry = maxBytes; }
+        size_t maxEntryUncompressedSize() const { return m_maxEntry; }
+
         std::map<std::string, std::string>& entries() { return *m_entries; }
 
     private:
         bool                                              m_open{true};
         int                                               m_level{1};
+        size_t                                            m_maxEntry{0};
         std::shared_ptr<std::map<std::string, std::string>> m_entries;
     };
 
