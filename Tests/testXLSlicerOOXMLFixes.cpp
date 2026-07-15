@@ -359,7 +359,7 @@ TEST_CASE("SlicerFix2_WorkbookExtLstOrder_PivotThenTable", "[SlicerOOXMLFixes]")
         auto wks1 = doc.workbook().worksheet("Sheet1");
         fillStandardData(wks1);
         auto pt = wks1.addPivotTable(
-            XLPivotTableOptions("PT_First", "A1:D9", "F2")
+            XLPivotTableOptions("PT_First", "Sheet1!A1:D9", "F2")
                 .addRowField("Region")
                 .addDataField("Sales", "Total")
         );
@@ -421,7 +421,7 @@ TEST_CASE("SlicerFix3_PivotCacheBooleanValues", "[SlicerOOXMLFixes]")
         fillStandardData(wks);
 
         auto pt = wks.addPivotTable(
-            XLPivotTableOptions("PT_Bool", "A1:D9", "F2")
+            XLPivotTableOptions("PT_Bool", "Sheet1!A1:D9", "F2")
                 .addRowField("Region")
                 .addDataField("Sales", "Total")
         );
@@ -506,7 +506,7 @@ TEST_CASE("SlicerFix3_PivotCacheBooleanValues_MultipleSlicers", "[SlicerOOXMLFix
         fillStandardData(wks);
 
         auto pt = wks.addPivotTable(
-            XLPivotTableOptions("PT_MultiBool", "A1:D9", "F2")
+            XLPivotTableOptions("PT_MultiBool", "Sheet1!A1:D9", "F2")
                 .addRowField("Region")
                 .addDataField("Sales", "Total")
         );

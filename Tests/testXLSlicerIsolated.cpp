@@ -211,7 +211,7 @@ TEST_CASE("SlicerIso06_Pivot", "[SlicerIsolated]")
     fillData(wks);
 
     auto pt = wks.addPivotTable(
-        XLPivotTableOptions("PT_Sales", "A1:D9", "F1")
+        XLPivotTableOptions("PT_Sales", "Sheet1!A1:D9", "F1")
             .addRowField("Region")
             .addDataField("Sales", "总销售额")
     );
