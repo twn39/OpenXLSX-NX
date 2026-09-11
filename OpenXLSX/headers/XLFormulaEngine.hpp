@@ -27,10 +27,11 @@
 #include "XLCellValue.hpp"
 #include "XLEvaluationContext.hpp"
 
-// Forward declare XLWorksheet so callers can use makeResolver without pulling the full header.
+// Forward declare XLWorksheet and IXLCellProvider so callers can use makeResolver without pulling the full header.
 namespace OpenXLSX
 {
     class XLWorksheet;
+    class IXLCellProvider;
 }
 
 namespace OpenXLSX
@@ -203,6 +204,8 @@ namespace OpenXLSX
             std::size_t                      pos{0};
             XLFormulaDiagnosticReporter*     reporter{nullptr};
             bool                             panicMode{false};
+            std::size_t                      depth{0};
+            static constexpr std::size_t     kMaxDepth{256};
 
             [[nodiscard]] const XLToken& current() const;
             [[nodiscard]] const XLToken& peek(std::size_t offset = 1) const;
@@ -210,6 +213,27 @@ namespace OpenXLSX
             bool                         matchKind(XLTokenKind k);
 
             void reportError(std::string message, std::size_t offset);
+        };
+
+        struct ParseDepthGuard
+        {
+            ParseContext& ctx;
+            bool          ok{true};
+            explicit ParseDepthGuard(ParseContext& c) : ctx(c)
+            {
+                ++ctx.depth;
+                if (ctx.depth > ParseContext::kMaxDepth) {
+                    ok = false;
+                    ctx.reportError("Formula exceeds maximum nesting depth (" +
+                                    std::to_string(ParseContext::kMaxDepth) + ")",
+                                    ctx.current().offset);
+                }
+            }
+            ~ParseDepthGuard()
+            {
+                if (ctx.depth > 0) --ctx.depth;
+            }
+            [[nodiscard]] bool isValid() const noexcept { return ok; }
         };
 
         static std::unique_ptr<XLASTNode> parseExpr(ParseContext& ctx, int minPrec = 0);
@@ -338,6 +362,44 @@ namespace OpenXLSX
 
         [[nodiscard]] int callDepth() const noexcept { return m_callDepth; }
 
+        static constexpr int kMaxNodeEvalDepth = 256;
+
+        /**
+         * @brief Enter AST node evaluation recursion.
+         * @return false if the maximum node evaluation depth is exceeded.
+         */
+        bool enterNodeEval()
+        {
+            if (m_nodeEvalDepth >= kMaxNodeEvalDepth) return false;
+            ++m_nodeEvalDepth;
+            return true;
+        }
+
+        void leaveNodeEval() noexcept
+        {
+            if (m_nodeEvalDepth > 0) --m_nodeEvalDepth;
+        }
+
+        [[nodiscard]] int nodeEvalDepth() const noexcept { return m_nodeEvalDepth; }
+
+        /**
+         * @brief Check and track cell references to detect circular dependency during evaluation.
+         * @return false if the cell is already being evaluated (circular reference).
+         */
+        bool pushEvaluatingCell(std::string_view ref)
+        {
+            for (const auto& existing : m_evaluatingCells) {
+                if (existing == ref) return false;
+            }
+            m_evaluatingCells.emplace_back(ref);
+            return true;
+        }
+
+        void popEvaluatingCell() noexcept
+        {
+            if (!m_evaluatingCells.empty()) m_evaluatingCells.pop_back();
+        }
+
         /**
          * @brief Expand an A1-style cell/range text into a LazyRange (or scalar error).
          * @note Requires a live resolver; used by INDIRECT/OFFSET and the engine.
@@ -345,13 +407,15 @@ namespace OpenXLSX
         [[nodiscard]] XLFormulaArg expandRange(std::string_view rangeRef) const;
 
     private:
-        const XLCellResolver* m_resolver{nullptr};
-        XLNameResolver        m_nameResolver;
-        uint32_t              m_currentRow{0};
-        uint16_t              m_currentCol{0};
-        bool                  m_hasCurrentCell{false};
-        std::string           m_currentSheet;
-        int                   m_callDepth{0};
+        const XLCellResolver*    m_resolver{nullptr};
+        XLNameResolver           m_nameResolver;
+        uint32_t                 m_currentRow{0};
+        uint16_t                 m_currentCol{0};
+        bool                     m_hasCurrentCell{false};
+        std::string              m_currentSheet;
+        int                      m_callDepth{0};
+        int                      m_nodeEvalDepth{0};
+        std::vector<std::string> m_evaluatingCells;
     };
 
     /**
@@ -367,6 +431,48 @@ namespace OpenXLSX
         }
         XLEvalCallGuard(const XLEvalCallGuard&)            = delete;
         XLEvalCallGuard& operator=(const XLEvalCallGuard&) = delete;
+        [[nodiscard]] bool ok() const noexcept { return m_ok; }
+
+    private:
+        XLEvalSession* m_session{nullptr};
+        bool           m_ok{false};
+    };
+
+    /**
+     * @brief RAII guard that pairs XLEvalSession::enterNodeEval / leaveNodeEval.
+     */
+    class OPENXLSX_EXPORT XLEvalNodeGuard
+    {
+    public:
+        explicit XLEvalNodeGuard(XLEvalSession& session) : m_session(&session), m_ok(session.enterNodeEval()) {}
+        ~XLEvalNodeGuard()
+        {
+            if (m_ok && m_session) m_session->leaveNodeEval();
+        }
+        XLEvalNodeGuard(const XLEvalNodeGuard&)            = delete;
+        XLEvalNodeGuard& operator=(const XLEvalNodeGuard&) = delete;
+        [[nodiscard]] bool ok() const noexcept { return m_ok; }
+
+    private:
+        XLEvalSession* m_session{nullptr};
+        bool           m_ok{false};
+    };
+
+    /**
+     * @brief RAII guard that tracks evaluating cell references for circular reference detection.
+     */
+    class OPENXLSX_EXPORT XLEvalCellGuard
+    {
+    public:
+        XLEvalCellGuard(XLEvalSession& session, std::string_view ref)
+            : m_session(&session), m_ok(session.pushEvaluatingCell(ref))
+        {}
+        ~XLEvalCellGuard()
+        {
+            if (m_ok && m_session) m_session->popEvaluatingCell();
+        }
+        XLEvalCellGuard(const XLEvalCellGuard&)            = delete;
+        XLEvalCellGuard& operator=(const XLEvalCellGuard&) = delete;
         [[nodiscard]] bool ok() const noexcept { return m_ok; }
 
     private:
@@ -723,6 +829,14 @@ namespace OpenXLSX
          * @note Prefer `XLWorksheetEvaluationContext` + `evaluate(formula, context)` for new code.
          */
         [[nodiscard]] static XLCellResolver makeResolver(const XLWorksheet& wks);
+
+        /**
+         * @brief Create a CellResolver that reads live values from an IXLCellProvider interface.
+         * @param provider The cell data provider (can be an XLWorksheet or mock provider).
+         * @return A resolver callable capturing a reference to @p provider.
+         * @note The returned resolver is only valid while @p provider is alive.
+         */
+        [[nodiscard]] static XLCellResolver makeResolver(const IXLCellProvider& provider);
 
         /**
          * @brief Expand an A1 cell/range reference using the given resolver.

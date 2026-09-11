@@ -244,13 +244,13 @@ XLQuery XLDocument::execQuery(const XLQuery& query) const
         case XLQueryType::QuerySheetName:
             return XLQuery(query).setResult(m_workbook.sheetName(query.getParam<std::string>("sheetID")));
 
-        case XLQueryType::QuerySheetIndex: {    // 2025-01-13: implemented query - previously no index was determined at all
+        case XLQueryType::QuerySheetIndex: {
             std::string queriedSheetName = m_workbook.sheetName(query.getParam<std::string>("sheetID"));
-            for (uint16_t sheetIndex = 1; sheetIndex <= workbook().sheetCount(); ++sheetIndex) {
-                if (workbook().sheet(sheetIndex).name() == queriedSheetName) return XLQuery(query).setResult(std::to_string(sheetIndex));
+            try {
+                auto sheetIndex = m_workbook.indexOfSheet(queriedSheetName);
+                return XLQuery(query).setResult(std::to_string(sheetIndex));
             }
-
-            {    // if loop failed to locate queriedSheetName:
+            catch (const std::exception&) {
                 using namespace std::literals::string_literals;
                 throw XLInternalError("Could not determine a sheet index for sheet named \"" + queriedSheetName + "\"");
             }

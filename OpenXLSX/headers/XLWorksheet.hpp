@@ -4,6 +4,7 @@
 #ifndef OPENXLSX_XLWORKSHEET_HPP
 #    define OPENXLSX_XLWORKSHEET_HPP
 
+#    include "IXLCellProvider.hpp"
 #    include "OpenXLSX-Exports.hpp"
 #    include "XLConstants.hpp"
 #    include "XLSheetBase.hpp"
@@ -117,7 +118,7 @@ namespace OpenXLSX
     /**
      * @brief A class encapsulating an Excel worksheet. Access to XLWorksheet objects should be via the workbook object.
      */
-    class OPENXLSX_EXPORT XLWorksheet final : public XLSheetBase<XLWorksheet>
+    class OPENXLSX_EXPORT XLWorksheet final : public XLSheetBase<XLWorksheet>, public IXLCellProvider
     {
         friend class XLCell;
         friend class XLRow;
@@ -135,6 +136,13 @@ namespace OpenXLSX
         XLWorksheet(XLWorksheet&& other) noexcept;
         XLWorksheet& operator=(const XLWorksheet& other);
         XLWorksheet& operator=(XLWorksheet&& other);
+
+        // ===== IXLCellProvider Implementation ===== //
+        [[nodiscard]] XLCellValue getCellValue(uint32_t row, uint16_t col) const override;
+        [[nodiscard]] std::string getCellFormula(uint32_t row, uint16_t col) const override;
+        [[nodiscard]] bool hasCell(uint32_t row, uint16_t col) const override;
+        [[nodiscard]] std::string sheetName() const override;
+        void fetchRangeValues(const XLCellRange& range, std::vector<XLCellValue>& out) const override;
 
         XLCellAssignable cell(const std::string& ref) const;
         XLCellAssignable cell(const XLCellReference& ref) const;

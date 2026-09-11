@@ -604,6 +604,38 @@ std::optional<XLCell> XLWorksheet::peekCell(uint32_t rowNumber, uint16_t columnN
     return XLCell(cellNode, sharedStrings(), const_cast<XLWorksheet*>(this));
 }
 
+bool XLWorksheet::hasCell(uint32_t row, uint16_t col) const
+{
+    XMLNode cellNode = findCellNode(findRowNode(xmlDocument().document_element().child("sheetData"), row), col);
+    return !cellNode.empty();
+}
+
+XLCellValue XLWorksheet::getCellValue(uint32_t row, uint16_t col) const
+{
+    auto c = peekCell(row, col);
+    if (!c.has_value()) return XLCellValue();
+    return c->value();
+}
+
+std::string XLWorksheet::getCellFormula(uint32_t row, uint16_t col) const
+{
+    auto c = peekCell(row, col);
+    if (!c.has_value() || !c->hasFormula()) return "";
+    return c->formula().get();
+}
+
+std::string XLWorksheet::sheetName() const
+{
+    return name();
+}
+
+void XLWorksheet::fetchRangeValues(const XLCellRange& range, std::vector<XLCellValue>& out) const
+{
+    for (const auto& c : range) {
+        out.emplace_back(c.value());
+    }
+}
+
 void XLWorksheet::addSparkline(const std::string& location, const std::string& dataRange, XLSparklineType type)
 {
     XLSparklineOptions options;

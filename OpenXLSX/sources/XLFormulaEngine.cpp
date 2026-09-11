@@ -18,6 +18,7 @@
 #include "XLFormulaEngine.hpp"
 #include "XLFormulaRegistry.hpp"
 #include "XLEvaluationContext.hpp"
+#include "IXLCellProvider.hpp"
 #include "XLWorksheet.hpp"
 
 using namespace OpenXLSX;
@@ -183,6 +184,13 @@ XLFormulaArg XLFormulaEngine::evalRefFunction(const XLASTNode& node, XLEvalSessi
 
 XLFormulaArg XLFormulaEngine::expandArg(const XLASTNode& argNode, XLEvalSession& session) const
 {
+    XLEvalNodeGuard nodeGuard(session);
+    if (!nodeGuard.ok()) {
+        XLCellValue e;
+        e.setError("#DEPTH!");
+        return XLFormulaArg(std::move(e));
+    }
+
     if (argNode.kind == XLNodeKind::ArrayLit) {
         // Children are row-major constants; number = rows, text = cols as decimal string.
         const size_t rows = static_cast<size_t>(argNode.number > 0 ? argNode.number : 0);
@@ -212,6 +220,12 @@ XLFormulaArg XLFormulaEngine::expandArg(const XLASTNode& argNode, XLEvalSession&
     // Functions like ROW() and COLUMN() need the address, not just the resolved value.
     if (argNode.kind == XLNodeKind::CellRef) {
         if (!session.hasResolver()) return XLFormulaArg();
+        XLEvalCellGuard cellGuard(session, argNode.text);
+        if (!cellGuard.ok()) {
+            XLCellValue e;
+            e.setError("#CIRC!");
+            return XLFormulaArg(std::move(e));
+        }
         // Named ranges masquerading as Ident/CellRef: try A1 expand first, then name resolver.
         auto expanded = session.expandRange(argNode.text);
         if (expanded.type() == XLFormulaArg::Type::LazyRange) return expanded;
@@ -418,6 +432,13 @@ XLFormulaArg XLFormulaEngine::expandArg(const XLASTNode& argNode, XLEvalSession&
 
 XLCellValue XLFormulaEngine::evalNode(const XLASTNode& node, XLEvalSession& session) const
 {
+    XLEvalNodeGuard nodeGuard(session);
+    if (!nodeGuard.ok()) {
+        XLCellValue e;
+        e.setError("#DEPTH!");
+        return e;
+    }
+
     switch (node.kind) {
         case XLNodeKind::Number:
             return XLCellValue(node.number);
@@ -432,6 +453,12 @@ XLCellValue XLFormulaEngine::evalNode(const XLASTNode& node, XLEvalSession& sess
         }
 
         case XLNodeKind::CellRef: {
+            XLEvalCellGuard cellGuard(session, node.text);
+            if (!cellGuard.ok()) {
+                XLCellValue e;
+                e.setError("#CIRC!");
+                return e;
+            }
             // Prefer defined names when the token is not a plain A1 address that the
             // resolver can answer; still try cell lookup first for normal refs.
             auto val = session.cellValue(node.text);
@@ -539,6 +566,12 @@ XLCellValue XLFormulaEngine::evaluate(std::string_view formula, const XLCellReso
 
 XLCellValue XLFormulaEngine::evaluate(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter) const
 {
+    XLEvalCallGuard guard(session);
+    if (!guard.ok()) {
+        XLCellValue e;
+        e.setError("#CIRC!");
+        return e;
+    }
     return evaluateArray(formula, session, reporter).asScalar();
 }
 
@@ -620,6 +653,13 @@ std::shared_ptr<XLASTNode> XLFormulaEngine::getOrParseAst(std::string_view formu
 
 XLFormulaArg XLFormulaEngine::evaluateArray(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter) const
 {
+    XLEvalCallGuard guard(session);
+    if (!guard.ok()) {
+        XLCellValue e;
+        e.setError("#CIRC!");
+        return XLFormulaArg(std::move(e));
+    }
+
     if (formula.empty()) return XLFormulaArg();
     try {
         auto ast = getOrParseAst(formula, reporter);
@@ -742,6 +782,34 @@ XLCellResolver XLFormulaEngine::makeResolver(const XLWorksheet& wks)
     // resolution stays in XLWorksheetEvaluationContext (not duplicated here).
     return [&wks](std::string_view ref) -> XLCellValue {
         return XLWorksheetEvaluationContext(wks).cellValue(ref);
+    };
+}
+
+XLCellResolver XLFormulaEngine::makeResolver(const IXLCellProvider& provider)
+{
+    return [&provider](std::string_view ref) -> XLCellValue {
+        std::string_view localRef = ref;
+        auto bangPos = ref.find('!');
+        if (bangPos != std::string_view::npos) {
+            std::string_view sheetPart = ref.substr(0, bangPos);
+            if (!sheetPart.empty() && (sheetPart.front() == '\'' || sheetPart.front() == '"')) {
+                sheetPart.remove_prefix(1);
+                if (!sheetPart.empty() && (sheetPart.back() == '\'' || sheetPart.back() == '"'))
+                    sheetPart.remove_suffix(1);
+            }
+            if (sheetPart != provider.sheetName()) {
+                return XLCellValue();
+            }
+            localRef = ref.substr(bangPos + 1);
+        }
+        try {
+            XLCellReference cellRef(localRef);
+            if (cellRef.row() == 0 || cellRef.column() == 0) return XLCellValue();
+            return provider.getCellValue(cellRef.row(), cellRef.column());
+        }
+        catch (...) {
+            return XLCellValue();
+        }
     };
 }
 

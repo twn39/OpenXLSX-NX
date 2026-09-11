@@ -307,48 +307,21 @@ namespace OpenXLSX
             }
             return result;
         }
-    }    // namespace
+        void addSqrefRangeInternal(XLDataValidation* dv, uint32_t minRow, uint32_t maxRow, uint16_t minCol, uint16_t maxCol)
+        {
+            std::string currentSqref = dv->sqref();
+            auto        ranges       = parseSqrefToRanges(currentSqref);
+            ranges.push_back({minRow, maxRow, minCol, maxCol});
+            collapseRanges(ranges);
 
-    void XLDataValidation::addCell(const XLCellReference& ref) { addRange(ref, ref); }
-
-    void XLDataValidation::addCell(const std::string& ref) { addCell(XLCellReference(ref)); }
-
-    void XLDataValidation::addRange(const XLCellReference& topLeft, const XLCellReference& bottomRight)
-    {
-        std::string currentSqref = sqref();
-        auto        ranges       = parseSqrefToRanges(currentSqref);
-
-        uint32_t minRow = std::min(topLeft.row(), bottomRight.row());
-        uint32_t maxRow = std::max(topLeft.row(), bottomRight.row());
-        uint16_t minCol = std::min(topLeft.column(), bottomRight.column());
-        uint16_t maxCol = std::max(topLeft.column(), bottomRight.column());
-
-        ranges.push_back({minRow, maxRow, minCol, maxCol});
-        collapseRanges(ranges);
-
-        std::string newSqref;
-        for (size_t i = 0; i < ranges.size(); ++i) {
-            if (i > 0) newSqref += " ";
-            newSqref += ranges[i].toString();
+            std::string newSqref;
+            for (size_t i = 0; i < ranges.size(); ++i) {
+                if (i > 0) newSqref += " ";
+                newSqref += ranges[i].toString();
+            }
+            dv->setSqref(newSqref);
         }
-        setSqref(newSqref);
-    }
 
-    void XLDataValidation::addRange(const std::string& range)
-    {
-        auto colonPos = range.find(':');
-        if (colonPos != std::string::npos) {
-            XLCellReference topLeft(range.substr(0, colonPos));
-            XLCellReference bottomRight(range.substr(colonPos + 1));
-            addRange(topLeft, bottomRight);
-        }
-        else {
-            addCell(range);
-        }
-    }
-
-    namespace
-    {
         void subtractRange(std::vector<XLDataValidationRange>& ranges, const XLDataValidationRange& toRemove)
         {
             std::vector<XLDataValidationRange> newRanges;
@@ -383,31 +356,75 @@ namespace OpenXLSX
             }
             ranges = newRanges;
         }
+
+        void removeSqrefRangeInternal(XLDataValidation* dv, uint32_t minRow, uint32_t maxRow, uint16_t minCol, uint16_t maxCol)
+        {
+            std::string currentSqref = dv->sqref();
+            auto        ranges       = parseSqrefToRanges(currentSqref);
+            subtractRange(ranges, {minRow, maxRow, minCol, maxCol});
+            collapseRanges(ranges);    // clean up adjacent splits if possible
+
+            std::string newSqref;
+            for (size_t i = 0; i < ranges.size(); ++i) {
+                if (i > 0) newSqref += " ";
+                newSqref += ranges[i].toString();
+            }
+            dv->setSqref(newSqref);
+        }
     }    // namespace
 
-    void XLDataValidation::removeCell(const XLCellReference& ref) { removeRange(ref, ref); }
-
-    void XLDataValidation::removeCell(const std::string& ref) { removeCell(XLCellReference(ref)); }
-
-    void XLDataValidation::removeRange(const XLCellReference& topLeft, const XLCellReference& bottomRight)
+    void XLDataValidation::addCell(const XLCellReference& ref)
     {
-        std::string currentSqref = sqref();
-        auto        ranges       = parseSqrefToRanges(currentSqref);
+        addSqrefRangeInternal(this, ref.row(), ref.row(), ref.column(), ref.column());
+    }
 
+    void XLDataValidation::addCell(const std::string& ref)
+    {
+        XLCellReference cellRef(ref);
+        addSqrefRangeInternal(this, cellRef.row(), cellRef.row(), cellRef.column(), cellRef.column());
+    }
+
+    void XLDataValidation::addRange(const XLCellReference& topLeft, const XLCellReference& bottomRight)
+    {
         uint32_t minRow = std::min(topLeft.row(), bottomRight.row());
         uint32_t maxRow = std::max(topLeft.row(), bottomRight.row());
         uint16_t minCol = std::min(topLeft.column(), bottomRight.column());
         uint16_t maxCol = std::max(topLeft.column(), bottomRight.column());
+        addSqrefRangeInternal(this, minRow, maxRow, minCol, maxCol);
+    }
 
-        subtractRange(ranges, {minRow, maxRow, minCol, maxCol});
-        collapseRanges(ranges);    // clean up adjacent splits if possible
-
-        std::string newSqref;
-        for (size_t i = 0; i < ranges.size(); ++i) {
-            if (i > 0) newSqref += " ";
-            newSqref += ranges[i].toString();
+    void XLDataValidation::addRange(const std::string& range)
+    {
+        auto colonPos = range.find(':');
+        if (colonPos != std::string::npos) {
+            XLCellReference topLeft(range.substr(0, colonPos));
+            XLCellReference bottomRight(range.substr(colonPos + 1));
+            addRange(topLeft, bottomRight);
         }
-        setSqref(newSqref);
+        else {
+            XLCellReference cellRef(range);
+            addSqrefRangeInternal(this, cellRef.row(), cellRef.row(), cellRef.column(), cellRef.column());
+        }
+    }
+
+    void XLDataValidation::removeCell(const XLCellReference& ref)
+    {
+        removeSqrefRangeInternal(this, ref.row(), ref.row(), ref.column(), ref.column());
+    }
+
+    void XLDataValidation::removeCell(const std::string& ref)
+    {
+        XLCellReference cellRef(ref);
+        removeSqrefRangeInternal(this, cellRef.row(), cellRef.row(), cellRef.column(), cellRef.column());
+    }
+
+    void XLDataValidation::removeRange(const XLCellReference& topLeft, const XLCellReference& bottomRight)
+    {
+        uint32_t minRow = std::min(topLeft.row(), bottomRight.row());
+        uint32_t maxRow = std::max(topLeft.row(), bottomRight.row());
+        uint16_t minCol = std::min(topLeft.column(), bottomRight.column());
+        uint16_t maxCol = std::max(topLeft.column(), bottomRight.column());
+        removeSqrefRangeInternal(this, minRow, maxRow, minCol, maxCol);
     }
 
     void XLDataValidation::removeRange(const std::string& range)
@@ -419,7 +436,8 @@ namespace OpenXLSX
             removeRange(topLeft, bottomRight);
         }
         else {
-            removeCell(range);
+            XLCellReference cellRef(range);
+            removeSqrefRangeInternal(this, cellRef.row(), cellRef.row(), cellRef.column(), cellRef.column());
         }
     }
 

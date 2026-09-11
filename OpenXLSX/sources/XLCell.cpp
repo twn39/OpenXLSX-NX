@@ -9,6 +9,7 @@
 #include "XLUtilities.hpp"
 #include "XLWorksheet.hpp"
 #include "XLThreadedComments.hpp"
+#include "XLXmlSchema.hpp"
 
 using namespace OpenXLSX;
 
@@ -101,13 +102,13 @@ void XLCell::copyFrom(XLCell const& other)
         XMLAttribute currentAttr = m_cellNode.first_attribute();
         while (not currentAttr.empty()) {
             XMLAttribute nextAttr = currentAttr.next_attribute();    // get a handle on next attribute before potentially removing attr
-            if (std::string_view(currentAttr.name()) != "r")
+            if (std::string_view(currentAttr.name()) != XmlAttr::Ref)
                 m_cellNode.remove_attribute(currentAttr);    // remove all but the cell reference
             currentAttr = nextAttr;                           // advance to previously stored next attribute
         }
         // ===== Copy all XML attributes that are not the cell reference ("r")
         for (auto attr = other.m_cellNode.first_attribute(); not attr.empty(); attr = attr.next_attribute())
-            if (std::string_view(attr.name()) != "r") m_cellNode.append_copy(attr);
+            if (std::string_view(attr.name()) != XmlAttr::Ref) m_cellNode.append_copy(attr);
     }
 }
 
@@ -118,7 +119,7 @@ XLCell::operator bool() const { return !empty(); }
 XLCellReference XLCell::cellReference() const
 {
     if (m_cellNode.empty()) throw XLException("XLCell object has not been initialized.");
-    return XLCellReference{m_cellNode.attribute("r").value()};
+    return XLCellReference{m_cellNode.attribute(XmlAttr::Ref).value()};
 }
 
 XLCell XLCell::offset(uint16_t rowOffset, uint16_t colOffset) const
@@ -133,7 +134,7 @@ XLCell XLCell::offset(uint16_t rowOffset, uint16_t colOffset) const
 bool XLCell::hasFormula() const
 {
     if (m_cellNode.empty()) return false;
-    return (not m_cellNode.child("f").empty());    // evaluate child XMLNode as boolean
+    return (not m_cellNode.child(XmlTag::Formula).empty());    // evaluate child XMLNode as boolean
 }
 
 XLFormulaProxy& XLCell::formula()
@@ -145,7 +146,7 @@ XLFormulaProxy& XLCell::formula()
 size_t XLCell::cellFormat() const
 {
     if (m_cellNode.empty()) throw XLException("XLCell object has not been initialized.");
-    return m_cellNode.attribute("s").as_uint(0);
+    return m_cellNode.attribute(XmlAttr::Style).as_uint(0);
 }
 
 /**
@@ -155,8 +156,8 @@ size_t XLCell::cellFormat() const
 XLCell& XLCell::setCellFormat(size_t cellFormatIndex)
 {
     if (m_cellNode.empty()) throw XLException("XLCell object has not been initialized.");
-    XMLAttribute attr = m_cellNode.attribute("s");
-    if (attr.empty() and not m_cellNode.empty()) attr = m_cellNode.append_attribute("s");
+    XMLAttribute attr = m_cellNode.attribute(XmlAttr::Style);
+    if (attr.empty() and not m_cellNode.empty()) attr = m_cellNode.append_attribute(XmlAttr::Style);
     attr.set_value(cellFormatIndex);    // silently fails on empty attribute, which is intended here
     return *this;
 }

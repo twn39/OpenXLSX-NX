@@ -449,10 +449,10 @@ void XLWorkbook::setSheetIndex(std::string_view sheetName, unsigned int index)
 unsigned int XLWorkbook::indexOfSheet(std::string_view sheetName) const
 {
     unsigned int index = 1;
-    for (XMLNode sheet = sheetsNode(xmlDocument()).first_child_of_type(pugi::node_element); not sheet.empty();
-         sheet         = sheet.next_sibling_of_type(pugi::node_element))
+    for (XMLNode sheetNode = sheetsNode(xmlDocument()).first_child_of_type(pugi::node_element); not sheetNode.empty();
+         sheetNode         = sheetNode.next_sibling_of_type(pugi::node_element))
     {
-        if (sheetName == sheet.attribute("name").value()) return index;
+        if (sheetName == sheetNode.attribute("name").value()) return index;
         index++;
     }
 

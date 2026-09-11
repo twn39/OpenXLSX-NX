@@ -56,9 +56,9 @@ namespace OpenXLSX
          * @return
          */
         template<typename T>
-        XLCommand& setParam(const std::string& param, T value)
+        XLCommand& setParam(std::string_view param, T value)
         {
-            m_params[param] = value;
+            m_params[std::string(param)] = std::move(value);
             return *this;
         }
 
@@ -69,8 +69,8 @@ namespace OpenXLSX
          * @return
          */
         template<typename T>
-        T getParam(const std::string& param) const
-        { return std::any_cast<T>(m_params.at(param)); }
+        T getParam(std::string_view param) const
+        { return std::any_cast<T>(m_params.at(std::string(param))); }
 
         /**
          * @brief
@@ -119,9 +119,9 @@ namespace OpenXLSX
          * @return
          */
         template<typename T>
-        XLQuery& setParam(const std::string& param, T value)
+        XLQuery& setParam(std::string_view param, T value)
         {
-            m_params[param] = value;
+            m_params[std::string(param)] = std::move(value);
             return *this;
         }
 
@@ -132,8 +132,8 @@ namespace OpenXLSX
          * @return
          */
         template<typename T>
-        T getParam(const std::string& param) const
-        { return std::any_cast<T>(m_params.at(param)); }
+        T getParam(std::string_view param) const
+        { return std::any_cast<T>(m_params.at(std::string(param))); }
 
         /**
          * @brief

@@ -368,7 +368,19 @@ std::unique_ptr<XLASTNode> XLFormulaParser::parse(gsl::span<const XLToken> token
 // Pratt-style expression parser
 std::unique_ptr<XLASTNode> XLFormulaParser::parseExpr(ParseContext& ctx, int minPrec)
 {
+    ParseDepthGuard depthGuard(ctx);
+    if (!depthGuard.isValid()) {
+        auto errNode = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
+        errNode->text = "#DEPTH!";
+        return errNode;
+    }
+
     auto lhs = parseUnary(ctx);
+    if (!lhs) {
+        auto errNode = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
+        errNode->text = "#ERROR!";
+        return errNode;
+    }
 
     while (true) {
         const XLToken& op   = ctx.current();
@@ -393,6 +405,13 @@ std::unique_ptr<XLASTNode> XLFormulaParser::parseExpr(ParseContext& ctx, int min
 
 std::unique_ptr<XLASTNode> XLFormulaParser::parseUnary(ParseContext& ctx)
 {
+    ParseDepthGuard depthGuard(ctx);
+    if (!depthGuard.isValid()) {
+        auto errNode = std::make_unique<XLASTNode>(XLNodeKind::ErrorLit);
+        errNode->text = "#DEPTH!";
+        return errNode;
+    }
+
     // Unary minus
     if (ctx.current().kind == XLTokenKind::Minus) {
         ctx.consume();
