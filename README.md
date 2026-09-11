@@ -443,10 +443,17 @@ OpenXLSX-NX is licensed under the **BSD 3-Clause License**. See [LICENSE.md](LIC
 - **Community Contributors**: All past and present contributors to the upstream OpenXLSX project.
 
 ### Third-Party Credits & Libraries
-- **[PugiXML](https://github.com/zeux/pugixml)** by Arseny Kapoulkine (@zeux) — Fast, lightweight XML manipulation and XPath engine.
-- **[libzip](https://libzip.org/)** and **[zlib-ng](https://github.com/zlib-ng/zlib-ng)** — ZIP archive reading, writing, and high-performance compression.
-- **[miniz](https://github.com/richgel999/miniz)** by Rich Geldreich (@richgel999) — Lightweight lossless compression.
-- **[fmt](https://github.com/fmtlib/fmt)** by Victor Zverovich — Modern formatting library.
-- **[fast_float](https://github.com/fastfloat/fast_float)** by Daniel Lemire — Ultra-fast number parsing.
-- **[Catch2](https://github.com/catchorg/Catch2)** — Modern test framework for C++.
+
+OpenXLSX-NX integrates and builds upon several exceptional open-source libraries:
+
+- **[PugiXML](https://github.com/zeux/pugixml)** by Arseny Kapoulkine (@zeux) — Ultra-fast, lightweight XML manipulation, DOM tree management, and XPath engine.
+- **[libzip](https://libzip.org/)** by Dieter Baron & Thomas Klausner and **[zlib-ng](https://github.com/zlib-ng/zlib-ng)** / **[zlib](https://zlib.net/)** — Robust `.xlsx` ZIP container packaging and next-generation SIMD-accelerated compression.
+- **[mbed TLS](https://github.com/Mbed-TLS/mbedtls)** (TrustedFirmware / ARM) — Enterprise-grade cryptography engine implementing MS-OFFCRYPTO / ECMA-376 spreadsheet encryption & decryption (Agile Encryption, AES-128/256-CBC, SHA-512, PBKDF2).
+- **[unordered_dense](https://github.com/martinus/unordered_dense)** by Martin Ankerl (@martinus) — High-performance, cache-friendly hash maps powering high-throughput style deduplication (`findOrCreateStyle`) and string indexing.
+- **[Microsoft GSL](https://github.com/microsoft/GSL)** (Guidelines Support Library) — Modern C++ Core Guidelines implementation (`gsl::span`, `gsl::not_null`) ensuring memory safety and zero-copy slicing across internal buffers.
+- **[fast_float](https://github.com/fastfloat/fast_float)** by Daniel Lemire — Exact, ultra-fast floating-point number parsing for numeric cell evaluations.
+- **[fmt](https://github.com/fmtlib/fmt)** by Victor Zverovich — Modern, type-safe C++ text formatting and string generation.
+- **[Catch2](https://github.com/catchorg/Catch2)** by Phil Nash & Catch2 contributors — Test framework and benchmarking engine powering OpenXLSX-NX's test suite and benchmarks.
+- **[miniz](https://github.com/richgel999/miniz)** by Rich Geldreich (@richgel999) — Lightweight lossless compression (historical upstream reference).
 - **[@tectu](https://github.com/Tectu)** — Upstream CMake build infrastructure and maintenance.
+
