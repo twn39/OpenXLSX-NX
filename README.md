@@ -366,7 +366,7 @@ doc.save();
 - **Zero-Allocation Style Deduplication**: Redesigned `XLStyles` with lightweight 64-bit struct hash keys (`XLStyleHash`), read-write locking (`std::shared_mutex`), and `ankerl::unordered_dense::map` Robin-Hood caching. Benchmark lookups dropped from ~171ms to **~3.7ms** (~13.5M ops/sec, a **43x speedup**).
 - **ECMA-376 Standard Number Format Registry**: Built-in zero-XML resolution for standard format IDs (0..49), preventing redundant `<numFmt>` custom elements from bloating `styles.xml`.
 - **Workbook-Wide Style Compaction (`compactStyles`)**: Introduced `XLDocument::compactStyles()` and `XLWorkbook::compactStyles()`. Scans all cell, row, and column styles, safely preserves ECMA-376 invariants (cellXfs[0], fills none/gray125), and purges orphaned styles to minimize file size.
-- **Dependency Upgrades**: Upgraded `Catch2` submodule to `v3.16.0` and `unordered_dense` to `v4.11.0` (with SSE2 SIMD 4-bucket vectorized probing and reduced branch misprediction).
+- **Dependency Upgrades**: Upgraded `Catch2` submodule to `v3.16.0`, `unordered_dense` to `v4.11.0`, and Microsoft `GSL` to `v5.0.0`.
 - **License & Attribution Restoration**: Restored original BSD 3-Clause copyright notices for Kenneth Troldal Balslev and OpenXLSX contributors, and restored community attributions.
 
 ### 2026-04-13: Configurable ZIP Packing Compression
