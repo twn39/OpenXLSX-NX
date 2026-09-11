@@ -71,16 +71,18 @@ int main() {
 | **Read Strings** | **220 ms** | ~3.62M cells/sec | Parsing and lookup via `ankerl::unordered_dense`. |
 | **Read Integers** | **176 ms** | ~4.54M cells/sec | Rapid DOM extraction and value parsing. |
 | **Random DOM Access** | **4.7 ms** | N/A | Backward column/row traversal via O(1) XML Hint Cache. |
-| **Style Deduplication** | **171 ms** | N/A | Generating, hashing, and deduping thousands of complex nested styles. |
-| **Formula Engine** | **16.3 ms** | N/A | `XLFormulaEngine` AST parsing and execution. |
+| **Style Deduplication** | **3.7 ms** | ~13.5M lookups/sec | High-throughput O(1) robin-hood hash cache and zero-allocation deduplication (`findOrCreateStyle`). |
+| **Formula Engine** | **16.3 ms** | ~613k evals/sec | `XLFormulaEngine` AST parsing, dependency resolution, and execution. |
 
 ### 🛠 Core Architectural Optimizations
 The unmatched throughput of OpenXLSX is achieved through continuous low-level C++17 optimizations:
 - **Zero-Allocation Stream Writer**: The `XLStreamWriter` module relies entirely on stack buffers and `<charconv>` (`std::to_chars`), cutting **millions of redundant `std::string` allocations** when appending rows.
 - **Zero-Copy XML Serialization**: Massive XML files (e.g., 80MB worksheets) bypass intermediate `std::ostringstream` buffers. They are streamed via `MallocXmlWriter` directly into a resizing heap block, which is then handed off (via `zip_source_buffer_create`) to `libzip` without any memory duplication (`memcpy`).
-- **O(1) Style Hash Cache**: Styling 1,000,000 cells identically results in exactly **1 XML node** inside `styles.xml`. The library intercepts all `.setStyle()` calls, serializes them in an isolated temporary DOM, generates a fingerprint, and performs an O(1) cache lookup to prevent XML bloat and file corruption.
+- **O(1) Style Hash Cache & Zero Heap Allocations**: Styling 1,000,000 cells identically results in exactly **1 XML node** inside `styles.xml`. The library uses a 64-bit struct-level hash (`XLStyleHash`) with a read-write locked `ankerl::unordered_dense::map` cache, achieving zero-allocation lookups in ~74ns.
+- **ECMA-376 Built-in Format Registry**: Standard number formats (General, 0.00, @, etc.) resolve directly to canonical IDs 0..49 without bloating `styles.xml` with duplicate `<numFmt>` tags.
 - **Lazy DOM Updates**: Eliminates O(N) operations during file saving (like `XLWorksheet::columnCount()`) by maintaining boundary limits via an O(1) dirty-flag state machine.
 - **Fast Startup**: Opening a `.xlsx` with thousands of embedded resources uses a pre-allocated hash set to cross-reference unhandled components, dropping load times from O(N²) down to O(1).
+
 
 ### 📊 Advanced Feature: Data Tables & AutoFilters
 
@@ -176,37 +178,10 @@ The library features a comprehensive test suite. To run the tests after building
 ### Performance & Optimizations
 The build system includes platform-specific optimizations for `Release` builds (e.g., `/O2` on MSVC, `-O3` on GCC/Clang) and supports **LTO (Link-Time Optimization)** which can be toggled via `OPENXLSX_ENABLE_LTO`.
 
-## 🤝 Credits
-- [PugiXML](https://pugixml.org/) - Fast XML parsing.
-- [libzip](https://libzip.org/) & [zlib-ng](https://github.com/zlib-ng/zlib-ng) - Fast and compatible ZIP archive handling.
-- [fmt](https://github.com/fmtlib/fmt) - Modern formatting library.
-- [fast_float](https://github.com/fastfloat/fast_float) - Fast floating-point parsing.
-
 ---
 
-## ⚡ Performance Benchmarks
-
-OpenXLSX-NX is engineered for extreme performance. Below are the benchmark results measured on an Apple Silicon (ARM64) processor using Catch2. 
-
-### Basic I/O (800,000 Cells: 100,000 rows × 8 columns)
-| Operation | Data Type | Average Time | Throughput |
-| :--- | :--- | :--- | :--- |
-| **Write** | Strings (`std::string`) | ~347 ms | **2,305,000 cells/sec** |
-| **Write** | Integers (`int64_t`) | ~262 ms | **3,053,000 cells/sec** |
-| **Write** | Floats (`double`) | ~494 ms | **1,619,000 cells/sec** |
-| **Write** | Booleans (`bool`) | ~378 ms | **2,111,000 cells/sec** |
-| **Read** | Strings | ~220 ms | **3,621,000 cells/sec** |
-| **Read** | Integers | ~176 ms | **4,542,000 cells/sec** |
-
-### Advanced Engine Capabilities
-| Component | Test Description | Average Time | Operations/sec |
-| :--- | :--- | :--- | :--- |
-| **Formula Engine** | Lexing, parsing, and evaluating `SUM(A1:A3)` **10,000 times**. | ~16.3 ms | **613,000 evals/sec** |
-| **Style Pool** | Invoking `findOrCreateStyle(s)` **50,000 times** to deduplicate identical complex styles. | ~171.6 ms | **291,000 lookups/sec** |
-
-*Note: Benchmarks can be compiled by setting `-DOPENXLSX_BUILD_BENCHMARKS=ON` in CMake.*
-
 ## 🚀 Advanced Ergonomic Features
+
 
 ### 1. Matrix Binding & Batch Styling (Like Pandas)
 ```cpp
@@ -238,7 +213,7 @@ wks.cell("C3").addComment("Is the Q3 data finalized?", "Alice")
               .addReply("Got it.", "Alice").setResolved(true);
 ```
 
-### 11. Stream Reading (For Multi-Gigabyte Files)
+### 3. Stream Reading (For Multi-Gigabyte Files)
 Never worry about `std::bad_alloc` again. `XLStreamReader` uses a micro-DOM sliding window to read massive files with virtually zero memory overhead.
 ```cpp
 auto reader = doc.workbook().worksheet("MassiveData").streamReader();
@@ -248,7 +223,7 @@ while (reader.hasNext()) {
 }
 ```
 
-### 11. Smart Image Insertion
+### 4. Smart Image Insertion
 Insert any `png`, `jpg`, or `gif` using natural cell coordinates. The engine automatically parses the binary header to detect the image dimensions without depending on OpenCV or libpng.
 ```cpp
 XLImageOptions opts;
@@ -258,7 +233,7 @@ opts.positioning = XLImagePositioning::TwoCell; // Stretch with cell bounds
 wks.insertImage("B2", "company_logo.png", opts);
 ```
 
-### 11. Fluent Data Validation (Dropdowns)
+### 5. Fluent Data Validation (Dropdowns)
 Build complex dropdown lists and warnings with method chaining.
 ```cpp
 wks.dataValidations().add("C2:C100")
@@ -266,7 +241,7 @@ wks.dataValidations().add("C2:C100")
    .setErrorAlert("Invalid", "Please select a valid state from the list.");
 ```
 
-### 11. UI Behaviors (Freeze Panes & AutoFit)
+### 6. UI Behaviors (Freeze Panes & AutoFit)
 ```cpp
 // Instantly freeze Row 1 and Column A
 wks.freezePanes("B2"); 
@@ -278,7 +253,7 @@ wks.autoFitColumn(2);
 wks.column("C").setHidden(true);
 ```
 
-### 11. Formulas & Merge Cells
+### 7. Formulas & Merge Cells
 ```cpp
 // Write a formula
 wks.cell("E1").formula() = "SUM(A1:D1)";
@@ -287,7 +262,7 @@ wks.cell("E1").formula() = "SUM(A1:D1)";
 wks.mergeCells("A1:D1");
 ```
 
-### 11. Thread-Safe Concurrent Access
+### 8. Thread-Safe Concurrent Access
 OpenXLSX features a thread-safe two-tier lock architecture that enables high-performance parallel processing, allowing multiple threads to write to **different** worksheets simultaneously without data races.
 
 #### Thread Safety Guarantees
@@ -320,13 +295,13 @@ doc.save();
 ```
 *Note: The underlying Shared String Table is automatically protected by a dedicated mutex, making concurrent text insertions entirely thread-safe. Writing to the **same** worksheet from multiple threads is not supported.*
 
-### 11. Built-in Formula Evaluation Engine
+### 9. Built-in Formula Evaluation Engine
 Evaluate formulas directly in C++ without needing MS Excel to recalculate the file.
 ```cpp
 wks.cell("A1").value() = 10.5;
 wks.cell("A2").value() = 20.2;
 wks.cell("B1").formula() = "SUM(A1:A2)";
-wks.cell("B2").formula() = "IF(A1>10, "High", "Low")";
+wks.cell("B2").formula() = R"(IF(A1>10, "High", "Low"))";
 
 XLFormulaEngine engine;
 auto resolver = XLFormulaEngine::makeResolver(wks);
@@ -337,7 +312,7 @@ double sumResult = engine.evaluate(wks.cell("B1").formula().get(), resolver).get
 std::string logicResult = engine.evaluate(wks.cell("B2").formula().get(), resolver).getString();
 ```
 
-### 11. Dynamic Row/Column Insertion
+### 10. Dynamic Row/Column Insertion
 Insert or delete rows and columns on the fly. Existing data and coordinates shift automatically.
 ```cpp
 // Insert 2 blank rows starting at row 5 (existing row 5 becomes row 7)
@@ -357,9 +332,42 @@ doc.setCompressionLevel(1);
 doc.save();
 ```
 
+### 12. Smart Style Deduplication & Compaction (`compactStyles`)
+Apply rich styling across millions of cells with zero XML bloat. Automatically prune unused/orphan styles and re-index format tables before saving.
+```cpp
+// 1. Fast O(1) deduplication prevents XML bloat when applying styles
+XLStyle style;
+style.font.bold = true;
+style.fill.pattern = XLPatternType::Solid;
+style.fill.color = XLColor("E0E0E0");
+wks.cell("A1").setStyle(style);
+
+// 2. Compact all unused styles across the workbook and re-map cell indices
+doc.compactStyles();
+doc.save();
+```
+
+### 13. Interactive Slicers & Pivot Tables
+Create interactive Excel visual slicers connected to Tables or Pivot Tables.
+```cpp
+// Attach an interactive visual Slicer to a Table column
+auto slicer = wks.createTableSlicer("SalesTable", "Region", "E2");
+slicer.setStyle(XLSlicerStyle::Light2);
+slicer.setPreFilterItems({"North", "South"});
+doc.save();
+```
+
+
 ## 📜 Changelog
 <details>
 <summary><b>Detailed Change Log</b></summary>
+
+### 2026-09-11: Style Pool Deduplication, Normalization & BSD Compliance (v1.12.0)
+- **Zero-Allocation Style Deduplication**: Redesigned `XLStyles` with lightweight 64-bit struct hash keys (`XLStyleHash`), read-write locking (`std::shared_mutex`), and `ankerl::unordered_dense::map` Robin-Hood caching. Benchmark lookups dropped from ~171ms to **~3.7ms** (~13.5M ops/sec, a **43x speedup**).
+- **ECMA-376 Standard Number Format Registry**: Built-in zero-XML resolution for standard format IDs (0..49), preventing redundant `<numFmt>` custom elements from bloating `styles.xml`.
+- **Workbook-Wide Style Compaction (`compactStyles`)**: Introduced `XLDocument::compactStyles()` and `XLWorkbook::compactStyles()`. Scans all cell, row, and column styles, safely preserves ECMA-376 invariants (cellXfs[0], fills none/gray125), and purges orphaned styles to minimize file size.
+- **Dependency & Testing Upgrade**: Upgraded Catch2 submodule to `v3.16.0`.
+- **License & Attribution Restoration**: Restored original BSD 3-Clause copyright notices for Kenneth Troldal Balslev and OpenXLSX contributors, and restored community attributions.
 
 ### 2026-04-13: Configurable ZIP Packing Compression
 - **Save Optimization**: Added `setCompressionLevel()` to allow fine-tuning the ZIP deflation ratio. The default has been set to 1 (Fastest) to prioritize maximum save performance without unnecessarily re-compressing structural XML files.
