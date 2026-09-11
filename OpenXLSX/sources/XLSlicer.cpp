@@ -164,6 +164,7 @@ void XLSlicer::setName(std::string_view n)
     auto node = slicerNode();
     if (!node) return;
     setAttr(node, "name", std::string(n));
+    if (m_slicerXml) m_slicerXml->markDirty();
 }
 
 XLSlicer& XLSlicer::setCaption(std::string_view c)
@@ -171,6 +172,7 @@ XLSlicer& XLSlicer::setCaption(std::string_view c)
     auto node = slicerNode();
     if (!node) return *this;
     setAttr(node, "caption", std::string(c));
+    if (m_slicerXml) m_slicerXml->markDirty();
     return *this;
 }
 
@@ -184,6 +186,7 @@ XLSlicer& XLSlicer::setStyleRaw(std::string_view rawName)
     auto node = slicerNode();
     if (!node) return *this;
     setAttr(node, "style", std::string(rawName));
+    if (m_slicerXml) m_slicerXml->markDirty();
     return *this;
 }
 
@@ -192,6 +195,7 @@ XLSlicer& XLSlicer::setShowCaption(bool show)
     auto node = slicerNode();
     if (!node) return *this;
     setAttr(node, "showCaption", show ? "1" : "0");
+    if (m_slicerXml) m_slicerXml->markDirty();
     return *this;
 }
 
@@ -200,6 +204,7 @@ XLSlicer& XLSlicer::setColumnCount(int cols)
     auto node = slicerNode();
     if (!node) return *this;
     setAttr(node, "columnCount", std::to_string(cols));
+    if (m_slicerXml) m_slicerXml->markDirty();
     return *this;
 }
 
@@ -208,6 +213,7 @@ XLSlicer& XLSlicer::setLockedPosition(bool locked)
     auto node = slicerNode();
     if (!node) return *this;
     setAttr(node, "lockedPosition", locked ? "1" : "0");
+    if (m_slicerXml) m_slicerXml->markDirty();
     return *this;
 }
 
@@ -216,6 +222,7 @@ XLSlicer& XLSlicer::setRowHeight(int emuHeight)
     auto node = slicerNode();
     if (!node) return *this;
     setAttr(node, "rowHeight", std::to_string(emuHeight));
+    if (m_slicerXml) m_slicerXml->markDirty();
     return *this;
 }
 

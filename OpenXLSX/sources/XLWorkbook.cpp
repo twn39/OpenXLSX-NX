@@ -594,7 +594,22 @@ void XLWorkbook::updateSheetReferences(std::string_view oldName, std::string_vie
 
 void XLWorkbook::updateWorksheetDimensions()
 {
+    auto snNode = sheetsNode(xmlDocument());
     for (const auto& name : worksheetNames()) {
+        auto sheetNode = snNode.find_child_by_attribute("name", std::string(name).c_str());
+        if (sheetNode.empty()) continue;
+
+        const std::string xmlID = sheetNode.attribute("r:id").value();
+        XLQuery pathQuery(XLQueryType::QuerySheetRelsTarget);
+        pathQuery.setParam("sheetID", xmlID);
+        auto xmlPath = parentDoc().execQuery(pathQuery).result<std::string>();
+        if (xmlPath.substr(0, 4) == "/xl/") xmlPath = xmlPath.substr(4);
+
+        auto* part = parentDoc().findXmlPart("xl/" + xmlPath, true);
+        // Skip untouched or unmaterialized worksheets completely!
+        // This avoids constructing XLWorksheet which eagerly parses cols and breaks lazy loading.
+        if (!part || !part->isDirty()) continue;
+
         auto wks = worksheet(name);
         // Streamed worksheets pack from a temp file; DOM dimension would be stale / empty.
         // XLStreamWriter::close() already patches <dimension> in the temp XML.

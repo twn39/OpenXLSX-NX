@@ -232,10 +232,9 @@ void XLDocument::open(std::string_view fileName)
             entryName != "docProps/core.xml" && entryName != "docProps/app.xml" && entryName != "docProps/custom.xml" &&
             entryName != "[Content_Types].xml" && entryName != "_rels/.rels" && entryName != "xl/_rels/workbook.xml.rels")
         {
-            // Wait, we need to extract from m_archive since the zip saveAs copies the original zip file,
-            // but if saveAs is called without the original zip (e.g. memory manipulation), it might not?
-            // Actually XLZipArchive::save(path) handles this. So we just cache them so they can be explicitly added back if needed.
-            m_unhandledEntries[entryName] = m_archive.getEntry(entryName);
+            // Do NOT eagerly load large media/binaries into memory.
+            // Leave payload empty; it exists safely inside the archive.
+            m_unhandledEntries[entryName] = "";
         }
     }
 
@@ -561,10 +560,19 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
             item.getXmlPath() == "xl/_rels/workbook.xml.rels")
             continue;
 
+        // INCREMENTAL DIRTY CHECK:
+        // If this XML part has not been modified (isDirty() == false) and already exists in the archive,
+        // we can completely skip serializing and replacing it!
+        // libzip will preserve the original compressed entry via bit-for-bit stream copy.
+        if (!item.isDirty() && m_archive.hasEntry(item.getXmlPath())) {
+            continue;
+        }
+
         if (item.getXmlPath() == "xl/sharedStrings.xml") {
             if (m_sharedStrings.stringCount() > 0) {
                 auto allocData = m_sharedStrings.generateRawAllocatedSstXml();
                 m_archive.addEntryAllocated(item.getXmlPath(), allocData.release(), allocData.size);
+                item.markClean();
                 continue;
             }
         }
@@ -581,6 +589,7 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
             else {
                 m_archive.addEntry(item.getXmlPath(), item.m_streamMemory);
             }
+            item.markClean();
         }
         else {
             auto allocData = item.getRawAllocatedData(
@@ -651,16 +660,26 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
                 }
 
                 m_archive.addEntry(xmlPath, raw);
+                item.markClean();
                 continue;
             }
 
             m_archive.addEntryAllocated(item.getXmlPath(), allocData.release(), allocData.size);
+            item.markClean();
         }
     }
 
     for (const auto& entry : m_unhandledEntries) {
         if (std::none_of(m_data.begin(), m_data.end(), [&](const XLXmlData& item) { return item.getXmlPath() == entry.first; })) {
-            m_archive.addEntry(entry.first, entry.second);
+            if (!m_archive.hasEntry(entry.first)) {
+                // If it's a freshly injected unhandled entry not in archive, add it
+                m_archive.addEntry(entry.first, entry.second);
+            }
+            else if (!entry.second.empty()) {
+                // If the user explicitly provided/replaced non-empty content
+                m_archive.addEntry(entry.first, entry.second);
+            }
+            // Otherwise, entry already exists inside m_archive, libzip will preserve it untouched!
         }
     }
 
@@ -910,7 +929,9 @@ const XLXmlData* XLDocument::findXmlPart(std::string_view path, bool doNotThrow)
 
 XLXmlData* XLDocument::emplaceXmlPart(const std::string& path, const std::string& id, XLContentType type)
 {
-    return &m_data.emplace_back(this, path, id, type);
+    auto& item = m_data.emplace_back(this, path, id, type);
+    item.markDirty();
+    return &item;
 }
 
 /**

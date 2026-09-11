@@ -167,6 +167,12 @@ namespace OpenXLSX
          */
         std::string getXmlPath() const;
 
+        /**
+         * @brief Access the underlying XLXmlData pointer.
+         */
+        [[nodiscard]] const XLXmlData* xmlDataPart() const noexcept { return m_xmlData; }
+        [[nodiscard]] XLXmlData*       xmlDataPart() noexcept { return m_xmlData; }
+
     protected:    // ===== PROTECTED MEMBER FUNCTIONS
         /**
          * @brief Provide the XML data represented by the object.

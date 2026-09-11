@@ -578,6 +578,7 @@ std::string XLDocument::createSlicer(std::string_view name,
         node.append_attribute("cache").set_value(std::string(cacheName).c_str());
         node.append_attribute("caption").set_value(std::string(caption).c_str());
         node.append_attribute("rowHeight").set_value("251883");
+        slicerXml->markDirty();
     }
 
     return filename;

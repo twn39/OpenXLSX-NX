@@ -83,6 +83,8 @@ void XLXmlData::setRawData(const std::string& data)    // NOLINT
     if (!result && result.status != pugi::status_no_document_element) {
         throw XLException("Failed to parse raw XML data. Error: " + std::string(result.description()));
     }
+    m_isLoaded = true;
+    m_isDirty  = true;
 }
 
 /**
@@ -225,7 +227,7 @@ XMLDocument* XLXmlData::getXmlDocument()
             }
         }
     }
-
+    m_isLoaded = true;
     return m_xmlDoc.get();
 }
 
@@ -243,6 +245,6 @@ const XMLDocument* XLXmlData::getXmlDocument() const
             }
         }
     }
-
+    m_isLoaded = true;
     return m_xmlDoc.get();
 }

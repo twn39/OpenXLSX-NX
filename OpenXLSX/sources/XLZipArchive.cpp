@@ -4,6 +4,7 @@
 #include <deque>
 #include <filesystem>
 #include <stdexcept>
+#include <unordered_set>
 #include <vector>
 #include <zip.h>
 
@@ -33,6 +34,9 @@ struct XLZipArchive::LibZipApp
     ZipArchivePtr archive{nullptr};
     std::string   currentPath;
     bool          isModified = false;    // Track if we explicitly want to save
+
+    // Track indices of entries added or modified during this session
+    std::unordered_set<zip_uint64_t> modifiedIndices;
 
     // Stable deque string cache for Zero-Copy zip_source_buffer_create
     std::deque<std::string> stringCache;
@@ -80,6 +84,7 @@ void XLZipArchive::open(std::string_view fileName)
 
     if (!m_archive) m_archive = std::make_shared<LibZipApp>();
     m_archive->isModified = false;    // Reset modification flag on open
+    m_archive->modifiedIndices.clear();
 
     #if defined(_WIN32)
     zip_error_t zerr;
@@ -125,13 +130,13 @@ void XLZipArchive::close()
         // If save() was called, we should commit changes.
         // Otherwise, we discard to prevent silent corruption on read-only operations.
         if (m_archive->isModified) {
-            zip_int64_t numEntries = zip_get_num_entries(ptr.get(), 0);
-            for (zip_int64_t i = 0; i < numEntries; ++i) {
-                if (zip_get_name(ptr.get(), i, 0) != nullptr) {
-                    zip_int32_t method = (m_compressionLevel == 0) ? ZIP_CM_STORE : ZIP_CM_DEFLATE;
-                    zip_set_file_compression(ptr.get(), i, method, m_compressionLevel);
-                }
+            // Apply compression settings exclusively to modified/added entries.
+            // Leaving untouched entries alone enables libzip bit-for-bit stream copies.
+            for (zip_uint64_t idx : m_archive->modifiedIndices) {
+                zip_int32_t method = (m_compressionLevel == 0) ? ZIP_CM_STORE : ZIP_CM_DEFLATE;
+                zip_set_file_compression(ptr.get(), idx, method, m_compressionLevel);
             }
+            m_archive->modifiedIndices.clear();
 
             if (zip_close(ptr.get()) < 0) {
                 throw XLInternalError("Failed to close zip archive: " + std::string(zip_strerror(ptr.get())));
@@ -201,12 +206,17 @@ void XLZipArchive::addEntry(std::string_view name, std::string data)
         }
     }
     else {
-        if (zip_file_add(m_archive->archive.get(), std::string(name).c_str(), s.get(), ZIP_FL_ENC_UTF_8) < 0) {
+        idx = zip_file_add(m_archive->archive.get(), std::string(name).c_str(), s.get(), ZIP_FL_ENC_UTF_8);
+        if (idx < 0) {
             throw XLInternalError(std::string("Failed to add entry: ") + zip_strerror(m_archive->archive.get()));
         }
     }
     // API successfully took ownership
     s.release();
+
+    if (idx >= 0) {
+        m_archive->modifiedIndices.insert(static_cast<zip_uint64_t>(idx));
+    }
 }
 
 void XLZipArchive::addEntryAllocated(std::string_view name, void* data, size_t size)
@@ -219,9 +229,6 @@ void XLZipArchive::addEntryAllocated(std::string_view name, void* data, size_t s
     m_archive->isModified = true;    // Mark as modified
 
     // Create a robust copy using string and release it to zip_source_buffer
-    // We use new char[] instead of malloc to follow C++ guidelines slightly better,
-    // though malloc is also fine here since libzip's zip_source_buffer(..., 1) will internally call free().
-    // Actually, libzip *requires* the buffer to be allocated with malloc() when using free_data=1
     ZipSourcePtr s(zip_source_buffer(m_archive->archive.get(), data ? data : "", static_cast<zip_uint64_t>(size), data ? 1 : 0));
     if (!s) {
         if (data) std::free(data);    // Free immediately if source creation fails
@@ -235,12 +242,17 @@ void XLZipArchive::addEntryAllocated(std::string_view name, void* data, size_t s
         }
     }
     else {
-        if (zip_file_add(m_archive->archive.get(), std::string(name).c_str(), s.get(), ZIP_FL_ENC_UTF_8) < 0) {
+        idx = zip_file_add(m_archive->archive.get(), std::string(name).c_str(), s.get(), ZIP_FL_ENC_UTF_8);
+        if (idx < 0) {
             throw XLInternalError(std::string("Failed to add entry: ") + zip_strerror(m_archive->archive.get()));
         }
     }
     // API successfully took ownership
     s.release();
+
+    if (idx >= 0) {
+        m_archive->modifiedIndices.insert(static_cast<zip_uint64_t>(idx));
+    }
 }
 
 void XLZipArchive::deleteEntry(std::string_view entryName)
@@ -278,8 +290,9 @@ std::string XLZipArchive::getEntry(std::string_view name) const
     result.resize(st.size);
     zip_int64_t bytesRead = zip_fread(f, result.data(), st.size);
     if (bytesRead < 0) {
+        std::string err = zip_file_strerror(f);
         zip_fclose(f);
-        throw XLInternalError("Failed to read entry: " + std::string(name));
+        throw XLInternalError("Failed to read entry: " + std::string(name) + ", error: " + err);
     }
     result.resize(bytesRead);
     zip_fclose(f);
@@ -354,4 +367,8 @@ void XLZipArchive::addEntryFromFile(std::string_view name, std::string_view file
         throw XLInternalError("Failed to add file entry to archive");
     }
     s.release();
+
+    if (index >= 0) {
+        m_archive->modifiedIndices.insert(static_cast<zip_uint64_t>(index));
+    }
 }

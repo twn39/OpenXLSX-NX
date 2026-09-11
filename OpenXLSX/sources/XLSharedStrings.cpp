@@ -153,6 +153,7 @@ int32_t XLSharedStrings::appendString(std::string_view str) const
 
     // Signal that the pugi DOM no longer reflects the full cache
     m_domDirty = true;
+    if (m_xmlData) m_xmlData->markDirty();
 
     return static_cast<int32_t>(stringCacheSize);
 }
@@ -255,6 +256,7 @@ void XLSharedStrings::clearString(int32_t index) const    // 2024-04-30: whitesp
     if (not sharedStringNode.empty()) {        // index was found
         sharedStringNode.remove_children();    // clear all data and formatting
         sharedStringNode.append_child("t");    // append an empty text node
+        if (m_xmlData) m_xmlData->markDirty();
     }
 }
 

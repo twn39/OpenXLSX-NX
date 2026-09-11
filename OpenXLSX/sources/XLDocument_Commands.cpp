@@ -144,11 +144,12 @@ bool XLDocument::execCommand(const XLCommand& command)
             m_wbkRelationships.addRelationship(XLRelationshipType::Worksheet, command.getParam<std::string>("sheetPath").substr(4));
             m_appProperties.appendSheetName(command.getParam<std::string>("sheetName"));
             m_archive.addEntry(command.getParam<std::string>("sheetPath").substr(1), emptyWorksheet);
-            m_data.emplace_back(
+            auto& wsData = m_data.emplace_back(
                 /* parentDoc */ this,
                 /* xmlPath   */ command.getParam<std::string>("sheetPath").substr(1),
                 /* xmlID     */ m_wbkRelationships.relationshipByTarget(command.getParam<std::string>("sheetPath").substr(4)).id(),
                 /* xmlType   */ XLContentType::Worksheet);
+            wsData.setRawData(emptyWorksheet);
         } break;
         case XLCommandType::AddChartsheet: {
             validateSheetName(command.getParam<std::string>("sheetName"), THROW_ON_INVALID);
@@ -163,11 +164,12 @@ bool XLDocument::execCommand(const XLCommand& command)
             m_wbkRelationships.addRelationship(XLRelationshipType::Chartsheet, command.getParam<std::string>("sheetPath").substr(4));
             m_appProperties.appendSheetName(command.getParam<std::string>("sheetName"));
             m_archive.addEntry(command.getParam<std::string>("sheetPath").substr(1), emptyChartsheet);
-            m_data.emplace_back(
+            auto& csData = m_data.emplace_back(
                 /* parentDoc */ this,
                 /* xmlPath   */ command.getParam<std::string>("sheetPath").substr(1),
                 /* xmlID     */ m_wbkRelationships.relationshipByTarget(command.getParam<std::string>("sheetPath").substr(4)).id(),
                 /* xmlType   */ XLContentType::Chartsheet);
+            csData.setRawData(emptyChartsheet);
         } break;
         case XLCommandType::DeleteSheet: {
             m_appProperties.deleteSheetName(command.getParam<std::string>("sheetName"));

@@ -200,6 +200,26 @@ namespace OpenXLSX
         const XMLDocument* getXmlDocument() const;
 
         /**
+         * @brief Check whether this XML part has been modified since loaded or last saved.
+         */
+        [[nodiscard]] bool isDirty() const noexcept { return m_isDirty; }
+
+        /**
+         * @brief Mark this XML part as modified.
+         */
+        void markDirty() noexcept { m_isDirty = true; }
+
+        /**
+         * @brief Reset the dirty state of this XML part.
+         */
+        void markClean() noexcept { m_isDirty = false; }
+
+        /**
+         * @brief Check whether the underlying XML document DOM has been loaded into memory.
+         */
+        [[nodiscard]] bool isLoaded() const noexcept { return m_isLoaded; }
+
+        /**
          * @brief Test whether there is an XML file linked to this object
          * @return true if there is no underlying XML file, otherwise false
          */
@@ -213,6 +233,8 @@ namespace OpenXLSX
         std::string                          m_xmlID{};     /**< The relationship ID of the XML data. >*/
         XLContentType                        m_xmlType{};   /**< The type represented by the XML data. >*/
         mutable std::unique_ptr<XMLDocument> m_xmlDoc;      /**< The underlying XMLDocument object. >*/
+        mutable bool                         m_isDirty{false};  /**< Tracks whether this XML part has unsaved modifications. >*/
+        mutable bool                         m_isLoaded{false}; /**< Tracks whether the DOM has been parsed from the archive. >*/
     public:
         bool        m_isStreamed{false};
         std::string m_streamFilePath;

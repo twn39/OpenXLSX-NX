@@ -599,6 +599,7 @@ void XLWorksheet::addTableSlicer(std::string_view       cellReference,
                     auto styleAttr = node.attribute("style");
                     if (styleAttr) styleAttr.set_value(options.slicerStyle.c_str());
                     else node.append_attribute("style").set_value(options.slicerStyle.c_str());
+                    slicerData->markDirty();
                     break;
                 }
             }
@@ -894,6 +895,7 @@ void XLWorksheet::addPivotSlicer(std::string_view       cellReference,
                     auto styleAttr = node.attribute("style");
                     if (styleAttr) styleAttr.set_value(options.slicerStyle.c_str());
                     else node.append_attribute("style").set_value(options.slicerStyle.c_str());
+                    slicerData->markDirty();
                     break;
                 }
             }

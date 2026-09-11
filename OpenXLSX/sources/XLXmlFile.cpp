@@ -100,6 +100,7 @@ std::string XLXmlFile::relationshipID() const
 XMLDocument& XLXmlFile::xmlDocument()
 {
     Expects(m_xmlData != nullptr);
+    m_xmlData->markDirty();
     return *m_xmlData->getXmlDocument();
 }
 
