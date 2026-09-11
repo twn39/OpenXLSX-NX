@@ -5,7 +5,11 @@
 
 **OpenXLSX-NX** (Next Generation) is an advanced, high-performance C++ library for reading, writing, creating, and modifying Microsoft Excel® files in the `.xlsx` format. It is designed to be fast, cross-platform, and has minimal external dependencies.
 
+> **Upstream Heritage & Attribution**:
+> OpenXLSX-NX is an actively maintained fork and continuation of the original [OpenXLSX](https://github.com/troldal/OpenXLSX) library, created by **Kenneth Troldal Balslev** and substantially contributed to by **aral-matrix** and the OpenXLSX community. All original work is licensed under the BSD 3-Clause License. OpenXLSX-NX builds upon this foundation with modern C++ enhancements, enterprise security hardening, AST formula calculation, style deduplication, and high-throughput streaming.
+
 ## 🚀 Key Features
+
 
 - **Modern C++**: Built with C++17, ensuring type safety and modern abstractions.
 - **Enterprise Security**: Hardened against malicious inputs with integrated **LLVM libFuzzer** for AST parsing, and zero-leak memory guarantees verified by **ASan/UBSan**.
@@ -427,3 +431,22 @@ doc.save();
 - **Enhanced Testing**: Merged test suite into main build flow with automatic test data handling.
 
 </details>
+
+## 📜 Upstream Project, License & Acknowledgments
+
+OpenXLSX-NX is licensed under the **BSD 3-Clause License**. See [LICENSE.md](LICENSE.md) for full terms.
+
+### Upstream Heritage & Maintainers
+- **Original Project**: [troldal/OpenXLSX](https://github.com/troldal/OpenXLSX)
+- **Original Author & Copyright Holder**: **Kenneth Troldal Balslev** (created OpenXLSX and established its core architecture)
+- **Key Maintainer & Significant Contributor**: [aral-matrix](https://github.com/aral-matrix) (designed and authored major subsystems including cell formatting/styles, merge/unmerge cells, cell iterator architectures, XML namespace handling, worksheet name validation, and extensive bug fixes)
+- **Community Contributors**: All past and present contributors to the upstream OpenXLSX project.
+
+### Third-Party Credits & Libraries
+- **[PugiXML](https://github.com/zeux/pugixml)** by Arseny Kapoulkine (@zeux) — Fast, lightweight XML manipulation and XPath engine.
+- **[libzip](https://libzip.org/)** and **[zlib-ng](https://github.com/zlib-ng/zlib-ng)** — ZIP archive reading, writing, and high-performance compression.
+- **[miniz](https://github.com/richgel999/miniz)** by Rich Geldreich (@richgel999) — Lightweight lossless compression.
+- **[fmt](https://github.com/fmtlib/fmt)** by Victor Zverovich — Modern formatting library.
+- **[fast_float](https://github.com/fastfloat/fast_float)** by Daniel Lemire — Ultra-fast number parsing.
+- **[Catch2](https://github.com/catchorg/Catch2)** — Modern test framework for C++.
+- **[@tectu](https://github.com/Tectu)** — Upstream CMake build infrastructure and maintenance.

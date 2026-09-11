@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 project(OpenXLSX-NX VERSION 1.12.0 LANGUAGES CXX C)
 
+#=======================================================================================================================
+# Project Metadata & Upstream Attribution
+#=======================================================================================================================
+set(OPENXLSX_ORIGINAL_AUTHOR "Kenneth Troldal Balslev")
+set(OPENXLSX_ORIGINAL_CONTACT "kenneth.balslev@gmail.com")
+set(OPENXLSX_UPSTREAM_URL "https://github.com/troldal/OpenXLSX")
+set(OPENXLSX_MAINTAINER "Curry Tang")
+set(OPENXLSX_HOMEPAGE_URL "https://github.com/twn39/OpenXLSX-NX")
+set(PROJECT_DESCRIPTION "A C++17 library for reading, writing and modifying Excel spreadsheets")
+
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
