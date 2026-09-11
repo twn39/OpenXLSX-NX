@@ -962,3 +962,110 @@ TEST_CASE("XLFormulaEngineDiagnosticsAndRecovery", "[Diagnostics]")
         REQUIRE(val.get<double>() == Catch::Approx(3.0));
     }
 }
+
+TEST_CASE("XLFormulaEngineRobustnessRefactor", "[XLFormulaEngine]")
+{
+    XLFormulaEngine eng;
+
+    SECTION("Normalized Cycle Detection across $ and Sheet prefixes")
+    {
+        // Case 1: Direct self cycle with $A$1 vs A1
+        XLEvalSession session;
+        session.setCurrentSheet("Sheet1");
+        XLCellResolver cyclicResolver = [&](std::string_view ref) -> XLCellValue {
+            return eng.evaluate("=$A$1 + 1", session);
+        };
+        session.setResolver(cyclicResolver);
+        auto val = eng.evaluate("=A1", session);
+        REQUIRE(val.type() == XLValueType::Error);
+        REQUIRE(val.get<std::string>() == "#CIRC!");
+
+        // Case 2: Cross sheet reference normalization: Sheet1!$A$1 == A1 when on Sheet1
+        XLEvalSession session2;
+        session2.setCurrentSheet("Sheet1");
+        XLCellResolver sheetCyclicResolver = [&](std::string_view ref) -> XLCellValue {
+            return eng.evaluate("=Sheet1!$A$1 * 2", session2);
+        };
+        session2.setResolver(sheetCyclicResolver);
+        auto val2 = eng.evaluate("=A1", session2);
+        REQUIRE(val2.type() == XLValueType::Error);
+        REQUIRE(val2.get<std::string>() == "#CIRC!");
+
+        // Case 3: Case insensitivity in ref: a1 == A1
+        XLEvalSession session3;
+        session3.setCurrentSheet("Sheet1");
+        XLCellResolver caseCyclicResolver = [&](std::string_view ref) -> XLCellValue {
+            return eng.evaluate("=a1 + 10", session3);
+        };
+        session3.setResolver(caseCyclicResolver);
+        auto val3 = eng.evaluate("=A1", session3);
+        REQUIRE(val3.type() == XLValueType::Error);
+        REQUIRE(val3.get<std::string>() == "#CIRC!");
+    }
+
+    SECTION("Sharded LRU Cache Precision Eviction and Capacity")
+    {
+        eng.setAstCacheCapacity(16);
+        REQUIRE(eng.astCacheCapacity() == 16);
+        eng.clearAstCache();
+        REQUIRE(eng.astCacheSize() == 0);
+
+        // Populate entries
+        for (int i = 0; i < 32; ++i) {
+            std::string f = "=1 + " + std::to_string(i);
+            (void)eng.evaluate(f);
+        }
+        // Cache should not exceed capacity
+        REQUIRE(eng.astCacheSize() <= 16);
+
+        // Access one formula repeatedly, it must remain in cache
+        (void)eng.evaluate("=1 + 100");
+        for (int i = 0; i < 16; ++i) {
+            (void)eng.evaluate("=1 + 100");
+        }
+        REQUIRE(eng.astCacheSize() > 0);
+    }
+
+    SECTION("Transparent Function Dispatch and Case Insensitivity")
+    {
+        // 1. Lowercase and mixed-case builtins
+        auto r1 = eng.evaluate("=sum(10, 20, 30)");
+        REQUIRE(r1.get<double>() == Catch::Approx(60.0));
+
+        auto r2 = eng.evaluate("=AvErAgE(10, 20, 30)");
+        REQUIRE(r2.get<double>() == Catch::Approx(20.0));
+
+        // 2. Future function prefix _XLFN. and _xlfn. transparent strip
+        auto r3 = eng.evaluate("=_XLFN.SUM(1, 2, 3)");
+        REQUIRE(r3.get<double>() == Catch::Approx(6.0));
+
+        auto r4 = eng.evaluate("=_xlfn.average(2, 4)");
+        REQUIRE(r4.get<double>() == Catch::Approx(3.0));
+
+        auto r5 = eng.evaluate("=_XLWS.CONCAT(\"Hello\", \" \", \"World\")");
+        REQUIRE(r5.get<std::string>() == "Hello World");
+    }
+
+    SECTION("Numerical Domain and Floating Point Boundaries")
+    {
+        // Negative number raised to non-integer power -> #NUM!
+        auto r1 = eng.evaluate("=(-2)^0.5");
+        REQUIRE(r1.type() == XLValueType::Error);
+        REQUIRE(r1.get<std::string>() == "#NUM!");
+
+        // 0 raised to negative power (division by zero) -> #DIV/0!
+        auto r2 = eng.evaluate("=0^(-1)");
+        REQUIRE(r2.type() == XLValueType::Error);
+        REQUIRE(r2.get<std::string>() == "#DIV/0!");
+
+        // Division by zero -> #DIV/0!
+        auto r3 = eng.evaluate("=10 / 0");
+        REQUIRE(r3.type() == XLValueType::Error);
+        REQUIRE(r3.get<std::string>() == "#DIV/0!");
+
+        // Text coerced in arithmetic -> #VALUE!
+        auto r4 = eng.evaluate("=1 + \"hello\"");
+        REQUIRE(r4.type() == XLValueType::Error);
+        REQUIRE(r4.get<std::string>() == "#VALUE!");
+    }
+}

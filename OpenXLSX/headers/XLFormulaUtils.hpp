@@ -52,6 +52,7 @@ namespace OpenXLSX
         [[nodiscard]] inline XLCellValue errNum() { return makeError("#NUM!"); }
         [[nodiscard]] inline XLCellValue errRef() { return makeError("#REF!"); }
         [[nodiscard]] inline XLCellValue errName() { return makeError("#NAME?"); }
+        [[nodiscard]] inline XLCellValue errCirc() { return makeError("#CIRC!"); }
 
         // =====================================================================
         // Argument helpers / Excel coercion (Phase A)
@@ -134,6 +135,7 @@ namespace OpenXLSX
     using formula::errNum;
     using formula::errRef;
     using formula::errName;
+    using formula::errCirc;
     using formula::strTrim;
     using formula::tryParseNumericString;
     using formula::coerceToNumber;

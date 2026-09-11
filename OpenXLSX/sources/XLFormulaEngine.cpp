@@ -6,10 +6,12 @@
 #include <ctime>
 #include <fmt/format.h>
 #include <functional>
+#include <list>
 #include <numeric>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <ankerl/unordered_dense.h>
 
 // ===== OpenXLSX Includes ===== //
 #include "XLCellReference.hpp"
@@ -33,6 +35,126 @@ using namespace OpenXLSX;
 // =============================================================================
 // XLEvalSession
 // =============================================================================
+
+XLEvalSession::PackedCellKey XLEvalSession::parsePackedKey(std::string_view ref) const
+{
+    if (ref.empty()) return PackedCellKey{0};
+
+    // 1. Split sheetPart and cellPart if '!' is present outside single quotes
+    std::string_view sheetPart;
+    std::string_view cellPart = ref;
+
+    bool inQuote = false;
+    size_t bangPos = std::string_view::npos;
+    for (size_t i = 0; i < ref.size(); ++i) {
+        if (ref[i] == '\'') {
+            inQuote = !inQuote;
+        } else if (ref[i] == '!' && !inQuote) {
+            bangPos = i;
+            break;
+        }
+    }
+
+    if (bangPos != std::string_view::npos) {
+        sheetPart = ref.substr(0, bangPos);
+        cellPart = ref.substr(bangPos + 1);
+        if (!sheetPart.empty() && sheetPart.front() == '\'' && sheetPart.back() == '\'') {
+            sheetPart = sheetPart.substr(1, sheetPart.size() - 2);
+        }
+    } else {
+        sheetPart = m_currentSheet;
+    }
+
+    // 2. Compute 16-bit Sheet ID
+    // If sheetPart is empty or matches m_currentSheet case-insensitively, treat as primary (0)
+    uint16_t sheetId = 0;
+    if (!sheetPart.empty()) {
+        bool isCurrent = false;
+        if (!m_currentSheet.empty() && sheetPart.size() == m_currentSheet.size()) {
+            isCurrent = std::equal(sheetPart.begin(), sheetPart.end(), m_currentSheet.begin(),
+                [](char a, char b) { return std::toupper(static_cast<unsigned char>(a)) == std::toupper(static_cast<unsigned char>(b)); });
+        }
+        if (!isCurrent) {
+            uint32_t h = 2166136261u;
+            for (char c : sheetPart) {
+                h = (h ^ static_cast<unsigned char>(std::toupper(static_cast<unsigned char>(c)))) * 16777619u;
+            }
+            sheetId = static_cast<uint16_t>((h ^ (h >> 16)) & 0xFFFF);
+            if (sheetId == 0) sheetId = 1;
+        }
+    }
+
+    // 3. Parse cellPart (ignore $, parse alpha column and numeric row)
+    uint32_t col = 0;
+    size_t i = 0;
+    while (i < cellPart.size() && std::isspace(static_cast<unsigned char>(cellPart[i]))) ++i;
+
+    while (i < cellPart.size()) {
+        char c = cellPart[i];
+        if (c == '$') { ++i; continue; }
+        if (std::isalpha(static_cast<unsigned char>(c))) {
+            col = col * 26 + (std::toupper(static_cast<unsigned char>(c)) - 'A' + 1);
+            ++i;
+        } else {
+            break;
+        }
+    }
+
+    uint32_t row = 0;
+    while (i < cellPart.size()) {
+        char c = cellPart[i];
+        if (c == '$') { ++i; continue; }
+        if (std::isdigit(static_cast<unsigned char>(c))) {
+            row = row * 10 + (c - '0');
+            ++i;
+        } else {
+            break;
+        }
+    }
+
+    while (i < cellPart.size() && std::isspace(static_cast<unsigned char>(cellPart[i]))) ++i;
+
+    // Fallback for defined names or non-coordinate references: 64-bit FNV-1a hash
+    if (col == 0 || row == 0 || i != cellPart.size() || row > 16777215 || col > 16777215) {
+        uint64_t nameHash = 14695981039346656037ull;
+        for (char c : ref) {
+            nameHash = (nameHash ^ static_cast<unsigned char>(std::toupper(static_cast<unsigned char>(c)))) * 1099511628211ull;
+        }
+        return PackedCellKey(nameHash | (1ull << 63));
+    }
+
+    uint64_t packed = ((uint64_t)sheetId << 48) | ((uint64_t)row << 24) | (uint64_t)col;
+    return PackedCellKey(packed);
+}
+
+bool XLEvalSession::pushEvaluatingCell(std::string_view ref)
+{
+    PackedCellKey key = parsePackedKey(ref);
+    if (!key) return true;
+
+    for (size_t i = 0; i < m_evaluatingCellsInlineCount; ++i) {
+        if (m_evaluatingCellsInline[i] == key) return false;
+    }
+    for (const auto& existing : m_evaluatingCellsHeap) {
+        if (existing == key) return false;
+    }
+
+    if (m_evaluatingCellsInlineCount < kInlineCellStackCapacity) {
+        m_evaluatingCellsInline[m_evaluatingCellsInlineCount++] = key;
+    } else {
+        m_evaluatingCellsHeap.push_back(key);
+    }
+    return true;
+}
+
+void XLEvalSession::popEvaluatingCell() noexcept
+{
+    if (!m_evaluatingCellsHeap.empty()) {
+        m_evaluatingCellsHeap.pop_back();
+    } else if (m_evaluatingCellsInlineCount > 0) {
+        --m_evaluatingCellsInlineCount;
+    }
+}
 
 XLFormulaArg XLEvalSession::expandRange(std::string_view rangeRef) const
 {
@@ -285,21 +407,35 @@ XLFormulaArg XLFormulaEngine::expandArg(const XLASTNode& argNode, XLEvalSession&
                 if (isError(lv)) return lv;
                 if (isError(rv)) return rv;
                 double l = toDouble(lv), r = toDouble(rv);
+                double result = 0.0;
                 switch (argNode.op) {
                     case XLTokenKind::Plus:
-                        return XLCellValue(l + r);
+                        result = l + r;
+                        break;
                     case XLTokenKind::Minus:
-                        return XLCellValue(l - r);
+                        result = l - r;
+                        break;
                     case XLTokenKind::Star:
-                        return XLCellValue(l * r);
+                        result = l * r;
+                        break;
                     case XLTokenKind::Slash:
                         if (r == 0.0) return errDiv0();
-                        return XLCellValue(l / r);
+                        result = l / r;
+                        break;
                     case XLTokenKind::Caret:
-                        return XLCellValue(std::pow(l, r));
+                        if (l < 0.0 && std::floor(r) != r) return errNum();
+                        if (l == 0.0 && r < 0.0) return errDiv0();
+                        result = std::pow(l, r);
+                        break;
                     default:
                         break;
                 }
+                if (std::isnan(result)) return errNum();
+                if (std::isinf(result)) {
+                    if (argNode.op == XLTokenKind::Slash && r == 0.0) return errDiv0();
+                    return errNum();
+                }
+                return XLCellValue(result);
             }
             // Comparisons: blank treated as empty string / 0 via existing paths.
             auto lv = lvIn;
@@ -514,16 +650,8 @@ XLCellValue XLFormulaEngine::evalNode(const XLASTNode& node, XLEvalSession& sess
 
 XLFormulaArg XLFormulaEngine::evalFunctionAsArg(const XLASTNode& node, XLEvalSession& session) const
 {
-    const auto& funcs = getBuiltins();
-    auto        it    = funcs.find(node.text);
-    // Safety net: strip _XLFN. / _XLWS. if present (parser normally strips already)
-    if (it == funcs.end() && node.text.size() > 6) {
-        std::string_view n = node.text;
-        if (n.compare(0, 6, "_XLFN.") == 0 || n.compare(0, 6, "_XLWS.") == 0) {
-            it = funcs.find(std::string(n.substr(6)));
-        }
-    }
-    if (it == funcs.end()) {
+    const auto* func = findBuiltin(node.text);
+    if (!func) {
         XLCellValue e;
         e.setError("#NAME?");
         return XLFormulaArg(std::move(e));
@@ -534,7 +662,7 @@ XLFormulaArg XLFormulaEngine::evalFunctionAsArg(const XLASTNode& node, XLEvalSes
     for (const auto& child : node.children) argVecs.push_back(expandArg(*child, session));
 
     try {
-        return it->second(argVecs, session);
+        return (*func)(argVecs, session);
     }
     catch (const std::exception& ex) {
         XLCellValue e;
@@ -594,23 +722,118 @@ std::string XLFormulaEngine::cacheKey(std::string_view formula)
     return std::string(formula.substr(b, e - b));
 }
 
+namespace OpenXLSX
+{
+    class ShardedAstCache
+    {
+    public:
+        static constexpr size_t kShardCount = 8;
+
+        struct Shard {
+            mutable std::mutex mutex;
+            std::size_t capacity{64};
+            std::list<std::string> lruList;
+            ankerl::unordered_dense::map<
+                std::string,
+                std::pair<std::shared_ptr<XLASTNode>, std::list<std::string>::iterator>>
+                map;
+        };
+
+        explicit ShardedAstCache(std::size_t totalCapacity = 512)
+        {
+            setCapacity(totalCapacity);
+        }
+
+        void setCapacity(std::size_t totalCapacity) noexcept
+        {
+            const std::size_t perShard = (std::max<std::size_t>(totalCapacity, kShardCount) + kShardCount - 1) / kShardCount;
+            for (auto& s : m_shards) {
+                std::lock_guard<std::mutex> lock(s.mutex);
+                s.capacity = perShard;
+                while (s.map.size() > s.capacity && !s.lruList.empty()) {
+                    const std::string oldest = s.lruList.back();
+                    s.map.erase(oldest);
+                    s.lruList.pop_back();
+                }
+            }
+        }
+
+        [[nodiscard]] std::size_t size() const noexcept
+        {
+            std::size_t total = 0;
+            for (const auto& s : m_shards) {
+                std::lock_guard<std::mutex> lock(s.mutex);
+                total += s.map.size();
+            }
+            return total;
+        }
+
+        void clear() noexcept
+        {
+            for (auto& s : m_shards) {
+                std::lock_guard<std::mutex> lock(s.mutex);
+                s.map.clear();
+                s.lruList.clear();
+            }
+        }
+
+        [[nodiscard]] std::shared_ptr<XLASTNode> get(std::string_view key) const
+        {
+            const size_t shardIdx = hashKey(key) % kShardCount;
+            auto& s = m_shards[shardIdx];
+            std::lock_guard<std::mutex> lock(s.mutex);
+            auto it = s.map.find(std::string(key));
+            if (it == s.map.end()) return nullptr;
+            s.lruList.splice(s.lruList.begin(), s.lruList, it->second.second);
+            return it->second.first;
+        }
+
+        void put(std::string key, std::shared_ptr<XLASTNode> ast)
+        {
+            const size_t shardIdx = hashKey(key) % kShardCount;
+            auto& s = m_shards[shardIdx];
+            std::lock_guard<std::mutex> lock(s.mutex);
+            auto it = s.map.find(key);
+            if (it != s.map.end()) {
+                it->second.first = std::move(ast);
+                s.lruList.splice(s.lruList.begin(), s.lruList, it->second.second);
+                return;
+            }
+            if (s.map.size() >= s.capacity && !s.lruList.empty()) {
+                const std::string oldest = s.lruList.back();
+                s.map.erase(oldest);
+                s.lruList.pop_back();
+            }
+            s.lruList.push_front(key);
+            s.map.emplace(std::move(key), std::make_pair(std::move(ast), s.lruList.begin()));
+        }
+
+    private:
+        static size_t hashKey(std::string_view sv) noexcept
+        {
+            size_t h = 2166136261u;
+            for (char c : sv) h = (h ^ static_cast<unsigned char>(c)) * 16777619u;
+            return h;
+        }
+
+        mutable std::array<Shard, kShardCount> m_shards;
+    };
+}
+
 void XLFormulaEngine::setAstCacheCapacity(std::size_t capacity) noexcept
 {
     m_astCacheCapacity = capacity == 0 ? 1 : capacity;
-    std::lock_guard<std::mutex> lock(m_astCacheMutex);
-    while (m_astCache.size() > m_astCacheCapacity) m_astCache.erase(m_astCache.begin());
+    if (m_astCache) m_astCache->setCapacity(m_astCacheCapacity);
 }
 
 std::size_t XLFormulaEngine::astCacheSize() const
 {
-    std::lock_guard<std::mutex> lock(m_astCacheMutex);
-    return m_astCache.size();
+    return m_astCache ? m_astCache->size() : 0;
 }
 
 void XLFormulaEngine::clearAstCache()
 {
-    std::lock_guard<std::mutex> lock(m_astCacheMutex);
-    m_astCache.clear();
+    if (m_astCache) m_astCache->clear();
 }
 
 std::shared_ptr<XLASTNode> XLFormulaEngine::getOrParseAst(std::string_view formula,
@@ -623,32 +846,23 @@ std::shared_ptr<XLASTNode> XLFormulaEngine::getOrParseAst(std::string_view formu
         return std::shared_ptr<XLASTNode>(ast.release());
     }
 
-    if (!m_astCacheEnabled) {
+    if (!m_astCacheEnabled || !m_astCache) {
         auto tokens = XLFormulaLexer::tokenize(formula);
         auto ast    = XLFormulaParser::parse(gsl::span<const XLToken>(tokens), nullptr);
         return std::shared_ptr<XLASTNode>(ast.release());
     }
 
     const std::string key = cacheKey(formula);
-    {
-        std::lock_guard<std::mutex> lock(m_astCacheMutex);
-        auto it = m_astCache.find(key);
-        if (it != m_astCache.end()) return it->second;
+    if (auto cached = m_astCache->get(key)) {
+        return cached;
     }
 
     auto tokens = XLFormulaLexer::tokenize(formula);
     auto astUp  = XLFormulaParser::parse(gsl::span<const XLToken>(tokens), nullptr);
     std::shared_ptr<XLASTNode> ast(astUp.release());
 
-    {
-        std::lock_guard<std::mutex> lock(m_astCacheMutex);
-        if (m_astCache.size() >= m_astCacheCapacity && m_astCache.find(key) == m_astCache.end()) {
-            // Drop one arbitrary entry (unordered_map begin) when full
-            m_astCache.erase(m_astCache.begin());
-        }
-        auto [it, inserted] = m_astCache.emplace(key, ast);
-        return it->second;
-    }
+    m_astCache->put(key, ast);
+    return ast;
 }
 
 XLFormulaArg XLFormulaEngine::evaluateArray(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter) const
@@ -817,19 +1031,59 @@ XLCellResolver XLFormulaEngine::makeResolver(const IXLCellProvider& provider)
 // Built-in function registrations
 // =============================================================================
 
-XLFormulaEngine::XLFormulaEngine() = default;
-
-const std::unordered_map<std::string, XLFormulaEngine::FuncImpl>& XLFormulaEngine::getBuiltins()
+XLFormulaEngine::XLFormulaEngine()
+    : m_astCache(std::make_unique<ShardedAstCache>(m_astCacheCapacity))
 {
-    static const std::unordered_map<std::string, FuncImpl> builtins = []() {
-        std::unordered_map<std::string, FuncImpl> map;
+}
+
+XLFormulaEngine::~XLFormulaEngine() = default;
+
+namespace
+{
+    struct CaseInsensitiveStringViewHash
+    {
+        using is_transparent = void;
+        size_t operator()(std::string_view sv) const noexcept
+        {
+            size_t h = 2166136261u;
+            for (char c : sv) h = (h ^ static_cast<unsigned char>(std::toupper(static_cast<unsigned char>(c)))) * 16777619u;
+            return h;
+        }
+    };
+
+    struct CaseInsensitiveStringViewEqual
+    {
+        using is_transparent = void;
+        bool operator()(std::string_view a, std::string_view b) const noexcept
+        {
+            if (a.size() != b.size()) return false;
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (std::toupper(static_cast<unsigned char>(a[i])) != std::toupper(static_cast<unsigned char>(b[i]))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    };
+}    // namespace
+
+const XLFormulaEngine::FuncImpl* XLFormulaEngine::findBuiltin(std::string_view name)
+{
+    using BuiltinMap = ankerl::unordered_dense::map<
+        std::string,
+        XLFormulaEngine::FuncImpl,
+        CaseInsensitiveStringViewHash,
+        CaseInsensitiveStringViewEqual>;
+
+    static const BuiltinMap builtins = []() {
+        BuiltinMap map;
         const auto& registry = XLFormulaRegistry::getInstance();
 
         // 1. Register all functions from the registry (return full XLFormulaArg shape)
         for (const auto& pair : registry.getFunctions()) {
-            const auto& name = pair.first;
-            const auto& func = pair.second;
-            map[name] = [func](const std::vector<XLFormulaArg>& args, XLEvalSession& session) -> XLFormulaArg {
+            const auto& fnName = pair.first;
+            const auto& func   = pair.second;
+            map[fnName]        = [func](const std::vector<XLFormulaArg>& args, XLEvalSession& session) -> XLFormulaArg {
                 return func->execute(args, session);
             };
         }
@@ -869,24 +1123,20 @@ const std::unordered_map<std::string, XLFormulaEngine::FuncImpl>& XLFormulaEngin
         addAlias("POISSON", "POISSON.DIST");
         addAlias("EXPONDIST", "EXPON.DIST");
 
-        // 3. Register _xlfn. / _xlws. prefix aliases for every registered function (Excel future-fn encoding)
-        // Snapshot names first — map grows as we insert aliases.
-        std::vector<std::string> registeredNames;
-        registeredNames.reserve(map.size());
-        for (const auto& pair : map) registeredNames.push_back(pair.first);
-        for (const auto& fn : registeredNames) {
-            // Skip names that already carry a future-function prefix
-            if (fn.size() >= 6 && (fn.compare(0, 6, "_XLFN.") == 0 || fn.compare(0, 6, "_XLWS.") == 0)) continue;
-            addAlias("_XLFN." + fn, fn);
-            addAlias("_XLWS." + fn, fn);
-            // Lower-case prefix variants used in some serialized workbooks before uppercasing
-            addAlias("_xlfn." + fn, fn);
-            addAlias("_xlws." + fn, fn);
-        }
-
         return map;
     }();
-    return builtins;
+
+    std::string_view target = name;
+    if (target.size() > 6) {
+        std::string_view pfx = target.substr(0, 6);
+        if (CaseInsensitiveStringViewEqual{}(pfx, "_XLFN.") || CaseInsensitiveStringViewEqual{}(pfx, "_XLWS.")) {
+            target.remove_prefix(6);
+        }
+    }
+
+    auto it = builtins.find(target);
+    if (it != builtins.end()) return &it->second;
+    return nullptr;
 }
 
 // =============================================================================

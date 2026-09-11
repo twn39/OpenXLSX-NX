@@ -8,6 +8,7 @@
 #endif
 
 // ===== Standard Library ===== //
+#include <array>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -383,22 +384,29 @@ namespace OpenXLSX
         [[nodiscard]] int nodeEvalDepth() const noexcept { return m_nodeEvalDepth; }
 
         /**
+         * @brief 64-bit coordinate encoding for fast, normalized circular dependency checking.
+         * @details Bit layout: [63..48]: SheetID (16-bit), [47..24]: Row (24-bit), [23..0]: Col (24-bit).
+         */
+        struct PackedCellKey
+        {
+            uint64_t value{0};
+            constexpr PackedCellKey() = default;
+            constexpr explicit PackedCellKey(uint64_t v) : value(v) {}
+            constexpr bool operator==(const PackedCellKey& o) const noexcept { return value == o.value; }
+            constexpr bool operator!=(const PackedCellKey& o) const noexcept { return value != o.value; }
+            constexpr explicit operator bool() const noexcept { return value != 0; }
+        };
+
+        static constexpr size_t kInlineCellStackCapacity = 32;
+
+        /**
          * @brief Check and track cell references to detect circular dependency during evaluation.
          * @return false if the cell is already being evaluated (circular reference).
          */
-        bool pushEvaluatingCell(std::string_view ref)
-        {
-            for (const auto& existing : m_evaluatingCells) {
-                if (existing == ref) return false;
-            }
-            m_evaluatingCells.emplace_back(ref);
-            return true;
-        }
+        bool pushEvaluatingCell(std::string_view ref);
+        void popEvaluatingCell() noexcept;
 
-        void popEvaluatingCell() noexcept
-        {
-            if (!m_evaluatingCells.empty()) m_evaluatingCells.pop_back();
-        }
+        [[nodiscard]] PackedCellKey parsePackedKey(std::string_view ref) const;
 
         /**
          * @brief Expand an A1-style cell/range text into a LazyRange (or scalar error).
@@ -407,15 +415,17 @@ namespace OpenXLSX
         [[nodiscard]] XLFormulaArg expandRange(std::string_view rangeRef) const;
 
     private:
-        const XLCellResolver*    m_resolver{nullptr};
-        XLNameResolver           m_nameResolver;
-        uint32_t                 m_currentRow{0};
-        uint16_t                 m_currentCol{0};
-        bool                     m_hasCurrentCell{false};
-        std::string              m_currentSheet;
-        int                      m_callDepth{0};
-        int                      m_nodeEvalDepth{0};
-        std::vector<std::string> m_evaluatingCells;
+        const XLCellResolver*                               m_resolver{nullptr};
+        XLNameResolver                                      m_nameResolver;
+        uint32_t                                            m_currentRow{0};
+        uint16_t                                            m_currentCol{0};
+        bool                                                m_hasCurrentCell{false};
+        std::string                                         m_currentSheet;
+        int                                                 m_callDepth{0};
+        int                                                 m_nodeEvalDepth{0};
+        std::array<PackedCellKey, kInlineCellStackCapacity> m_evaluatingCellsInline{};
+        size_t                                              m_evaluatingCellsInlineCount{0};
+        std::vector<PackedCellKey>                          m_evaluatingCellsHeap;
     };
 
     /**
@@ -753,11 +763,13 @@ namespace OpenXLSX
                                                     uint32_t                anchorRow = 0,
                                                     uint16_t                anchorCol = 0);
 
+    class ShardedAstCache;
+
     class OPENXLSX_EXPORT XLFormulaEngine
     {
     public:
         XLFormulaEngine();
-        ~XLFormulaEngine() = default;
+        ~XLFormulaEngine();
 
         XLFormulaEngine(const XLFormulaEngine&)            = delete;
         XLFormulaEngine& operator=(const XLFormulaEngine&) = delete;
@@ -882,7 +894,7 @@ namespace OpenXLSX
         // ---- Built-in function table ----
         // Session-aware: every builtin returns XLFormulaArg (scalar or multi-cell array).
         using FuncImpl = std::function<XLFormulaArg(const std::vector<XLFormulaArg>&, XLEvalSession&)>;
-        static const std::unordered_map<std::string, FuncImpl>& getBuiltins();
+        static const FuncImpl* findBuiltin(std::string_view name);
 
         /** Normalize formula key for the AST cache (strip leading '=', trim). */
         [[nodiscard]] static std::string cacheKey(std::string_view formula);
@@ -891,10 +903,9 @@ namespace OpenXLSX
         [[nodiscard]] std::shared_ptr<XLASTNode> getOrParseAst(std::string_view formula,
                                                                XLFormulaDiagnosticReporter* reporter) const;
 
-        bool                                              m_astCacheEnabled{true};
-        std::size_t                                       m_astCacheCapacity{512};
-        mutable std::mutex                                m_astCacheMutex;
-        mutable std::unordered_map<std::string, std::shared_ptr<XLASTNode>> m_astCache;
+        bool                             m_astCacheEnabled{true};
+        std::size_t                      m_astCacheCapacity{512};
+        std::unique_ptr<ShardedAstCache> m_astCache;
     };
 
 }    // namespace OpenXLSX
