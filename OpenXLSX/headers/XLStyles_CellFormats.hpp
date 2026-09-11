@@ -209,6 +209,11 @@ namespace OpenXLSX
         XLCellFormat& operator=(XLCellFormat&& other) noexcept = default;
 
         /**
+         * @brief Get the underlying XMLNode of the cell format item
+         */
+        XMLNode node() const { return *m_cellFormatNode; }
+
+        /**
          * @brief Get the number format id
          * @return The identifier of a number format, built-in (predefined by office) or defind in XLNumberFormats
          */
@@ -437,6 +442,12 @@ namespace OpenXLSX
          *          This is the key deduplication point for bulk formatting operations.
          */
         XLStyleIndex findOrCreate(XLCellFormat copyFrom, std::string_view styleEntriesPrefix = XLDefaultStyleEntriesPrefix);
+
+        /**
+         * @brief Rebuild cell formats from an ordered list of XMLNodes.
+         *        Updates the underlying XML node and refreshes internal vectors and fingerprint caches.
+         */
+        void rebuild(const std::vector<XMLNode>& nodes);
 
     private:                                                                     // ---------- Private Member Variables ---------- //
         std::unique_ptr<XMLNode>                              m_cellFormatsNode; /**< An XMLNode object with the cell formats item */

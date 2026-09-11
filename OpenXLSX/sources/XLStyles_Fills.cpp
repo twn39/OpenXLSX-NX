@@ -446,6 +446,9 @@ XLFills::XLFills(const XMLNode& fills) : m_fillsNode(std::make_unique<XMLNode>(f
             std::cerr << "WARNING: XLFills constructor: unknown subnode " << nodeName << std::endl;
         node = node.next_sibling_of_type(pugi::node_element);
     }
+    for (size_t i = 0; i < m_fills.size(); ++i) {
+        m_fingerprintCache.emplace(xmlNodeFingerprint(*m_fills[i].m_fillNode), static_cast<XLStyleIndex>(i));
+    }
 }
 
 XLFills::~XLFills() { m_fills.clear(); }
@@ -500,6 +503,7 @@ XLStyleIndex XLFills::create(XLFill copyFrom, std::string_view styleEntriesPrefi
 
     m_fills.push_back(newFill);
     setAttr(*m_fillsNode, "count", std::to_string(m_fills.size()));
+    m_fingerprintCache.emplace(xmlNodeFingerprint(*newFill.m_fillNode), index);
     return index;
 }
 
@@ -512,16 +516,16 @@ XLStyleIndex XLFills::findOrCreate(XLFill copyFrom, std::string_view styleEntrie
     auto it = m_fingerprintCache.find(key);
     if (it != m_fingerprintCache.end()) return it->second;
 
-    // Cold path: scan all existing fills (covers fills loaded from an existing file)
+    // Fallback: scan existing fills (handles items mutated in place after create())
     for (size_t i = 0; i < m_fills.size(); ++i) {
         if (xmlNodeFingerprint(*m_fills[i].m_fillNode) == key) {
-            m_fingerprintCache.emplace(key, i);
+            m_fingerprintCache.emplace(std::move(key), i);
             return i;
         }
     }
 
     // No match found — create and cache
     XLStyleIndex idx = create(copyFrom, styleEntriesPrefix);
-    m_fingerprintCache.emplace(key, idx);
+    m_fingerprintCache.emplace(std::move(key), idx);
     return idx;
 }

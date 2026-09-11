@@ -199,6 +199,9 @@ XLBorders::XLBorders(const XMLNode& borders) : m_bordersNode(std::make_unique<XM
             std::cerr << "WARNING: XLBorders constructor: unknown subnode " << nodeName << std::endl;
         node = node.next_sibling_of_type(pugi::node_element);
     }
+    for (size_t i = 0; i < m_borders.size(); ++i) {
+        m_fingerprintCache.emplace(xmlNodeFingerprint(*m_borders[i].m_borderNode), static_cast<XLStyleIndex>(i));
+    }
 }
 
 XLBorders::~XLBorders() { m_borders.clear(); }
@@ -257,6 +260,7 @@ XLStyleIndex XLBorders::create(XLBorder copyFrom, std::string_view styleEntriesP
 
     m_borders.push_back(newBorder);
     setAttr(*m_bordersNode, "count", std::to_string(m_borders.size()));
+    m_fingerprintCache.emplace(xmlNodeFingerprint(*newBorder.m_borderNode), index);
     return index;
 }
 
@@ -269,16 +273,16 @@ XLStyleIndex XLBorders::findOrCreate(XLBorder copyFrom, std::string_view styleEn
     auto it = m_fingerprintCache.find(key);
     if (it != m_fingerprintCache.end()) return it->second;
 
-    // Cold path: scan all existing borders (covers borders loaded from an existing file)
+    // Fallback: scan existing borders (handles items mutated in place after create())
     for (size_t i = 0; i < m_borders.size(); ++i) {
         if (xmlNodeFingerprint(*m_borders[i].m_borderNode) == key) {
-            m_fingerprintCache.emplace(key, i);
+            m_fingerprintCache.emplace(std::move(key), i);
             return i;
         }
     }
 
     // No match found — create and cache
     XLStyleIndex idx = create(copyFrom, styleEntriesPrefix);
-    m_fingerprintCache.emplace(key, idx);
+    m_fingerprintCache.emplace(std::move(key), idx);
     return idx;
 }

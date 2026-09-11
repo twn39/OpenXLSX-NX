@@ -335,6 +335,9 @@ XLCellFormats::XLCellFormats(const XMLNode& cellStyleFormats, bool permitXfId)
             std::cerr << "WARNING: XLCellFormats constructor: unknown subnode " << nodeName << std::endl;
         node = node.next_sibling_of_type(pugi::node_element);
     }
+    for (size_t i = 1; i < m_cellFormats.size(); ++i) {
+        m_fingerprintCache.emplace(xmlNodeFingerprint(*m_cellFormats[i].m_cellFormatNode), static_cast<XLStyleIndex>(i));
+    }
 }
 
 XLCellFormats::~XLCellFormats() { m_cellFormats.clear(); }
@@ -417,6 +420,9 @@ XLStyleIndex XLCellFormats::create(XLCellFormat copyFrom, std::string_view style
 
     m_cellFormats.push_back(newCellFormat);
     setAttr(*m_cellFormatsNode, "count", std::to_string(m_cellFormats.size()));
+    if (index > 0) {
+        m_fingerprintCache.emplace(xmlNodeFingerprint(*newCellFormat.m_cellFormatNode), index);
+    }
     return index;
 }
 
@@ -429,17 +435,43 @@ XLStyleIndex XLCellFormats::findOrCreate(XLCellFormat copyFrom, std::string_view
     auto it = m_fingerprintCache.find(key);
     if (it != m_fingerprintCache.end()) return it->second;
 
-    // Cold path: scan all existing formats (covers formats loaded from an existing file).
+    // Fallback: scan existing formats (handles items mutated in place after create()).
     // Start from index 1: index 0 is the reserved default format, never reused.
     for (size_t i = 1; i < m_cellFormats.size(); ++i) {
         if (xmlNodeFingerprint(*m_cellFormats[i].m_cellFormatNode) == key) {
-            m_fingerprintCache.emplace(key, i);
+            m_fingerprintCache.emplace(std::move(key), i);
             return i;
         }
     }
 
     // No match found — create and cache
     XLStyleIndex idx = create(copyFrom, styleEntriesPrefix);
-    m_fingerprintCache.emplace(key, idx);
+    m_fingerprintCache.emplace(std::move(key), idx);
     return idx;
+}
+
+void XLCellFormats::rebuild(const std::vector<XMLNode>& nodes)
+{
+    std::vector<XMLNode> toRemove;
+    for (XMLNode child = m_cellFormatsNode->first_child(); child; child = child.next_sibling()) {
+        toRemove.push_back(child);
+    }
+    for (auto& n : toRemove) {
+        m_cellFormatsNode->remove_child(n);
+    }
+
+    m_cellFormats.clear();
+    m_fingerprintCache.clear();
+
+    for (const auto& srcNode : nodes) {
+        XMLNode newNode = m_cellFormatsNode->append_child("xf");
+        copyXMLNode(newNode, srcNode);
+        m_cellFormats.push_back(XLCellFormat(newNode, m_permitXfId));
+    }
+
+    setAttr(*m_cellFormatsNode, "count", std::to_string(m_cellFormats.size()));
+
+    for (size_t i = 1; i < m_cellFormats.size(); ++i) {
+        m_fingerprintCache.emplace(xmlNodeFingerprint(*m_cellFormats[i].m_cellFormatNode), static_cast<XLStyleIndex>(i));
+    }
 }

@@ -180,6 +180,18 @@ namespace OpenXLSX
         uint32_t numberFormatIdFromIndex(XLStyleIndex index) const;
 
         /**
+         * @brief Map a standard ECMA-376 number format code to its built-in ID (0-49).
+         * @return Standard ID if matched, std::nullopt otherwise.
+         */
+        static std::optional<uint32_t> standardNumberFormatId(std::string_view formatCode) noexcept;
+
+        /**
+         * @brief Get the standard format code for a built-in ID (0-49).
+         * @return Format code string view, or empty if custom/unknown.
+         */
+        static std::string_view standardFormatCode(uint32_t id) noexcept;
+
+        /**
          * @brief Create a new custom number format with a unique ID.
          * @param formatCode The explicit format code string
          * @return The unique number format ID (numFmtId)

@@ -187,8 +187,17 @@ namespace OpenXLSX
          */
         XLStyleIndex findOrCreateStyle(const XLStyle& style);
 
+        /**
+         * @brief Compact and deduplicate all styles in the stylesheet.
+         * @details Merges identical cellXfs, cleans up unreferenced fonts, fills, and borders
+         *          while strictly preserving ECMA-376 invariants (fills 0/1, font 0, border 0, cellXf 0).
+         */
+        void compactStyles();
+
         // ---------- Protected Member Functions ---------- //
     private:
+        struct StyleCacheImpl;
+
         bool                             m_suppressWarnings;    // if true, will suppress output of warnings where supported
         std::unique_ptr<XLNumberFormats> m_numberFormats;       // handle to the underlying number formats
         std::unique_ptr<XLFonts>         m_fonts;               // handle to the underlying fonts
@@ -198,6 +207,7 @@ namespace OpenXLSX
         std::unique_ptr<XLCellFormats>   m_cellFormats;         // handle to the underlying cell formats descriptions
         std::unique_ptr<XLCellStyles>    m_cellStyles;          // handle to the underlying cell styles
         std::unique_ptr<XLDxfs>          m_dxfs;                // handle to the underlying differential cell formats
+        std::unique_ptr<StyleCacheImpl>  m_styleCache;          // thread-safe top-level XLStyle -> XLStyleIndex cache
     };
 }    // namespace OpenXLSX
 

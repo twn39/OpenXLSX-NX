@@ -29,15 +29,18 @@ namespace OpenXLSX
      * @brief Compute a canonical, deterministic string fingerprint of a pugixml subtree.
      * @details Walks attributes (in document order) and element children recursively.
      *          Whitespace-only pcdata nodes are skipped so that XML indentation differences
-     *          do not create false mismatches.  The resulting string is suitable as a key
-     *          in std::unordered_map for O(1) style deduplication lookups.
+     *          do not create false mismatches. The resulting string is suitable as a key
+     *          in hash tables for O(1) style deduplication lookups.
      */
-    inline std::string xmlNodeFingerprint(const XMLNode& node)
+    inline void xmlNodeFingerprintImpl(const XMLNode& node, std::string& fp)
     {
-        std::string fp;
         // Attributes first, in document order
-        for (XMLAttribute attr = node.first_attribute(); attr; attr = attr.next_attribute())
-            fp += attr.name() + std::string("=") + attr.value() + ';';
+        for (XMLAttribute attr = node.first_attribute(); attr; attr = attr.next_attribute()) {
+            fp.append(attr.name());
+            fp.push_back('=');
+            fp.append(attr.value());
+            fp.push_back(';');
+        }
         // Element and text children
         for (XMLNode child = node.first_child(); child; child = child.next_sibling()) {
             if (child.type() == pugi::node_pcdata) {
@@ -45,12 +48,25 @@ namespace OpenXLSX
                 // Skip whitespace-only text (indentation artifacts)
                 bool isWhitespace = std::all_of(v.begin(), v.end(), [](char c) { return std::isspace(static_cast<unsigned char>(c)); });
                 if (isWhitespace) continue;
-                fp += '[' + std::string(child.value()) + ']';
+                fp.push_back('[');
+                fp.append(v);
+                fp.push_back(']');
             }
             else {
-                fp += '<' + std::string(child.name()) + ':' + xmlNodeFingerprint(child) + '>';
+                fp.push_back('<');
+                fp.append(child.name());
+                fp.push_back(':');
+                xmlNodeFingerprintImpl(child, fp);
+                fp.push_back('>');
             }
         }
+    }
+
+    inline std::string xmlNodeFingerprint(const XMLNode& node)
+    {
+        std::string fp;
+        fp.reserve(256);
+        xmlNodeFingerprintImpl(node, fp);
         return fp;
     }
 

@@ -851,6 +851,8 @@ std::string XLDocument::defaultAuthor() const { return m_defaultAuthor; }
  */
 XLStyles& XLDocument::styles() { return m_styles; }
 
+void XLDocument::compactStyles() { workbook().compactStyles(); }
+
 /**
  * @details Probes the archive index for sheet relationships to conditionally access dependencies, avoiding eager and expensive XML
  * allocations for untouched components.

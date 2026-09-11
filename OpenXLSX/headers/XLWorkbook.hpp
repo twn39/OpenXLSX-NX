@@ -292,6 +292,13 @@ namespace OpenXLSX
         void setFullCalculationOnLoad();
 
         /**
+         * @brief Compact and deduplicate all cell formats across all worksheets in the workbook.
+         * @details Scans all cell, row, and column style references, merges duplicate cellXfs,
+         *          and rewrites references while strictly preserving ECMA-376 invariants (cellXfs 0).
+         */
+        void compactStyles();
+
+        /**
          * @brief Protect the workbook.
          * @param lockStructure If true, the structure of the workbook is locked.
          * @param lockWindows If true, the windows of the workbook are locked.

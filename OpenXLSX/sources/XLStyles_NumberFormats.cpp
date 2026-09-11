@@ -90,10 +90,98 @@ XLNumberFormat XLNumberFormats::numberFormatByIndex(XLStyleIndex index) const
     return m_numberFormats.at(index);
 }
 
+std::optional<uint32_t> XLNumberFormats::standardNumberFormatId(std::string_view formatCode) noexcept
+{
+    if (formatCode == "General" || formatCode == "general") return 0;
+    if (formatCode == "0") return 1;
+    if (formatCode == "0.00") return 2;
+    if (formatCode == "#,##0") return 3;
+    if (formatCode == "#,##0.00") return 4;
+    if (formatCode == "0%") return 9;
+    if (formatCode == "0.00%") return 10;
+    if (formatCode == "0.00E+00" || formatCode == "0.00e+00") return 11;
+    if (formatCode == "# ?/?" || formatCode == "?/?") return 12;
+    if (formatCode == "# ?\?/?\?" || formatCode == "?\?/?\?") return 13;
+    if (formatCode == "mm-dd-yy" || formatCode == "m/d/yy" || formatCode == "m/d/yyyy" || formatCode == "yyyy-mm-dd") return 14;
+    if (formatCode == "d-mmm-yy") return 15;
+    if (formatCode == "d-mmm") return 16;
+    if (formatCode == "mmm-yy") return 17;
+    if (formatCode == "h:mm AM/PM") return 18;
+    if (formatCode == "h:mm:ss AM/PM") return 19;
+    if (formatCode == "h:mm") return 20;
+    if (formatCode == "h:mm:ss") return 21;
+    if (formatCode == "m/d/yy h:mm" || formatCode == "m/d/yyyy h:mm") return 22;
+    if (formatCode == "#,##0 ;(#,##0)" || formatCode == "#,##0;(#,##0)") return 37;
+    if (formatCode == "#,##0 ;[Red](#,##0)" || formatCode == "#,##0;[Red](#,##0)") return 38;
+    if (formatCode == "#,##0.00;(#,##0.00)" || formatCode == "#,##0.00 ;(#,##0.00)") return 39;
+    if (formatCode == "#,##0.00;[Red](#,##0.00)" || formatCode == "#,##0.00 ;[Red](#,##0.00)") return 40;
+    if (formatCode == "mm:ss") return 45;
+    if (formatCode == "[h]:mm:ss") return 46;
+    if (formatCode == "mmss.0") return 47;
+    if (formatCode == "##0.0E+0") return 48;
+    if (formatCode == "@") return 49;
+    return std::nullopt;
+}
+
+std::string_view XLNumberFormats::standardFormatCode(uint32_t id) noexcept
+{
+    switch (id) {
+        case 0: return "General";
+        case 1: return "0";
+        case 2: return "0.00";
+        case 3: return "#,##0";
+        case 4: return "#,##0.00";
+        case 9: return "0%";
+        case 10: return "0.00%";
+        case 11: return "0.00E+00";
+        case 12: return "# ?/?";
+        case 13: return "# ?\?/?\?";
+        case 14: return "mm-dd-yy";
+        case 15: return "d-mmm-yy";
+        case 16: return "d-mmm";
+        case 17: return "mmm-yy";
+        case 18: return "h:mm AM/PM";
+        case 19: return "h:mm:ss AM/PM";
+        case 20: return "h:mm";
+        case 21: return "h:mm:ss";
+        case 22: return "m/d/yy h:mm";
+        case 37: return "#,##0 ;(#,##0)";
+        case 38: return "#,##0 ;[Red](#,##0)";
+        case 39: return "#,##0.00;(#,##0.00)";
+        case 40: return "#,##0.00;[Red](#,##0.00)";
+        case 45: return "mm:ss";
+        case 46: return "[h]:mm:ss";
+        case 47: return "mmss.0";
+        case 48: return "##0.0E+0";
+        case 49: return "@";
+        default: return "";
+    }
+}
+
 XLNumberFormat XLNumberFormats::numberFormatById(uint32_t numberFormatId) const
 {
     for (const auto& fmt : m_numberFormats)
         if (fmt.numberFormatId() == numberFormatId) return fmt;
+
+    auto stdCode = standardFormatCode(numberFormatId);
+    if (!stdCode.empty()) {
+        static const auto s_stdDoc = []() {
+            auto doc = std::make_unique<pugi::xml_document>();
+            return doc;
+        }();
+        static std::unordered_map<uint32_t, XMLNode> s_nodes;
+        static std::mutex s_mutex;
+        std::lock_guard<std::mutex> lock(s_mutex);
+        auto it = s_nodes.find(numberFormatId);
+        if (it != s_nodes.end()) return XLNumberFormat(it->second);
+
+        XMLNode n = s_stdDoc->append_child("numFmt");
+        n.append_attribute("numFmtId").set_value(numberFormatId);
+        n.append_attribute("formatCode").set_value(std::string(stdCode).c_str());
+        s_nodes.emplace(numberFormatId, n);
+        return XLNumberFormat(n);
+    }
+
     using namespace std::literals::string_literals;
     throw XLException("XLNumberFormats::"s + __func__ + ": numberFormatId "s + std::to_string(numberFormatId) + " not found"s);
 }
@@ -115,6 +203,11 @@ uint32_t XLNumberFormats::getFreeNumberFormatId() const
 
 uint32_t XLNumberFormats::createNumberFormat(std::string_view formatCode)
 {
+    auto stdId = standardNumberFormatId(formatCode);
+    if (stdId.has_value()) {
+        return *stdId;
+    }
+
     // If exact format code already exists, just return its ID
     for (const auto& fmt : m_numberFormats) {
         if (fmt.formatCode() == formatCode) { return fmt.numberFormatId(); }

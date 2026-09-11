@@ -229,6 +229,9 @@ XLFonts::XLFonts(const XMLNode& fonts) : m_fontsNode(std::make_unique<XMLNode>(f
             std::cerr << "WARNING: XLFonts constructor: unknown subnode " << nodeName << std::endl;
         node = node.next_sibling_of_type(pugi::node_element);
     }
+    for (size_t i = 0; i < m_fonts.size(); ++i) {
+        m_fingerprintCache.emplace(xmlNodeFingerprint(*m_fonts[i].m_fontNode), static_cast<XLStyleIndex>(i));
+    }
 }
 
 XLFonts::~XLFonts() { m_fonts.clear(); }
@@ -287,6 +290,7 @@ XLStyleIndex XLFonts::create(XLFont copyFrom, std::string_view styleEntriesPrefi
 
     m_fonts.push_back(newFont);
     setAttr(*m_fontsNode, "count", std::to_string(m_fonts.size()));
+    m_fingerprintCache.emplace(xmlNodeFingerprint(*newFont.m_fontNode), index);
     return index;
 }
 
@@ -299,16 +303,16 @@ XLStyleIndex XLFonts::findOrCreate(XLFont copyFrom, std::string_view styleEntrie
     auto it = m_fingerprintCache.find(key);
     if (it != m_fingerprintCache.end()) return it->second;
 
-    // Cold path: scan all existing fonts (covers fonts loaded from an existing file)
+    // Fallback: scan existing fonts (handles items mutated in place after create())
     for (size_t i = 0; i < m_fonts.size(); ++i) {
         if (xmlNodeFingerprint(*m_fonts[i].m_fontNode) == key) {
-            m_fingerprintCache.emplace(key, i);
+            m_fingerprintCache.emplace(std::move(key), i);
             return i;
         }
     }
 
     // No match found — create and cache
     XLStyleIndex idx = create(copyFrom, styleEntriesPrefix);
-    m_fingerprintCache.emplace(key, idx);
+    m_fingerprintCache.emplace(std::move(key), idx);
     return idx;
 }

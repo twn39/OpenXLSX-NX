@@ -1,16 +1,20 @@
 // ===== External Includes ===== //
 #include <algorithm>
+#include <ankerl/unordered_dense.h>
 #include <fmt/format.h>
 #include <gsl/gsl>
 #include <iterator>
 #include <mutex>
 #include <pugixml.hpp>
+#include <set>
 #include <shared_mutex>
 #include <vector>
 
 // ===== OpenXLSX Includes ===== //
 #include "XLDocument.hpp"
 #include "XLSheet.hpp"
+#include "XLStyles.hpp"
+#include "XLStyles_Internal.hpp"
 #include "XLUtilities.hpp"
 #include "XLWorkbook.hpp"
 #include "XLXmlData.hpp"
@@ -711,4 +715,130 @@ bool XLWorkbook::isVisible(XMLNode const& sheetNode) const
     auto attr = sheetNode.attribute("state");
     if (attr.empty()) return true;
     return isVisibleState(attr.value());
+}
+
+void XLWorkbook::compactStyles()
+{
+    std::unique_lock<std::shared_mutex> lock(parentDoc().mutex());
+    auto& styles = parentDoc().styles();
+    auto& cellFormats = styles.cellFormats();
+    const size_t originalCount = cellFormats.count();
+    if (originalCount <= 1) {
+        styles.compactStyles();
+        return;
+    }
+
+    // Step 1: Collect all active cellXf indices across all worksheets
+    std::vector<std::string> wksNames = worksheetNames();
+    std::set<XLStyleIndex> activeXfIndices;
+    activeXfIndices.insert(0);    // ECMA-376: format 0 (Normal) is always preserved
+
+    for (const auto& name : wksNames) {
+        auto ws = worksheet(name);
+        XMLNode root = ws.xmlDocument().document_element();
+        if (root.empty()) continue;
+
+        // Scan <cols><col style="...">
+        XMLNode colsNode = root.child("cols");
+        if (!colsNode.empty()) {
+            for (auto col : colsNode.children("col")) {
+                auto attr = col.attribute("style");
+                if (!attr.empty()) {
+                    activeXfIndices.insert(attr.as_uint());
+                }
+            }
+        }
+
+        // Scan <sheetData><row s="..."> and <c s="...">
+        XMLNode sheetData = root.child("sheetData");
+        if (!sheetData.empty()) {
+            for (auto row : sheetData.children("row")) {
+                auto rowAttr = row.attribute("s");
+                if (!rowAttr.empty()) {
+                    activeXfIndices.insert(rowAttr.as_uint());
+                }
+                for (auto c : row.children("c")) {
+                    auto cAttr = c.attribute("s");
+                    if (!cAttr.empty()) {
+                        activeXfIndices.insert(cAttr.as_uint());
+                    }
+                }
+            }
+        }
+    }
+
+    // Step 2: Build deduplicated newNodes vector and oldToNew mapping
+    std::vector<XMLNode> newNodes;
+    ankerl::unordered_dense::map<XLStyleIndex, XLStyleIndex> oldToNewMap;
+    ankerl::unordered_dense::map<std::string, XLStyleIndex> fingerprintToNewMap;
+
+    // Preserve index 0 (ECMA-376 default)
+    XMLNode node0 = cellFormats[0].node();
+    newNodes.push_back(node0);
+    oldToNewMap[0] = 0;
+    fingerprintToNewMap[xmlNodeFingerprint(node0)] = 0;
+
+    for (XLStyleIndex oldIdx : activeXfIndices) {
+        if (oldIdx == 0) continue;
+        if (oldIdx >= originalCount) {
+            oldToNewMap[oldIdx] = 0;
+            continue;
+        }
+
+        XMLNode node = cellFormats[oldIdx].node();
+        std::string fp = xmlNodeFingerprint(node);
+        auto it = fingerprintToNewMap.find(fp);
+        if (it != fingerprintToNewMap.end()) {
+            oldToNewMap[oldIdx] = it->second;
+        } else {
+            XLStyleIndex newIdx = static_cast<XLStyleIndex>(newNodes.size());
+            newNodes.push_back(node);
+            fingerprintToNewMap.emplace(std::move(fp), newIdx);
+            oldToNewMap[oldIdx] = newIdx;
+        }
+    }
+
+    // Step 3: Rewrite style indices across all worksheets
+    for (const auto& name : wksNames) {
+        auto ws = worksheet(name);
+        XMLNode root = ws.xmlDocument().document_element();
+        if (root.empty()) continue;
+
+        // Rewrite <cols><col style="...">
+        XMLNode colsNode = root.child("cols");
+        if (!colsNode.empty()) {
+            for (auto col : colsNode.children("col")) {
+                auto attr = col.attribute("style");
+                if (!attr.empty()) {
+                    auto it = oldToNewMap.find(attr.as_uint());
+                    attr.set_value(it != oldToNewMap.end() ? it->second : 0);
+                }
+            }
+        }
+
+        // Rewrite <sheetData><row s="..."> and <c s="...">
+        XMLNode sheetData = root.child("sheetData");
+        if (!sheetData.empty()) {
+            for (auto row : sheetData.children("row")) {
+                auto rowAttr = row.attribute("s");
+                if (!rowAttr.empty()) {
+                    auto it = oldToNewMap.find(rowAttr.as_uint());
+                    rowAttr.set_value(it != oldToNewMap.end() ? it->second : 0);
+                }
+                for (auto c : row.children("c")) {
+                    auto cAttr = c.attribute("s");
+                    if (!cAttr.empty()) {
+                        auto it = oldToNewMap.find(cAttr.as_uint());
+                        cAttr.set_value(it != oldToNewMap.end() ? it->second : 0);
+                    }
+                }
+            }
+        }
+    }
+
+    // Step 4: Rebuild cellFormats in stylesheet
+    cellFormats.rebuild(newNodes);
+
+    // Step 5: Clear internal cache
+    styles.compactStyles();
 }

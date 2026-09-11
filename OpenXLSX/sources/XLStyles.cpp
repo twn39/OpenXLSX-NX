@@ -1,9 +1,11 @@
 // ===== External Includes ===== //
+#include <ankerl/unordered_dense.h>
 #include <cstdint>
 #include <fmt/format.h>
 #include <gsl/gsl>
 #include <memory>
 #include <pugixml.hpp>
+#include <shared_mutex>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -19,6 +21,11 @@
 #include "XLUtilities.hpp"
 
 using namespace OpenXLSX;
+
+struct XLStyles::StyleCacheImpl {
+    ankerl::unordered_dense::map<XLStyle, XLStyleIndex, XLStyleHash> cache;
+    mutable std::shared_mutex mutex;
+};
 
 namespace
 {
@@ -70,11 +77,12 @@ namespace
 
 // ===== XLStyles, master class
 
-XLStyles::XLStyles() : m_suppressWarnings(false) {}
+XLStyles::XLStyles() : m_suppressWarnings(false), m_styleCache(std::make_unique<StyleCacheImpl>()) {}
 
 XLStyles::XLStyles(gsl::not_null<XLXmlData*> xmlData, bool suppressWarnings, std::string_view stylesPrefix)
     : XLXmlFile(xmlData),
-      m_suppressWarnings(suppressWarnings)
+      m_suppressWarnings(suppressWarnings),
+      m_styleCache(std::make_unique<StyleCacheImpl>())
 {
     XMLDocument& doc = xmlDocument();
     if (doc.document_element().empty())    // handle a bad (no document element) xl/styles.xml
@@ -183,7 +191,7 @@ XLStyles::XLStyles(gsl::not_null<XLXmlData*> xmlData, bool suppressWarnings, std
     }
 }
 
-XLStyles::~XLStyles() {}
+XLStyles::~XLStyles() = default;
 
 XLStyles::XLStyles(XLStyles&& other) noexcept
     : XLXmlFile(other),
@@ -195,21 +203,28 @@ XLStyles::XLStyles(XLStyles&& other) noexcept
       m_cellStyleFormats(std::move(other.m_cellStyleFormats)),
       m_cellFormats(std::move(other.m_cellFormats)),
       m_cellStyles(std::move(other.m_cellStyles)),
-      m_dxfs(std::move(other.m_dxfs))
+      m_dxfs(std::move(other.m_dxfs)),
+      m_styleCache(std::move(other.m_styleCache))
 {}
 
 XLStyles::XLStyles(const XLStyles& other)
     : XLXmlFile(other),
       m_suppressWarnings(other.m_suppressWarnings),
-      m_numberFormats(std::make_unique<XLNumberFormats>(*other.m_numberFormats)),
-      m_fonts(std::make_unique<XLFonts>(*other.m_fonts)),
-      m_fills(std::make_unique<XLFills>(*other.m_fills)),
-      m_borders(std::make_unique<XLBorders>(*other.m_borders)),
-      m_cellStyleFormats(std::make_unique<XLCellFormats>(*other.m_cellStyleFormats)),
-      m_cellFormats(std::make_unique<XLCellFormats>(*other.m_cellFormats)),
-      m_cellStyles(std::make_unique<XLCellStyles>(*other.m_cellStyles)),
-      m_dxfs(std::make_unique<XLDxfs>(*other.m_dxfs))
-{}
+      m_numberFormats(other.m_numberFormats ? std::make_unique<XLNumberFormats>(*other.m_numberFormats) : nullptr),
+      m_fonts(other.m_fonts ? std::make_unique<XLFonts>(*other.m_fonts) : nullptr),
+      m_fills(other.m_fills ? std::make_unique<XLFills>(*other.m_fills) : nullptr),
+      m_borders(other.m_borders ? std::make_unique<XLBorders>(*other.m_borders) : nullptr),
+      m_cellStyleFormats(other.m_cellStyleFormats ? std::make_unique<XLCellFormats>(*other.m_cellStyleFormats) : nullptr),
+      m_cellFormats(other.m_cellFormats ? std::make_unique<XLCellFormats>(*other.m_cellFormats) : nullptr),
+      m_cellStyles(other.m_cellStyles ? std::make_unique<XLCellStyles>(*other.m_cellStyles) : nullptr),
+      m_dxfs(other.m_dxfs ? std::make_unique<XLDxfs>(*other.m_dxfs) : nullptr),
+      m_styleCache(std::make_unique<StyleCacheImpl>())
+{
+    if (other.m_styleCache) {
+        std::shared_lock<std::shared_mutex> lock(other.m_styleCache->mutex);
+        m_styleCache->cache = other.m_styleCache->cache;
+    }
+}
 
 XLStyles& XLStyles::operator=(XLStyles&& other) noexcept
 {
@@ -224,6 +239,7 @@ XLStyles& XLStyles::operator=(XLStyles&& other) noexcept
         m_cellFormats      = std::move(other.m_cellFormats);
         m_cellStyles       = std::move(other.m_cellStyles);
         m_dxfs             = std::move(other.m_dxfs);
+        m_styleCache       = std::move(other.m_styleCache);
     }
     return *this;
 }
@@ -340,6 +356,14 @@ XLStyleIndex XLStyles::namedStyle(std::string_view name) const
 
 XLStyleIndex XLStyles::findOrCreateStyle(const XLStyle& style)
 {
+    if (m_styleCache) {
+        std::shared_lock<std::shared_mutex> lock(m_styleCache->mutex);
+        auto it = m_styleCache->cache.find(style);
+        if (it != m_styleCache->cache.end()) {
+            return it->second;
+        }
+    }
+
     pugi::xml_document tempDoc;
 
     // ===== Step 1: Resolve font index (deduplicated) ========================
@@ -427,5 +451,18 @@ XLStyleIndex XLStyles::findOrCreateStyle(const XLStyle& style)
         xf.setApplyAlignment(true);
     }
 
-    return cellFormats().findOrCreate(xf);
+    XLStyleIndex resultIdx = cellFormats().findOrCreate(xf);
+    if (m_styleCache) {
+        std::unique_lock<std::shared_mutex> lock(m_styleCache->mutex);
+        m_styleCache->cache.emplace(style, resultIdx);
+    }
+    return resultIdx;
+}
+
+void XLStyles::compactStyles()
+{
+    if (m_styleCache) {
+        std::unique_lock<std::shared_mutex> lock(m_styleCache->mutex);
+        m_styleCache->cache.clear();
+    }
 }

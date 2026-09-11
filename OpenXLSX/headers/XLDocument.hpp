@@ -320,6 +320,11 @@ namespace OpenXLSX
         [[nodiscard]] XLStyles& styles();
 
         /**
+         * @brief Compact and deduplicate all styles across the workbook and all worksheets.
+         */
+        void compactStyles();
+
+        /**
          * @brief Component presence checks, used to avoid unnecessary parsing of absent components in the package.
          * @note Also part of XLPackagePartFactory.
          */
