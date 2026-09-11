@@ -64,21 +64,22 @@ int main() {
 
 | Operation | Time / Execution | Throughput | Description |
 | :--- | :--- | :--- | :--- |
-| **Write Integers** | **262 ms** | ~3.05M cells/sec | Direct integer-to-XML serialization without string intermediates. |
-| **Write Booleans** | **378 ms** | ~2.11M cells/sec | High-speed boolean state serialization. |
-| **Write Strings** | **347 ms** | ~2.30M cells/sec | Zero-copy `SharedStrings` aggregation using O(1) hash maps. |
-| **Write Floats** | **494 ms** | ~1.62M cells/sec | Fast double formatting via `std::to_chars` and `{fmt}`. |
-| **Read Strings** | **220 ms** | ~3.62M cells/sec | Parsing and lookup via `ankerl::unordered_dense`. |
-| **Read Integers** | **176 ms** | ~4.54M cells/sec | Rapid DOM extraction and value parsing. |
-| **Random DOM Access** | **4.7 ms** | N/A | Backward column/row traversal via O(1) XML Hint Cache. |
-| **Style Deduplication** | **3.7 ms** | ~13.5M lookups/sec | High-throughput O(1) robin-hood hash cache and zero-allocation deduplication (`findOrCreateStyle`). |
-| **Formula Engine** | **16.3 ms** | ~613k evals/sec | `XLFormulaEngine` AST parsing, dependency resolution, and execution. |
+| **Write Integers** | **278 ms** | ~2.87M cells/sec | Direct integer-to-XML serialization without string intermediates. |
+| **Write Booleans** | **306 ms** | ~2.61M cells/sec | High-speed boolean state serialization (19% faster). |
+| **Write Floats** | **344 ms** | ~2.32M cells/sec | Fast double formatting via `std::to_chars` and `{fmt}` (30% faster). |
+| **Write Strings** | **351 ms** | ~2.28M cells/sec | Zero-copy `SharedStrings` aggregation using O(1) hash maps. |
+| **Read Integers** | **164 ms** | ~4.86M cells/sec | Rapid DOM extraction and value parsing. |
+| **Read Strings** | **193 ms** | ~4.14M cells/sec | Parsing and lookup via `ankerl::unordered_dense` SSE2 SIMD probing (12% faster). |
+| **Random DOM Access** | **6.5 ms** | N/A | Backward column/row traversal via O(1) XML Hint Cache. |
+| **Style Deduplication** | **3.6 ms** | ~13.8M lookups/sec | High-throughput O(1) robin-hood hash cache and zero-allocation deduplication (`findOrCreateStyle`, ~72.5ns/op). |
+| **Formula Engine** | **13.2 ms** | ~754k evals/sec | `XLFormulaEngine` AST parsing, dependency resolution, and execution (18% faster). |
+
 
 ### 🛠 Core Architectural Optimizations
 The unmatched throughput of OpenXLSX is achieved through continuous low-level C++17 optimizations:
 - **Zero-Allocation Stream Writer**: The `XLStreamWriter` module relies entirely on stack buffers and `<charconv>` (`std::to_chars`), cutting **millions of redundant `std::string` allocations** when appending rows.
 - **Zero-Copy XML Serialization**: Massive XML files (e.g., 80MB worksheets) bypass intermediate `std::ostringstream` buffers. They are streamed via `MallocXmlWriter` directly into a resizing heap block, which is then handed off (via `zip_source_buffer_create`) to `libzip` without any memory duplication (`memcpy`).
-- **O(1) Style Hash Cache & Zero Heap Allocations**: Styling 1,000,000 cells identically results in exactly **1 XML node** inside `styles.xml`. The library uses a 64-bit struct-level hash (`XLStyleHash`) with a read-write locked `ankerl::unordered_dense::map` cache, achieving zero-allocation lookups in ~74ns.
+- **O(1) Style Hash Cache & Zero Heap Allocations**: Styling 1,000,000 cells identically results in exactly **1 XML node** inside `styles.xml`. The library uses a 64-bit struct-level hash (`XLStyleHash`) with a read-write locked `ankerl::unordered_dense::map` cache, achieving zero-allocation lookups in ~72.5ns.
 - **ECMA-376 Built-in Format Registry**: Standard number formats (General, 0.00, @, etc.) resolve directly to canonical IDs 0..49 without bloating `styles.xml` with duplicate `<numFmt>` tags.
 - **Lazy DOM Updates**: Eliminates O(N) operations during file saving (like `XLWorksheet::columnCount()`) by maintaining boundary limits via an O(1) dirty-flag state machine.
 - **Fast Startup**: Opening a `.xlsx` with thousands of embedded resources uses a pre-allocated hash set to cross-reference unhandled components, dropping load times from O(N²) down to O(1).
