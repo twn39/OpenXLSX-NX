@@ -189,6 +189,15 @@ void XLZipArchive::save(std::string_view path)
     }
 }
 
+namespace {
+    inline void setEntryCompressionDefault(zip_t* archive, zip_int64_t idx) {
+        if (idx < 0) return;
+        if (zip_set_file_compression(archive, static_cast<zip_uint64_t>(idx), ZIP_CM_DEFAULT, 0) < 0) {
+            throw XLInternalError(std::string("Failed to set file compression to default: ") + zip_strerror(archive));
+        }
+    }
+} // namespace
+
 void XLZipArchive::addEntry(std::string_view name, std::string data)
 {
     if (!isOpen()) throw XLInternalError("Archive not open");
@@ -214,6 +223,7 @@ void XLZipArchive::addEntry(std::string_view name, std::string data)
         if (zip_file_replace(m_archive->archive.get(), idx, s.get(), ZIP_FL_ENC_UTF_8) < 0) {
             throw XLInternalError(std::string("Failed to replace entry: ") + zip_strerror(m_archive->archive.get()));
         }
+        setEntryCompressionDefault(m_archive->archive.get(), idx);
     }
     else {
         idx = zip_file_add(m_archive->archive.get(), std::string(name).c_str(), s.get(), ZIP_FL_ENC_UTF_8);
@@ -250,6 +260,7 @@ void XLZipArchive::addEntryAllocated(std::string_view name, void* data, size_t s
         if (zip_file_replace(m_archive->archive.get(), idx, s.get(), ZIP_FL_ENC_UTF_8) < 0) {
             throw XLInternalError(std::string("Failed to replace entry: ") + zip_strerror(m_archive->archive.get()));
         }
+        setEntryCompressionDefault(m_archive->archive.get(), idx);
     }
     else {
         idx = zip_file_add(m_archive->archive.get(), std::string(name).c_str(), s.get(), ZIP_FL_ENC_UTF_8);
@@ -294,7 +305,7 @@ std::string XLZipArchive::getEntry(std::string_view name) const
     }
 
     zip_file_t* f = zip_fopen(m_archive->archive.get(), std::string(name).c_str(), 0);
-    if (!f) throw XLInternalError("Failed to open entry: " + std::string(name));
+    if (!f) throw XLInternalError("Failed to open entry: " + std::string(name) + ", error: " + zip_strerror(m_archive->archive.get()));
 
     std::string result;
     result.resize(st.size);
@@ -376,6 +387,7 @@ void XLZipArchive::addEntryFromFile(std::string_view name, std::string_view file
     if (index < 0) {
         throw XLInternalError("Failed to add file entry to archive");
     }
+    setEntryCompressionDefault(m_archive->archive.get(), index);
     s.release();
 
     if (index >= 0) {
