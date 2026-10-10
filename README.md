@@ -363,6 +363,15 @@ doc.save();
 <details>
 <summary><b>Detailed Change Log</b></summary>
 
+### 2026-10-10: libzip v1.12 Compatibility, Dependency Upgrades & Hardening (v1.12.1)
+- **libzip v1.12 Compatibility Adaptation**: Resolved uncommitted buffer decompression errors caused by upstream `libzip v1.12` compression state inheritance. Explicitly reset entry compression to `ZIP_CM_DEFAULT` across `addEntry`, `addEntryAllocated`, and `addEntryFromFile`.
+- **Upstream Dependency Upgrades**:
+  - `libzip`: Upgraded to `v1.12` (featuring SipHash DoS defense and enhanced buffer security).
+  - `fast_float`: Upgraded to `v8.3.2` (mitigates signed overflow edge cases and optimizes struct memory layout).
+  - `Catch2`: Upgraded to `v3.16.1` (reduces macro expansions and optimizes test compilation).
+  - `Microsoft GSL`: Upgraded to `v5.0.1` (fixes `dyn_array` iterator const conversions).
+- **Package Invariant Testing**: Added comprehensive test coverage in `testXLPackageInvariants` verifying in-place archive mutations, immediate readback, and disk persistence.
+
 ### 2026-09-11: Style Pool Deduplication, Normalization & BSD Compliance (v1.12.0)
 - **Zero-Allocation Style Deduplication**: Redesigned `XLStyles` with lightweight 64-bit struct hash keys (`XLStyleHash`), read-write locking (`std::shared_mutex`), and `ankerl::unordered_dense::map` Robin-Hood caching. Benchmark lookups dropped from ~171ms to **~3.7ms** (~13.5M ops/sec, a **43x speedup**).
 - **ECMA-376 Standard Number Format Registry**: Built-in zero-XML resolution for standard format IDs (0..49), preventing redundant `<numFmt>` custom elements from bloating `styles.xml`.

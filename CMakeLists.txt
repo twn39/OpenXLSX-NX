@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
-project(OpenXLSX-NX VERSION 1.12.0 LANGUAGES CXX C)
+project(OpenXLSX-NX VERSION 1.12.1 LANGUAGES CXX C)
 
 #=======================================================================================================================
 # Project Metadata & Upstream Attribution
