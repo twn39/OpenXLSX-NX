@@ -31,7 +31,7 @@ TEST_CASE("XLStreamWriterSharedStringsTests", "[XLStreamWriter]")
         
         {
             XLDocument doc;
-            doc.create(filename);
+            doc.create(std::string_view(filename));
             auto wks = doc.workbook().worksheet("Sheet1");
             
             // Default streaming mode: useSharedStrings = false
@@ -70,7 +70,7 @@ TEST_CASE("XLStreamWriterSharedStringsTests", "[XLStreamWriter]")
         
         {
             XLDocument doc;
-            doc.create(filename);
+            doc.create(std::string_view(filename));
             auto wks = doc.workbook().worksheet("Sheet1");
             
             // Enable shared strings
@@ -119,7 +119,7 @@ TEST_CASE("XLStreamWriterSharedStringsTests", "[XLStreamWriter]")
         
         {
             XLDocument doc;
-            doc.create(filename);
+            doc.create(std::string_view(filename));
             auto wks = doc.workbook().worksheet("Sheet1");
             
             // Enable shared strings but set threshold to 2 unique strings

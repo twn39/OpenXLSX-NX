@@ -39,16 +39,6 @@ namespace
         return !toString(v).empty();
     }
 
-    bool valuesEqual(const XLCellValue& a, const XLCellValue& b)
-    {
-        if (a.type() == XLValueType::Error || b.type() == XLValueType::Error) {
-            return isError(a) && isError(b) && toString(a) == toString(b);
-        }
-        if (isNumeric(a) && isNumeric(b)) return toDouble(a) == toDouble(b);
-        if (a.type() == XLValueType::Boolean && b.type() == XLValueType::Boolean) return a.get<bool>() == b.get<bool>();
-        return toString(a) == toString(b);
-    }
-
     int compareValues(const XLCellValue& a, const XLCellValue& b)
     {
         // Excel SORT: numbers before text; blanks last-ish — keep simple numeric/string order.

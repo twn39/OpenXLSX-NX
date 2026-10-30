@@ -117,6 +117,126 @@ TEST_CASE("Data-driven schema properties value semantics", "[ModernArch][SchemaO
         REQUIRE(readBack.totalsRowCount == 1);
         REQUIRE(readBack.totalsRowShown == true);
     }
+
+    // Test XLColumnProperties POD operations
+    SECTION("ColumnProperties read and write")
+    {
+        XMLDocument doc;
+        auto        colNode = doc.append_child("col");
+
+        XLColumnProperties props;
+        props.minCol       = 2;
+        props.maxCol       = 5;
+        props.width        = 18.5f;
+        props.customWidth  = true;
+        props.hidden       = true;
+        props.outlineLevel = 9;    // Should clamp to 7
+        props.collapsed    = true;
+        props.styleIndex   = 12;
+
+        XmlOps::writeColProps(colNode, props);
+
+        auto readBack = XmlOps::readColProps(colNode);
+        REQUIRE(readBack.minCol == 2);
+        REQUIRE(readBack.maxCol == 5);
+        REQUIRE(readBack.width == Catch::Approx(18.5f));
+        REQUIRE(readBack.customWidth == true);
+        REQUIRE(readBack.hidden == true);
+        REQUIRE(readBack.outlineLevel == 7);    // Clamped!
+        REQUIRE(readBack.collapsed == true);
+        REQUIRE(readBack.styleIndex == 12);
+    }
+
+    // Test XLPaneProperties and ECMA-376 invariant (<pane> before <selection>)
+    SECTION("PaneProperties read and write with ECMA-376 invariant")
+    {
+        XMLDocument doc;
+        auto        sheetViewNode = doc.append_child("sheetView");
+
+        XLPaneProperties props;
+        props.xSplit      = 3;
+        props.ySplit      = 4;
+        props.topLeftCell = "D5";
+        props.state       = "frozen";
+        props.activePane  = "bottomRight";
+
+        XmlOps::writePaneProps(sheetViewNode, props);
+
+        // Verify ECMA-376 order: <pane> MUST precede <selection>
+        auto firstChild = sheetViewNode.first_child();
+        REQUIRE(std::string(firstChild.name()) == "pane");
+        REQUIRE(firstChild.attribute("xSplit").as_uint() == 3);
+        REQUIRE(firstChild.attribute("ySplit").as_uint() == 4);
+        REQUIRE(std::string(firstChild.attribute("topLeftCell").value()) == "D5");
+        REQUIRE(std::string(firstChild.attribute("state").value()) == "frozen");
+
+        auto secondChild = firstChild.next_sibling();
+        REQUIRE(!secondChild.empty());
+        REQUIRE(std::string(secondChild.name()) == "selection");
+
+        auto readBack = XmlOps::readPaneProps(sheetViewNode);
+        REQUIRE(readBack.xSplit == 3);
+        REQUIRE(readBack.ySplit == 4);
+        REQUIRE(readBack.topLeftCell == "D5");
+        REQUIRE(readBack.state == "frozen");
+        REQUIRE(readBack.activePane == "bottomRight");
+    }
+
+    // Test XLColumn and XLRow high-level properties() and setProperties()
+    SECTION("High-level XLColumn and XLRow POD properties roundtrip")
+    {
+        const std::string filename = TestHelpers::getUniqueFilename("modern_props") + ".xlsx";
+        {
+            XLDocument doc;
+            doc.create(filename, XLForceOverwrite);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            // Test Column POD operations
+            auto col = wks.column(3);
+            auto colProps = col.properties();
+            colProps.width = 22.5f;
+            colProps.hidden = true;
+            colProps.outlineLevel = 2;
+            col.setProperties(colProps);
+
+            REQUIRE(col.width() == Catch::Approx(22.5f));
+            REQUIRE(col.isHidden() == true);
+            REQUIRE(col.outlineLevel() == 2);
+
+            // Test Row POD operations
+            auto row = wks.row(5);
+            auto rowProps = row.properties();
+            rowProps.height = 35.0f;
+            rowProps.hidden = true;
+            rowProps.outlineLevel = 3;
+            row.setProperties(rowProps);
+
+            REQUIRE(row.height() == Catch::Approx(35.0f));
+            REQUIRE(row.isHidden() == true);
+            REQUIRE(row.outlineLevel() == 3);
+
+            doc.save();
+        }
+
+        {
+            XLDocument doc;
+            doc.open(filename);
+            auto wks = doc.workbook().worksheet("Sheet1");
+
+            auto col = wks.column(3);
+            auto colProps = col.properties();
+            REQUIRE(colProps.width == Catch::Approx(22.5f));
+            REQUIRE(colProps.hidden == true);
+            REQUIRE(colProps.outlineLevel == 2);
+
+            auto row = wks.row(5);
+            auto rowProps = row.properties();
+            REQUIRE(rowProps.height == Catch::Approx(35.0f));
+            REQUIRE(rowProps.hidden == true);
+            REQUIRE(rowProps.outlineLevel == 3);
+        }
+        std::filesystem::remove(filename);
+    }
 }
 
 TEST_CASE("Cross-document worksheet cloning and style/SST migration", "[ModernArch][CrossDocClone]")

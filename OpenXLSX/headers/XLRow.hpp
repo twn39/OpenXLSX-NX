@@ -20,6 +20,7 @@
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
 #include "XLRowData.hpp"
+#include "XLXmlSchema.hpp"
 
 namespace OpenXLSX
 {
@@ -145,6 +146,16 @@ namespace OpenXLSX
          * @param level The outline level (0-7).
          */
         void setOutlineLevel(uint8_t level);
+
+        /**
+         * @brief Get row properties as a value-semantic POD struct.
+         */
+        [[nodiscard]] XLRowProperties properties() const;
+
+        /**
+         * @brief Set row properties from a value-semantic POD struct in a single pass.
+         */
+        void setProperties(const XLRowProperties& props);
 
         /**
          * @brief Is the row collapsed?

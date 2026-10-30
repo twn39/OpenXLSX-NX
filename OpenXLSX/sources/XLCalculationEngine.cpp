@@ -298,11 +298,11 @@ namespace OpenXLSX
                                              XLCalculationOptions options,
                                              std::string          defaultSheet)
         : m_worksheet(nullptr),
+          m_defaultSheet(std::move(defaultSheet)),
           m_mapFormulas(std::move(formulas)),
           m_mapValues(std::move(values)),
           m_useMaps(true),
-          m_options(std::move(options)),
-          m_defaultSheet(std::move(defaultSheet))
+          m_options(std::move(options))
     {
         // Multi-sheet map graph if any key or formula contains '!' or defaultSheet set with qualified keys.
         m_multiSheet = false;

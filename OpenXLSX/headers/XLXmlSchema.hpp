@@ -15,7 +15,9 @@
 #include "XLXmlHelpers.hpp"
 #include "XLXmlParser.hpp"
 
+#include <algorithm>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace OpenXLSX
@@ -79,6 +81,8 @@ namespace OpenXLSX
         inline constexpr const char* CommentList     = "commentList";
         inline constexpr const char* Comment         = "comment";
         inline constexpr const char* TextBody        = "text";
+        inline constexpr const char* Col             = "col";
+        inline constexpr const char* Cols            = "cols";
     }    // namespace XmlTag
 
     namespace XmlAttr
@@ -86,6 +90,7 @@ namespace OpenXLSX
         inline constexpr const char* Ref               = "r";
         inline constexpr const char* Type              = "t";
         inline constexpr const char* Style             = "s";
+        inline constexpr const char* ColStyle          = "style";
         inline constexpr const char* Sqref             = "sqref";
         inline constexpr const char* Val               = "val";
         inline constexpr const char* Name              = "name";
@@ -115,6 +120,22 @@ namespace OpenXLSX
         inline constexpr const char* NumFmtId          = "numFmtId";
         inline constexpr const char* AuthorId          = "authorId";
         inline constexpr const char* ShapeId           = "shapeId";
+        inline constexpr const char* Min               = "min";
+        inline constexpr const char* Max               = "max";
+        inline constexpr const char* Width             = "width";
+        inline constexpr const char* CustomWidth       = "customWidth";
+        inline constexpr const char* OutlineLevel      = "outlineLevel";
+        inline constexpr const char* Collapsed         = "collapsed";
+        inline constexpr const char* DyDescent         = "x14ac:dyDescent";
+        inline constexpr const char* WorkbookViewId    = "workbookViewId";
+        inline constexpr const char* TabSelected       = "tabSelected";
+        inline constexpr const char* ShowGridLines     = "showGridLines";
+        inline constexpr const char* ShowRowColHeaders = "showRowColHeaders";
+        inline constexpr const char* ZoomScale         = "zoomScale";
+        inline constexpr const char* XSplit            = "xSplit";
+        inline constexpr const char* YSplit            = "ySplit";
+        inline constexpr const char* TopLeftCell       = "topLeftCell";
+        inline constexpr const char* ActivePane        = "activePane";
     }    // namespace XmlAttr
 
     /**
@@ -129,18 +150,82 @@ namespace OpenXLSX
         uint32_t    headerRowCount{1};
         uint32_t    totalsRowCount{0};
         bool        totalsRowShown{false};
+
+        friend bool operator==(const XLTableProperties& a, const XLTableProperties& b) noexcept
+        {
+            return a.id == b.id && a.name == b.name && a.displayName == b.displayName &&
+                   a.rangeRef == b.rangeRef && a.headerRowCount == b.headerRowCount &&
+                   a.totalsRowCount == b.totalsRowCount && a.totalsRowShown == b.totalsRowShown;
+        }
+        friend bool operator!=(const XLTableProperties& a, const XLTableProperties& b) noexcept { return !(a == b); }
     };
 
     /**
      * @brief Plain POD properties describing an OOXML Row (<row> element).
+     * @details Compact value-semantic struct.
      */
     struct XLRowProperties
     {
-        uint32_t rowIndex{0};
-        float    height{0.0f};
+        uint32_t rowIndex{0};         ///< Row index (1-based, 1..1048576)
+        float    height{0.0f};        ///< Row height in points
+        uint32_t styleIndex{0};       ///< Style index referencing cellXfs
+        uint8_t  outlineLevel{0};     ///< Outline grouping level (0..7)
         bool     customHeight{false};
         bool     hidden{false};
-        uint32_t styleIndex{0};
+        bool     collapsed{false};
+
+        friend bool operator==(const XLRowProperties& a, const XLRowProperties& b) noexcept
+        {
+            return a.rowIndex == b.rowIndex && a.height == b.height &&
+                   a.styleIndex == b.styleIndex && a.outlineLevel == b.outlineLevel &&
+                   a.customHeight == b.customHeight && a.hidden == b.hidden && a.collapsed == b.collapsed;
+        }
+        friend bool operator!=(const XLRowProperties& a, const XLRowProperties& b) noexcept { return !(a == b); }
+    };
+
+    /**
+     * @brief Plain POD properties describing an OOXML Column (<col> element).
+     * @details Compact 16-byte value-semantic struct aligned with Apple architecture guidelines.
+     */
+    struct XLColumnProperties
+    {
+        uint16_t minCol{1};           ///< Start column (1-based, 1..16384)
+        uint16_t maxCol{1};           ///< End column (1-based, 1..16384)
+        float    width{0.0f};         ///< Column width in character units
+        uint32_t styleIndex{0};       ///< Style index referencing cellXfs
+        uint8_t  outlineLevel{0};     ///< Outline grouping level (0..7)
+        bool     customWidth{false};
+        bool     hidden{false};
+        bool     collapsed{false};
+
+        friend bool operator==(const XLColumnProperties& a, const XLColumnProperties& b) noexcept
+        {
+            return a.minCol == b.minCol && a.maxCol == b.maxCol && a.width == b.width &&
+                   a.styleIndex == b.styleIndex && a.outlineLevel == b.outlineLevel &&
+                   a.customWidth == b.customWidth && a.hidden == b.hidden && a.collapsed == b.collapsed;
+        }
+        friend bool operator!=(const XLColumnProperties& a, const XLColumnProperties& b) noexcept { return !(a == b); }
+    };
+
+    /**
+     * @brief Value-semantic POD properties describing worksheet window panes and freeze state.
+     */
+    struct XLPaneProperties
+    {
+        uint16_t    xSplit{0};                  ///< Frozen column count (0 = no vertical split)
+        uint32_t    ySplit{0};                  ///< Frozen row count (0 = no horizontal split)
+        std::string topLeftCell;                ///< Top-left visible cell in active pane (e.g. "C5")
+        std::string state{"frozen"};            ///< "frozen" or "split"
+        std::string activePane;                 ///< "bottomRight", "topRight", or "bottomLeft"
+
+        [[nodiscard]] bool empty() const noexcept { return xSplit == 0 && ySplit == 0; }
+
+        friend bool operator==(const XLPaneProperties& a, const XLPaneProperties& b) noexcept
+        {
+            return a.xSplit == b.xSplit && a.ySplit == b.ySplit && a.topLeftCell == b.topLeftCell &&
+                   a.state == b.state && a.activePane == b.activePane;
+        }
+        friend bool operator!=(const XLPaneProperties& a, const XLPaneProperties& b) noexcept { return !(a == b); }
     };
 
     namespace XmlOps
@@ -153,6 +238,8 @@ namespace OpenXLSX
             props.height       = node.attribute(XmlAttr::Ht).as_float();
             props.customHeight = node.attribute(XmlAttr::CustomHeight).as_bool();
             props.hidden       = node.attribute(XmlAttr::Hidden).as_bool();
+            props.outlineLevel = static_cast<uint8_t>(std::clamp(node.attribute(XmlAttr::OutlineLevel).as_uint(0), 0u, 7u));
+            props.collapsed    = node.attribute(XmlAttr::Collapsed).as_bool();
             props.styleIndex   = node.attribute(XmlAttr::Style).as_uint();
             return props;
         }
@@ -161,12 +248,119 @@ namespace OpenXLSX
         {
             if (node.empty()) return;
             if (props.rowIndex > 0) setAttr(node, XmlAttr::Ref, props.rowIndex);
-            if (props.height > 0.0f) {
+            if (props.height > 0.0f || props.customHeight) {
                 setAttr(node, XmlAttr::Ht, props.height);
                 setAttr(node, XmlAttr::CustomHeight, props.customHeight ? "1" : "0");
             }
-            if (props.hidden) { setAttr(node, XmlAttr::Hidden, "1"); }
-            if (props.styleIndex > 0) { setAttr(node, XmlAttr::Style, props.styleIndex); }
+            if (props.hidden) {
+                setAttr(node, XmlAttr::Hidden, "1");
+            } else {
+                node.remove_attribute(XmlAttr::Hidden);
+            }
+            uint8_t lvl = static_cast<uint8_t>(std::clamp(static_cast<unsigned>(props.outlineLevel), 0u, 7u));
+            if (lvl > 0) {
+                setAttr(node, XmlAttr::OutlineLevel, lvl);
+            } else {
+                node.remove_attribute(XmlAttr::OutlineLevel);
+            }
+            if (props.collapsed) {
+                setAttr(node, XmlAttr::Collapsed, "1");
+            } else {
+                node.remove_attribute(XmlAttr::Collapsed);
+            }
+            if (props.styleIndex > 0) {
+                setAttr(node, XmlAttr::Style, props.styleIndex);
+            } else {
+                node.remove_attribute(XmlAttr::Style);
+            }
+        }
+
+        [[nodiscard]] inline XLColumnProperties readColProps(XMLNode node) noexcept
+        {
+            XLColumnProperties props;
+            if (node.empty()) return props;
+            props.minCol       = static_cast<uint16_t>(node.attribute(XmlAttr::Min).as_uint(1));
+            props.maxCol       = static_cast<uint16_t>(node.attribute(XmlAttr::Max).as_uint(1));
+            props.width        = node.attribute(XmlAttr::Width).as_float(0.0f);
+            props.customWidth  = node.attribute(XmlAttr::CustomWidth).as_bool();
+            props.hidden       = node.attribute(XmlAttr::Hidden).as_bool();
+            props.outlineLevel = static_cast<uint8_t>(std::clamp(node.attribute(XmlAttr::OutlineLevel).as_uint(0), 0u, 7u));
+            props.collapsed    = node.attribute(XmlAttr::Collapsed).as_bool();
+            props.styleIndex   = node.attribute(XmlAttr::ColStyle).as_uint(0);
+            return props;
+        }
+
+        inline void writeColProps(XMLNode node, const XLColumnProperties& props)
+        {
+            if (node.empty()) return;
+            setAttr(node, XmlAttr::Min, props.minCol);
+            setAttr(node, XmlAttr::Max, props.maxCol);
+            if (props.width > 0.0f || props.customWidth) {
+                setAttr(node, XmlAttr::Width, props.width);
+                setAttr(node, XmlAttr::CustomWidth, props.customWidth ? "1" : "0");
+            }
+            if (props.hidden) {
+                setAttr(node, XmlAttr::Hidden, "1");
+            } else {
+                node.remove_attribute(XmlAttr::Hidden);
+            }
+            uint8_t lvl = static_cast<uint8_t>(std::clamp(static_cast<unsigned>(props.outlineLevel), 0u, 7u));
+            if (lvl > 0) {
+                setAttr(node, XmlAttr::OutlineLevel, lvl);
+            } else {
+                node.remove_attribute(XmlAttr::OutlineLevel);
+            }
+            if (props.collapsed) {
+                setAttr(node, XmlAttr::Collapsed, "1");
+            } else {
+                node.remove_attribute(XmlAttr::Collapsed);
+            }
+            if (props.styleIndex > 0) {
+                setAttr(node, XmlAttr::ColStyle, props.styleIndex);
+            } else {
+                node.remove_attribute(XmlAttr::ColStyle);
+            }
+        }
+
+        [[nodiscard]] inline XLPaneProperties readPaneProps(XMLNode sheetViewNode) noexcept
+        {
+            XLPaneProperties props;
+            if (sheetViewNode.empty()) return props;
+            auto pane = sheetViewNode.child(XmlTag::Pane);
+            if (pane.empty()) return props;
+            props.xSplit      = static_cast<uint16_t>(pane.attribute(XmlAttr::XSplit).as_uint(0));
+            props.ySplit      = pane.attribute(XmlAttr::YSplit).as_uint(0);
+            props.topLeftCell = pane.attribute(XmlAttr::TopLeftCell).value();
+            props.state       = pane.attribute(XmlAttr::State).as_string("frozen");
+            props.activePane  = pane.attribute(XmlAttr::ActivePane).value();
+            return props;
+        }
+
+        inline void writePaneProps(XMLNode sheetViewNode, const XLPaneProperties& props)
+        {
+            if (sheetViewNode.empty()) return;
+            // Clean existing pane and selection per ECMA-376 invariant
+            sheetViewNode.remove_child(XmlTag::Pane);
+            while (auto sel = sheetViewNode.child(XmlTag::Selection)) {
+                sheetViewNode.remove_child(sel);
+            }
+            if (props.empty()) return;
+
+            // 1. ECMA-376 strict sequence: <pane> MUST precede <selection>
+            auto pane = sheetViewNode.prepend_child(XmlTag::Pane);
+            if (props.xSplit > 0) setAttr(pane, XmlAttr::XSplit, props.xSplit);
+            if (props.ySplit > 0) setAttr(pane, XmlAttr::YSplit, props.ySplit);
+            if (!props.topLeftCell.empty()) setAttr(pane, XmlAttr::TopLeftCell, props.topLeftCell);
+            if (!props.state.empty()) setAttr(pane, XmlAttr::State, props.state);
+            if (!props.activePane.empty()) setAttr(pane, XmlAttr::ActivePane, props.activePane);
+
+            // 2. <selection> appended after <pane>
+            if (props.xSplit > 0 && props.ySplit > 0) {
+                auto sel1 = sheetViewNode.insert_child_after(XmlTag::Selection, pane);
+                setAttr(sel1, XmlTag::Pane, "topRight");
+                auto sel2 = sheetViewNode.insert_child_after(XmlTag::Selection, sel1);
+                setAttr(sel2, XmlTag::Pane, "bottomLeft");
+            }
         }
 
         [[nodiscard]] inline XLTableProperties readTableProps(XMLNode node)

@@ -17,8 +17,9 @@
 #include "XLCellReference.hpp"
 #include "XLRow.hpp"
 #include "XLStyles_Common.hpp"    // XLDefaultCellFormat
-
 #include "XLUtilities.hpp"
+#include "XLXmlHelpers.hpp"
+#include "XLXmlSchema.hpp"
 
 namespace OpenXLSX
 {
@@ -88,7 +89,7 @@ namespace OpenXLSX
      */
     double XLRow::height() const
     {
-        return m_rowNode->attribute("ht").as_double(15.0);    // NOLINT
+        return m_rowNode->attribute(XmlAttr::Ht).as_double(15.0);    // NOLINT
     }
 
     /**
@@ -97,17 +98,8 @@ namespace OpenXLSX
      */
     void XLRow::setHeight(float height)    // NOLINT
     {
-        // Set the 'ht' attribute for the Cell. If it does not exist, create it.
-        if (m_rowNode->attribute("ht").empty())
-            m_rowNode->append_attribute("ht") = height;
-        else
-            m_rowNode->attribute("ht").set_value(height);
-
-        // Set the 'customHeight' attribute. If it does not exist, create it.
-        if (m_rowNode->attribute("customHeight").empty())
-            m_rowNode->append_attribute("customHeight") = 1;
-        else
-            m_rowNode->attribute("customHeight").set_value(1);
+        setAttr(*m_rowNode, XmlAttr::Ht, height);
+        setAttr(*m_rowNode, XmlAttr::CustomHeight, 1);
     }
 
     /**
@@ -116,7 +108,7 @@ namespace OpenXLSX
      */
     float XLRow::descent() const
     {
-        return m_rowNode->attribute("x14ac:dyDescent").as_float(0.25);    // NOLINT
+        return m_rowNode->attribute(XmlAttr::DyDescent).as_float(0.25f);    // NOLINT
     }
 
     /**
@@ -125,18 +117,14 @@ namespace OpenXLSX
      */
     void XLRow::setDescent(float descent)
     {
-        // Set the 'x14ac:dyDescent' attribute. If it does not exist, create it.
-        if (m_rowNode->attribute("x14ac:dyDescent").empty())
-            m_rowNode->append_attribute("x14ac:dyDescent") = descent;
-        else
-            m_rowNode->attribute("x14ac:dyDescent") = descent;
+        setAttr(*m_rowNode, XmlAttr::DyDescent, descent);
     }
 
     /**
      * @details Retrieves the row's visibility state. Hidden rows remain in the document and participate in calculations,
      *          but are not rendered in the spreadsheet UI.
      */
-    bool XLRow::isHidden() const { return m_rowNode->attribute("hidden").as_bool(false); }
+    bool XLRow::isHidden() const { return m_rowNode->attribute(XmlAttr::Hidden).as_bool(false); }
 
     /**
      * @details Modifies the visual state of the row. Typically used for applying filters or manually hiding
@@ -144,17 +132,20 @@ namespace OpenXLSX
      */
     void XLRow::setHidden(bool state)    // NOLINT
     {
-        // Set the 'hidden' attribute. If it does not exist, create it.
-        if (m_rowNode->attribute("hidden").empty())
-            m_rowNode->append_attribute("hidden") = static_cast<int>(state);
-        else
-            m_rowNode->attribute("hidden").set_value(static_cast<int>(state));
+        if (state) {
+            setAttr(*m_rowNode, XmlAttr::Hidden, 1);
+        } else {
+            m_rowNode->remove_attribute(XmlAttr::Hidden);
+        }
     }
 
     /**
      * @details Retrieves the row's outline level (0-7), which determines its nesting depth within a hierarchical grouping structure.
      */
-    uint8_t XLRow::outlineLevel() const { return static_cast<uint8_t>(m_rowNode->attribute("outlineLevel").as_uint(0)); }
+    uint8_t XLRow::outlineLevel() const
+    {
+        return static_cast<uint8_t>(std::clamp(m_rowNode->attribute(XmlAttr::OutlineLevel).as_uint(0), 0u, 7u));
+    }
 
     /**
      * @details Applies a grouping depth to the row. Values > 7 are capped, as MS Excel only supports up to 8 levels (0-7).
@@ -162,14 +153,24 @@ namespace OpenXLSX
      */
     void XLRow::setOutlineLevel(uint8_t level)
     {
-        if (level > 7) level = 7;
-        if (level == 0) { m_rowNode->remove_attribute("outlineLevel"); }
-        else {
-            if (m_rowNode->attribute("outlineLevel").empty())
-                m_rowNode->append_attribute("outlineLevel") = level;
-            else
-                m_rowNode->attribute("outlineLevel").set_value(level);
+        level = static_cast<uint8_t>(std::clamp(static_cast<unsigned>(level), 0u, 7u));
+        if (level == 0) {
+            m_rowNode->remove_attribute(XmlAttr::OutlineLevel);
+        } else {
+            setAttr(*m_rowNode, XmlAttr::OutlineLevel, level);
         }
+    }
+
+    XLRowProperties XLRow::properties() const
+    {
+        if (!m_rowNode || m_rowNode->empty()) return {};
+        return XmlOps::readRowProps(*m_rowNode);
+    }
+
+    void XLRow::setProperties(const XLRowProperties& props)
+    {
+        if (!m_rowNode || m_rowNode->empty()) return;
+        XmlOps::writeRowProps(*m_rowNode, props);
     }
 
     /**

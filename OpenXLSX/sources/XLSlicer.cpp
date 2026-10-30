@@ -84,12 +84,11 @@ XLSlicer::XLSlicer(XLXmlData* slicerXml,
                    XMLNode    slicerNode,
                    XLXmlData* cacheXml,
                    XMLNode    anchorNode,
-                   XLWorksheet* worksheet)
+                   XLWorksheet* /*worksheet*/)
     : m_slicerXml(slicerXml)
     , m_slicerNode(slicerNode)
     , m_cacheXml(cacheXml)
     , m_anchorNode(anchorNode)
-    , m_worksheet(worksheet)
 {}
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -24,6 +24,7 @@
 #include "OpenXLSX-Exports.hpp"
 #include "XLStyles_Common.hpp"    // XLStyleIndex, XLDefaultCellFormat
 #include "XLXmlParser.hpp"
+#include "XLXmlSchema.hpp"
 
 namespace OpenXLSX
 {
@@ -112,6 +113,16 @@ namespace OpenXLSX
          * @returns true on success, false on failure
          */
         bool setFormat(XLStyleIndex cellFormatIndex);
+
+        /**
+         * @brief Get the column properties as a value-semantic POD struct.
+         */
+        [[nodiscard]] XLColumnProperties properties() const;
+
+        /**
+         * @brief Set all column properties from a value-semantic POD struct in a single pass.
+         */
+        void setProperties(const XLColumnProperties& props);
 
     private:
         /**

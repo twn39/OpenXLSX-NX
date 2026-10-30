@@ -143,11 +143,10 @@ namespace OpenXLSX
         /// Returns the root element of m_cacheXml.
         XMLNode cacheRoot()  const;
 
-        XLXmlData*   m_slicerXml{nullptr};
-        XMLNode      m_slicerNode;
-        XLXmlData*   m_cacheXml{nullptr};
-        XMLNode      m_anchorNode;       ///< xdr:oneCellAnchor or xdr:twoCellAnchor
-        XLWorksheet* m_worksheet{nullptr};
+        XLXmlData* m_slicerXml{nullptr};
+        XMLNode    m_slicerNode;
+        XLXmlData* m_cacheXml{nullptr};
+        XMLNode    m_anchorNode;    ///< xdr:oneCellAnchor or xdr:twoCellAnchor
     };
 
 } // namespace OpenXLSX

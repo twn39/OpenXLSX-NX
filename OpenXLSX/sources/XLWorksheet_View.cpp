@@ -28,6 +28,8 @@
 #include "XLSparkline.hpp"
 #include "XLStreamReader.hpp"
 #include "XLStreamWriter.hpp"
+#include "XLXmlHelpers.hpp"
+#include "XLXmlSchema.hpp"
 #include "XLTables.hpp"
 #include "XLThreadedComments.hpp"
 
@@ -99,25 +101,25 @@ void XLWorksheet::setPrintTitleCols(uint16_t firstCol, uint16_t lastCol)
 
 bool XLWorksheet::hasPanes() const
 {
-    auto sheetViews = xmlDocument().document_element().child("sheetViews");
+    auto sheetViews = xmlDocument().document_element().child(XmlTag::SheetViews);
     if (sheetViews.empty()) return false;
-    auto sheetView = sheetViews.child("sheetView");
+    auto sheetView = sheetViews.child(XmlTag::SheetView);
     if (sheetView.empty()) return false;
-    return !sheetView.child("pane").empty();
+    return !XmlOps::readPaneProps(sheetView).empty();
 }
 
 XMLNode XLWorksheet::prepareSheetViewForPanes()
 {
     auto docElement = xmlDocument().document_element();
-    auto sheetViews = docElement.child("sheetViews");
-    if (sheetViews.empty()) { sheetViews = ensureChild(docElement, "sheetViews", m_nodeOrder); }
-    auto sheetView = sheetViews.child("sheetView");
+    auto sheetViews = docElement.child(XmlTag::SheetViews);
+    if (sheetViews.empty()) { sheetViews = ensureChild(docElement, XmlTag::SheetViews, m_nodeOrder); }
+    auto sheetView = sheetViews.child(XmlTag::SheetView);
     if (sheetView.empty()) {
-        sheetView = sheetViews.append_child("sheetView");
-        sheetView.append_attribute("workbookViewId").set_value(0);
+        sheetView = sheetViews.append_child(XmlTag::SheetView);
+        sheetView.append_attribute(XmlAttr::WorkbookViewId).set_value(0);
     }
-    sheetView.remove_child("pane");
-    while (auto selection = sheetView.child("selection")) { sheetView.remove_child(selection); }
+    sheetView.remove_child(XmlTag::Pane);
+    while (auto selection = sheetView.child(XmlTag::Selection)) { sheetView.remove_child(selection); }
     return sheetView;
 }
 
@@ -125,29 +127,29 @@ void XLWorksheet::freezePanes(uint16_t column, uint32_t row)
 {
     XMLNode sheetView = prepareSheetViewForPanes();
     if (column == 0 && row == 0) return;
-    auto pane = ensureChild(sheetView, "pane", XLSheetViewNodeOrder);
-    if (column > 0) pane.append_attribute("xSplit").set_value(column);
-    if (row > 0) pane.append_attribute("ySplit").set_value(row);
     const std::string address = XLCellReference(row + 1, static_cast<uint16_t>(column + 1)).address();
-    pane.append_attribute("topLeftCell").set_value(address.c_str());
-    pane.append_attribute("state").set_value("frozen");
     const char* activePaneStr = (column > 0 && row > 0) ? "bottomRight" : (column > 0 ? "topRight" : "bottomLeft");
-    pane.append_attribute("activePane").set_value(activePaneStr);
+
+    XLPaneProperties props;
+    props.xSplit      = column;
+    props.ySplit      = row;
+    props.topLeftCell = address;
+    props.state       = "frozen";
+    props.activePane  = activePaneStr;
+    XmlOps::writePaneProps(sheetView, props);
+
     if (column > 0 && row > 0) {
-        auto sel1 = sheetView.insert_child_after("selection", pane);
-        sel1.append_attribute("pane").set_value("topRight");
-        auto sel2 = sheetView.insert_child_after("selection", sel1);
-        sel2.append_attribute("pane").set_value("bottomLeft");
-        auto sel3 = sheetView.insert_child_after("selection", sel2);
-        sel3.append_attribute("pane").set_value("bottomRight");
-        sel3.append_attribute("activeCell").set_value(address.c_str());
-        sel3.append_attribute("sqref").set_value(address.c_str());
+        auto sel3 = sheetView.insert_child_after(XmlTag::Selection, sheetView.last_child());
+        setAttr(sel3, XmlTag::Pane, "bottomRight");
+        setAttr(sel3, "activeCell", address);
+        setAttr(sel3, XmlAttr::Sqref, address);
     }
     else {
-        auto sel = sheetView.insert_child_after("selection", pane);
-        sel.append_attribute("pane").set_value(activePaneStr);
-        sel.append_attribute("activeCell").set_value(address.c_str());
-        sel.append_attribute("sqref").set_value(address.c_str());
+        auto sel = sheetView.child(XmlTag::Selection);
+        if (sel.empty()) sel = sheetView.append_child(XmlTag::Selection);
+        setAttr(sel, XmlTag::Pane, activePaneStr);
+        setAttr(sel, "activeCell", address);
+        setAttr(sel, XmlAttr::Sqref, address);
     }
 }
 
@@ -161,25 +163,24 @@ void XLWorksheet::splitPanes(double xSplit, double ySplit, std::string_view topL
 {
     XMLNode sheetView = prepareSheetViewForPanes();
     if (xSplit == 0 && ySplit == 0) return;
-    auto pane = ensureChild(sheetView, "pane", XLSheetViewNodeOrder);
-    if (xSplit > 0) pane.append_attribute("xSplit").set_value(xSplit);
-    if (ySplit > 0) pane.append_attribute("ySplit").set_value(ySplit);
-    if (!topLeftCell.empty()) pane.append_attribute("topLeftCell").set_value(std::string(topLeftCell).c_str());
-    pane.append_attribute("activePane").set_value(XLPaneToString(activePane).c_str());
-    pane.append_attribute("state").set_value("split");
-    auto sel = sheetView.insert_child_after("selection", pane);
-    sel.append_attribute("pane").set_value(XLPaneToString(activePane).c_str());
+    auto pane = ensureChild(sheetView, XmlTag::Pane, XLSheetViewNodeOrder);
+    if (xSplit > 0) pane.append_attribute(XmlAttr::XSplit).set_value(xSplit);
+    if (ySplit > 0) pane.append_attribute(XmlAttr::YSplit).set_value(ySplit);
+    if (!topLeftCell.empty()) pane.append_attribute(XmlAttr::TopLeftCell).set_value(std::string(topLeftCell).c_str());
+    pane.append_attribute(XmlAttr::ActivePane).set_value(XLPaneToString(activePane).c_str());
+    pane.append_attribute(XmlAttr::State).set_value("split");
+    auto sel = sheetView.insert_child_after(XmlTag::Selection, pane);
+    sel.append_attribute(XmlTag::Pane).set_value(XLPaneToString(activePane).c_str());
 }
 
 void XLWorksheet::clearPanes()
 {
     auto docElement = xmlDocument().document_element();
-    auto sheetViews = docElement.child("sheetViews");
+    auto sheetViews = docElement.child(XmlTag::SheetViews);
     if (sheetViews.empty()) return;
-    auto sheetView = sheetViews.child("sheetView");
+    auto sheetView = sheetViews.child(XmlTag::SheetView);
     if (sheetView.empty()) return;
-    sheetView.remove_child("pane");
-    while (auto selection = sheetView.child("selection")) { sheetView.remove_child(selection); }
+    XmlOps::writePaneProps(sheetView, XLPaneProperties{});
 }
 
 void XLWorksheet::setZoom(uint16_t scale)

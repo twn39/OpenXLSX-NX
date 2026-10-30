@@ -15,6 +15,7 @@
 #include "XLColumn.hpp"
 #include "XLStyles_Common.hpp"    // XLDefaultCellFormat
 #include "XLXmlHelpers.hpp"
+#include "XLXmlSchema.hpp"
 
 using namespace OpenXLSX;
 
@@ -31,60 +32,69 @@ XMLAttribute XLColumn::getOrCreateAttribute(const char* attrName)
 /**
  * @details
  */
-float XLColumn::width() const { return m_columnNode.attribute("width").as_float(); }
+float XLColumn::width() const { return m_columnNode.attribute(XmlAttr::Width).as_float(0.0f); }
 
 /**
  * @details
  */
 void XLColumn::setWidth(float width)    // NOLINT
 {
-    setAttr(m_columnNode, "width", width);
-    setAttr(m_columnNode, "customWidth", 1);
+    setAttr(m_columnNode, XmlAttr::Width, width);
+    setAttr(m_columnNode, XmlAttr::CustomWidth, 1);
 }
 
 /**
  * @details
  */
-bool XLColumn::isHidden() const { return m_columnNode.attribute("hidden").as_bool(); }
+bool XLColumn::isHidden() const { return m_columnNode.attribute(XmlAttr::Hidden).as_bool(false); }
 
 /**
  * @details
  */
 void XLColumn::setHidden(bool state)    // NOLINT
-{ getOrCreateAttribute("hidden").set_value(state ? 1 : 0); }
+{
+    if (state) {
+        setAttr(m_columnNode, XmlAttr::Hidden, 1);
+    } else {
+        m_columnNode.remove_attribute(XmlAttr::Hidden);
+    }
+}
 
 /**
  * @details Get the outline level of the column.
  */
-uint8_t XLColumn::outlineLevel() const { return static_cast<uint8_t>(m_columnNode.attribute("outlineLevel").as_uint(0)); }
+uint8_t XLColumn::outlineLevel() const
+{
+    return static_cast<uint8_t>(std::clamp(m_columnNode.attribute(XmlAttr::OutlineLevel).as_uint(0), 0u, 7u));
+}
 
 /**
  * @details Set the outline level of the column.
  */
 void XLColumn::setOutlineLevel(uint8_t level)
 {
-    constexpr uint8_t maxOutlineLevel = 7;
-    if (level > maxOutlineLevel) level = maxOutlineLevel;
-
-    if (level == 0) { m_columnNode.remove_attribute("outlineLevel"); }
-    else {
-        getOrCreateAttribute("outlineLevel").set_value(level);
+    level = static_cast<uint8_t>(std::clamp(static_cast<unsigned>(level), 0u, 7u));
+    if (level == 0) {
+        m_columnNode.remove_attribute(XmlAttr::OutlineLevel);
+    } else {
+        setAttr(m_columnNode, XmlAttr::OutlineLevel, level);
     }
 }
 
 /**
  * @details Is the column collapsed?
  */
-bool XLColumn::isCollapsed() const { return m_columnNode.attribute("collapsed").as_bool(false); }
+bool XLColumn::isCollapsed() const { return m_columnNode.attribute(XmlAttr::Collapsed).as_bool(false); }
 
 /**
  * @details Set the column to be collapsed or expanded.
  */
 void XLColumn::setCollapsed(bool state)
 {
-    if (!state) { m_columnNode.remove_attribute("collapsed"); }
-    else {
-        getOrCreateAttribute("collapsed").set_value(1);
+    if (state) {
+        setAttr(m_columnNode, XmlAttr::Collapsed, 1);
+    } else {
+        m_columnNode.remove_attribute(XmlAttr::Collapsed);
     }
 }
 
@@ -96,7 +106,7 @@ XMLNode XLColumn::columnNode() const { return m_columnNode; }
 /**
  * @details Determine the value of the style attribute - if attribute does not exist, return default value
  */
-XLStyleIndex XLColumn::format() const { return m_columnNode.attribute("style").as_uint(XLDefaultCellFormat); }
+XLStyleIndex XLColumn::format() const { return m_columnNode.attribute(XmlAttr::ColStyle).as_uint(XLDefaultCellFormat); }
 
 /**
  * @brief Set the column style as a reference to the array index of xl/styles.xml:<styleSheet>:<cellXfs>
@@ -104,10 +114,18 @@ XLStyleIndex XLColumn::format() const { return m_columnNode.attribute("style").a
  */
 bool XLColumn::setFormat(XLStyleIndex cellFormatIndex)
 {
-    XMLAttribute styleAtt = getOrCreateAttribute("style");
-    if (styleAtt.empty()) return false;
-    styleAtt.set_value(cellFormatIndex);
+    setAttr(m_columnNode, XmlAttr::ColStyle, cellFormatIndex);
     return true;
+}
+
+XLColumnProperties XLColumn::properties() const
+{
+    return XmlOps::readColProps(m_columnNode);
+}
+
+void XLColumn::setProperties(const XLColumnProperties& props)
+{
+    XmlOps::writeColProps(m_columnNode, props);
 }
 
 void XLColumn::autoFit()
