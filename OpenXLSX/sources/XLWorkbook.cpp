@@ -289,6 +289,134 @@ void XLWorkbook::cloneSheet(std::string_view existingName, std::string_view newN
         XLCommand(XLCommandType::CloneSheet).setParam("sheetID", sheetID(existingName)).setParam("cloneName", std::string(newName)));
 }
 
+XLWorksheet XLWorkbook::cloneSheet(const XLWorksheet& sourceSheet, std::string_view newName)
+{
+    // If it belongs to the same document, use fast internal cloneSheet
+    if (&sourceSheet.parentDoc() == &parentDoc()) {
+        cloneSheet(sourceSheet.name(), newName);
+        return worksheet(newName);
+    }
+
+    // Cross-document cloning pipeline
+    // 1. Add new empty worksheet in target workbook
+    addWorksheet(newName);
+    auto targetSheet = worksheet(newName);
+
+    // 2. Clear default target elements and copy source worksheet root elements
+    auto sourceRoot = sourceSheet.xmlDocument().document_element();
+    auto targetRoot = targetSheet.xmlDocument().document_element();
+
+    while (targetRoot.first_child()) { targetRoot.remove_child(targetRoot.first_child()); }
+
+    // Copy root attributes
+    for (auto attr = sourceRoot.first_attribute(); attr; attr = attr.next_attribute()) {
+        if (!targetRoot.attribute(attr.name())) { targetRoot.append_attribute(attr.name()).set_value(attr.value()); }
+    }
+
+    // Copy child nodes, skipping drawing/legacyDrawing that depend on local OPC relationships
+    for (auto child = sourceRoot.first_child(); child; child = child.next_sibling()) {
+        std::string_view name = child.name();
+        if (name == "drawing" || name == "legacyDrawing" || name == "tableParts") { continue; }
+        targetRoot.append_copy(child);
+    }
+
+    // 3. Mapping pipeline for SST (Shared Strings) and Styles
+    auto& sourceDoc = sourceSheet.parentDoc();
+    auto& targetDoc = parentDoc();
+
+    ankerl::unordered_dense::map<int32_t, int32_t>   sstMap;
+    ankerl::unordered_dense::map<uint32_t, uint32_t> styleMap;
+
+    auto& sourceStyles = sourceDoc.styles();
+    auto& targetStyles = targetDoc.styles();
+
+    auto mapStyleId = [&](uint32_t srcStyle) -> uint32_t {
+        if (srcStyle == 0) return 0;
+        auto it = styleMap.find(srcStyle);
+        if (it != styleMap.end()) return it->second;
+
+        if (srcStyle < sourceStyles.cellFormats().count()) {
+            auto         srcFmt = sourceStyles.cellFormats()[srcStyle];
+            XLCellFormat dstFmt = srcFmt;
+
+            // Map font
+            if (srcFmt.applyFont() && srcFmt.fontIndex() < sourceStyles.fonts().count()) {
+                dstFmt.setFontIndex(targetStyles.fonts().findOrCreate(sourceStyles.fonts()[srcFmt.fontIndex()]));
+            }
+            // Map fill
+            if (srcFmt.applyFill() && srcFmt.fillIndex() < sourceStyles.fills().count()) {
+                dstFmt.setFillIndex(targetStyles.fills().findOrCreate(sourceStyles.fills()[srcFmt.fillIndex()]));
+            }
+            // Map border
+            if (srcFmt.applyBorder() && srcFmt.borderIndex() < sourceStyles.borders().count()) {
+                dstFmt.setBorderIndex(targetStyles.borders().findOrCreate(sourceStyles.borders()[srcFmt.borderIndex()]));
+            }
+            // Map numFmt
+            if (srcFmt.applyNumberFormat()) {
+                uint32_t srcNumFmt = srcFmt.numberFormatId();
+                if (srcNumFmt >= 164) {
+                    try {
+                        std::string code = sourceStyles.numberFormats().numberFormatById(srcNumFmt).formatCode();
+                        dstFmt.setNumberFormatId(targetStyles.createNumberFormat(code));
+                    }
+                    catch (...) {
+                    }
+                }
+            }
+            uint32_t dstStyle  = targetStyles.cellFormats().findOrCreate(dstFmt);
+            styleMap[srcStyle] = dstStyle;
+            return dstStyle;
+        }
+        return 0;
+    };
+
+    // Traverse sheetData cells
+    for (auto row = targetRoot.child("sheetData").first_child(); row; row = row.next_sibling()) {
+        // Map row style if present
+        if (auto sAttr = row.attribute("s")) {
+            uint32_t srcStyle = sAttr.as_uint();
+            if (srcStyle > 0) sAttr.set_value(mapStyleId(srcStyle));
+        }
+
+        for (auto c = row.first_child(); c; c = c.next_sibling()) {
+            // Map cell style
+            if (auto sAttr = c.attribute("s")) {
+                uint32_t srcStyle = sAttr.as_uint();
+                if (srcStyle > 0) sAttr.set_value(mapStyleId(srcStyle));
+            }
+
+            // Map shared string
+            auto tAttr = c.attribute("t");
+            if (tAttr && std::string_view(tAttr.value()) == "s") {
+                auto vNode = c.child("v");
+                if (vNode) {
+                    int32_t srcId = vNode.text().as_int();
+                    auto    it    = sstMap.find(srcId);
+                    if (it != sstMap.end()) { vNode.text().set(it->second); }
+                    else {
+                        std::string_view str   = sourceDoc.sharedStrings().getStringView(srcId);
+                        int32_t          dstId = targetDoc.sharedStrings().appendString(str);
+                        sstMap[srcId]          = dstId;
+                        vNode.text().set(dstId);
+                    }
+                }
+            }
+        }
+    }
+
+    // Map column styles if <cols> exists
+    if (auto cols = targetRoot.child("cols")) {
+        for (auto col = cols.first_child(); col; col = col.next_sibling()) {
+            if (auto sAttr = col.attribute("style")) {
+                uint32_t srcStyle = sAttr.as_uint();
+                if (srcStyle > 0) sAttr.set_value(mapStyleId(srcStyle));
+            }
+        }
+    }
+
+    return targetSheet;
+}
+
 uint16_t XLWorkbook::createInternalSheetID()
 {
     XMLNode  sheet           = xmlDocument().document_element().child("sheets").first_child_of_type(pugi::node_element);
@@ -614,7 +742,7 @@ void XLWorkbook::updateWorksheetDimensions()
         if (sheetNode.empty()) continue;
 
         const std::string xmlID = sheetNode.attribute("r:id").value();
-        XLQuery pathQuery(XLQueryType::QuerySheetRelsTarget);
+        XLQuery           pathQuery(XLQueryType::QuerySheetRelsTarget);
         pathQuery.setParam("sheetID", xmlID);
         auto xmlPath = parentDoc().execQuery(pathQuery).result<std::string>();
         if (xmlPath.substr(0, 4) == "/xl/") xmlPath = xmlPath.substr(4);
@@ -730,9 +858,9 @@ bool XLWorkbook::isVisible(XMLNode const& sheetNode) const
 void XLWorkbook::compactStyles()
 {
     std::unique_lock<std::shared_mutex> lock(parentDoc().mutex());
-    auto& styles = parentDoc().styles();
-    auto& cellFormats = styles.cellFormats();
-    const size_t originalCount = cellFormats.count();
+    auto&                               styles        = parentDoc().styles();
+    auto&                               cellFormats   = styles.cellFormats();
+    const size_t                        originalCount = cellFormats.count();
     if (originalCount <= 1) {
         styles.compactStyles();
         return;
@@ -740,11 +868,11 @@ void XLWorkbook::compactStyles()
 
     // Step 1: Collect all active cellXf indices across all worksheets
     std::vector<std::string> wksNames = worksheetNames();
-    std::set<XLStyleIndex> activeXfIndices;
+    std::set<XLStyleIndex>   activeXfIndices;
     activeXfIndices.insert(0);    // ECMA-376: format 0 (Normal) is always preserved
 
     for (const auto& name : wksNames) {
-        auto ws = worksheet(name);
+        auto    ws   = worksheet(name);
         XMLNode root = ws.xmlDocument().document_element();
         if (root.empty()) continue;
 
@@ -753,9 +881,7 @@ void XLWorkbook::compactStyles()
         if (!colsNode.empty()) {
             for (auto col : colsNode.children("col")) {
                 auto attr = col.attribute("style");
-                if (!attr.empty()) {
-                    activeXfIndices.insert(attr.as_uint());
-                }
+                if (!attr.empty()) { activeXfIndices.insert(attr.as_uint()); }
             }
         }
 
@@ -764,28 +890,24 @@ void XLWorkbook::compactStyles()
         if (!sheetData.empty()) {
             for (auto row : sheetData.children("row")) {
                 auto rowAttr = row.attribute("s");
-                if (!rowAttr.empty()) {
-                    activeXfIndices.insert(rowAttr.as_uint());
-                }
+                if (!rowAttr.empty()) { activeXfIndices.insert(rowAttr.as_uint()); }
                 for (auto c : row.children("c")) {
                     auto cAttr = c.attribute("s");
-                    if (!cAttr.empty()) {
-                        activeXfIndices.insert(cAttr.as_uint());
-                    }
+                    if (!cAttr.empty()) { activeXfIndices.insert(cAttr.as_uint()); }
                 }
             }
         }
     }
 
     // Step 2: Build deduplicated newNodes vector and oldToNew mapping
-    std::vector<XMLNode> newNodes;
+    std::vector<XMLNode>                                     newNodes;
     ankerl::unordered_dense::map<XLStyleIndex, XLStyleIndex> oldToNewMap;
-    ankerl::unordered_dense::map<std::string, XLStyleIndex> fingerprintToNewMap;
+    ankerl::unordered_dense::map<std::string, XLStyleIndex>  fingerprintToNewMap;
 
     // Preserve index 0 (ECMA-376 default)
     XMLNode node0 = cellFormats[0].node();
     newNodes.push_back(node0);
-    oldToNewMap[0] = 0;
+    oldToNewMap[0]                                 = 0;
     fingerprintToNewMap[xmlNodeFingerprint(node0)] = 0;
 
     for (XLStyleIndex oldIdx : activeXfIndices) {
@@ -795,12 +917,11 @@ void XLWorkbook::compactStyles()
             continue;
         }
 
-        XMLNode node = cellFormats[oldIdx].node();
-        std::string fp = xmlNodeFingerprint(node);
-        auto it = fingerprintToNewMap.find(fp);
-        if (it != fingerprintToNewMap.end()) {
-            oldToNewMap[oldIdx] = it->second;
-        } else {
+        XMLNode     node = cellFormats[oldIdx].node();
+        std::string fp   = xmlNodeFingerprint(node);
+        auto        it   = fingerprintToNewMap.find(fp);
+        if (it != fingerprintToNewMap.end()) { oldToNewMap[oldIdx] = it->second; }
+        else {
             XLStyleIndex newIdx = static_cast<XLStyleIndex>(newNodes.size());
             newNodes.push_back(node);
             fingerprintToNewMap.emplace(std::move(fp), newIdx);
@@ -810,7 +931,7 @@ void XLWorkbook::compactStyles()
 
     // Step 3: Rewrite style indices across all worksheets
     for (const auto& name : wksNames) {
-        auto ws = worksheet(name);
+        auto    ws   = worksheet(name);
         XMLNode root = ws.xmlDocument().document_element();
         if (root.empty()) continue;
 

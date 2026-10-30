@@ -20,9 +20,9 @@
 #include <mutex>
 #include <pugixml.hpp>
 #include <shared_mutex>
-#include <sys/stat.h>    // for stat, to test if a file exists and if a file is a directory
-#include <unordered_set> // std::unordered_set
-#include <vector>        // std::vector
+#include <sys/stat.h>       // for stat, to test if a file exists and if a file is a directory
+#include <unordered_set>    // std::unordered_set
+#include <vector>           // std::vector
 
 // ===== OpenXLSX Includes ===== //
 #include "XLChart.hpp"
@@ -230,17 +230,15 @@ void XLDocument::open(std::string_view fileName)
     // ===== Cache unhandled archive entries (e.g., vbaProject.bin, ctrlProps)
     std::unordered_set<std::string> handledPaths;
     handledPaths.reserve(m_data.size());
-    for (const auto& item : m_data) {
-        handledPaths.insert(item.getXmlPath());
-    }
+    for (const auto& item : m_data) { handledPaths.insert(item.getXmlPath()); }
 
     for (const auto& entryName : m_archive.entryNames()) {
         // Ignore known directories or trailing slashes (e.g. xl/media/)
         if (!entryName.empty() && entryName.back() == '/') { continue; }
 
-        if (handledPaths.find(entryName) == handledPaths.end() && 
-            entryName != "docProps/core.xml" && entryName != "docProps/app.xml" && entryName != "docProps/custom.xml" &&
-            entryName != "[Content_Types].xml" && entryName != "_rels/.rels" && entryName != "xl/_rels/workbook.xml.rels")
+        if (handledPaths.find(entryName) == handledPaths.end() && entryName != "docProps/core.xml" && entryName != "docProps/app.xml" &&
+            entryName != "docProps/custom.xml" && entryName != "[Content_Types].xml" && entryName != "_rels/.rels" &&
+            entryName != "xl/_rels/workbook.xml.rels")
         {
             // Do NOT eagerly load large media/binaries into memory.
             // Leave payload empty; it exists safely inside the archive.
@@ -521,9 +519,8 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
     // Refuse to save while any worksheet still has an open XLStreamWriter (footer / dimension not finalized).
     for (const auto& item : m_data) {
         if (item.m_streamWriterOpen) {
-            throw XLInputError(
-                "XLDocument::save: worksheet still has an active XLStreamWriter (" + item.getXmlPath() +
-                "); call XLStreamWriter::close() (or let it go out of scope) before save()");
+            throw XLInputError("XLDocument::save: worksheet still has an active XLStreamWriter (" + item.getXmlPath() +
+                               "); call XLStreamWriter::close() (or let it go out of scope) before save()");
         }
     }
 
@@ -574,9 +571,7 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
         // If this XML part has not been modified (isDirty() == false) and already exists in the archive,
         // we can completely skip serializing and replacing it!
         // libzip will preserve the original compressed entry via bit-for-bit stream copy.
-        if (!item.isDirty() && m_archive.hasEntry(item.getXmlPath())) {
-            continue;
-        }
+        if (!item.isDirty() && m_archive.hasEntry(item.getXmlPath())) { continue; }
 
         if (item.getXmlPath() == "xl/sharedStrings.xml") {
             if (m_sharedStrings.stringCount() > 0) {
@@ -593,9 +588,7 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
             xmlIsStandalone = XLXmlStandalone;
 
         if (item.m_isStreamed) {
-            if (!item.m_streamFilePath.empty()) {
-                m_archive.addEntryFromFile(item.getXmlPath(), item.m_streamFilePath);
-            }
+            if (!item.m_streamFilePath.empty()) { m_archive.addEntryFromFile(item.getXmlPath(), item.m_streamFilePath); }
             else {
                 m_archive.addEntry(item.getXmlPath(), item.m_streamMemory);
             }
@@ -608,23 +601,24 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
             // OOXML compliance: inject xr/xr2/xr3 namespaces and xr:uid into worksheet root at save time.
             // This is the definitive injection point — any earlier DOM-based patches may be undone by
             // subsequent DOM mutations, so we patch the final serialized string here.
-            const auto& xmlPath = item.getXmlPath();
-            bool isWorksheet = (xmlPath.rfind("xl/worksheets/", 0) == 0) && (xmlPath.size() > 14) &&
-                               (xmlPath.find(".xml", xmlPath.size() - 4) != std::string::npos);
+            const auto& xmlPath     = item.getXmlPath();
+            bool        isWorksheet = (xmlPath.rfind("xl/worksheets/", 0) == 0) && (xmlPath.size() > 14) &&
+                                      (xmlPath.find(".xml", xmlPath.size() - 4) != std::string::npos);
             if (isWorksheet) {
                 // Build a std::string from the allocated block
-                std::string raw(static_cast<const char*>(allocData.data), allocData.size);
+                std::string       raw(static_cast<const char*>(allocData.data), allocData.size);
                 const std::string wsTag = "<worksheet ";
-                size_t wsPos = raw.find(wsTag);
+                size_t            wsPos = raw.find(wsTag);
 
                 // Always parse sheet ID from xmlPath (e.g. xl/worksheets/sheet1.xml -> 1)
-                uint32_t sheetId = 1;
-                size_t sheetStart = xmlPath.rfind("sheet");
-                size_t xmlEnd = xmlPath.rfind(".xml");
+                uint32_t sheetId    = 1;
+                size_t   sheetStart = xmlPath.rfind("sheet");
+                size_t   xmlEnd     = xmlPath.rfind(".xml");
                 if (sheetStart != std::string::npos && xmlEnd != std::string::npos) {
                     try {
                         sheetId = std::stoul(xmlPath.substr(sheetStart + 5, xmlEnd - (sheetStart + 5)));
-                    } catch (...) {
+                    }
+                    catch (...) {
                         sheetId = 1;
                     }
                 }
@@ -634,35 +628,34 @@ void XLDocument::saveAs(std::string_view fileName, bool forceOverwrite)
                 size_t uidPos = raw.find("xr:uid=\"");
                 if (uidPos != std::string::npos) {
                     size_t quoteEnd = raw.find('"', uidPos + 8);
-                    if (quoteEnd != std::string::npos) {
-                        raw.replace(uidPos + 8, quoteEnd - (uidPos + 8), uniqueUid);
-                    }
+                    if (quoteEnd != std::string::npos) { raw.replace(uidPos + 8, quoteEnd - (uidPos + 8), uniqueUid); }
                 }
 
-                bool hasSlicerList = raw.find("x14:slicerList") != std::string::npos ||
-                                     raw.find(":slicerList") != std::string::npos;
+                bool hasSlicerList = raw.find("x14:slicerList") != std::string::npos || raw.find(":slicerList") != std::string::npos;
                 if (wsPos != std::string::npos && raw.find("xmlns:xr=") == std::string::npos && hasSlicerList) {
-                    size_t tagEnd = raw.find('>', wsPos);
-                    std::string tag = raw.substr(wsPos, tagEnd - wsPos);
+                    size_t      tagEnd = raw.find('>', wsPos);
+                    std::string tag    = raw.substr(wsPos, tagEnd - wsPos);
 
                     auto injectIfMissing = [&](const std::string& marker, const std::string& injection) {
                         if (tag.find(marker) == std::string::npos) tag += " " + injection;
                     };
-                    injectIfMissing("xmlns:xr=",  "xmlns:xr=\"http://schemas.microsoft.com/office/spreadsheetml/2014/revision\"");
+                    injectIfMissing("xmlns:xr=", "xmlns:xr=\"http://schemas.microsoft.com/office/spreadsheetml/2014/revision\"");
                     injectIfMissing("xmlns:xr2=", "xmlns:xr2=\"http://schemas.microsoft.com/office/spreadsheetml/2015/revision2\"");
                     injectIfMissing("xmlns:xr3=", "xmlns:xr3=\"http://schemas.microsoft.com/office/spreadsheetml/2016/revision3\"");
-                    injectIfMissing("xr:uid=",    "xr:uid=\"" + uniqueUid + "\"");
+                    injectIfMissing("xr:uid=", "xr:uid=\"" + uniqueUid + "\"");
 
                     // Expand mc:Ignorable to include xr, xr2, xr3
                     size_t ignPos = tag.find("mc:Ignorable=\"");
                     if (ignPos != std::string::npos) {
-                        size_t valStart = ignPos + 14;
-                        size_t valEnd   = tag.find('"', valStart);
-                        std::string ignVal = tag.substr(valStart, valEnd - valStart);
-                        auto addPfx = [&](const std::string& prefix) {
+                        size_t      valStart = ignPos + 14;
+                        size_t      valEnd   = tag.find('"', valStart);
+                        std::string ignVal   = tag.substr(valStart, valEnd - valStart);
+                        auto        addPfx   = [&](const std::string& prefix) {
                             if (ignVal.find(prefix) == std::string::npos) ignVal += " " + prefix;
                         };
-                        addPfx("xr"); addPfx("xr2"); addPfx("xr3");
+                        addPfx("xr");
+                        addPfx("xr2");
+                        addPfx("xr3");
                         tag.replace(valStart, valEnd - valStart, ignVal);
                     }
 
@@ -861,6 +854,8 @@ std::string XLDocument::defaultAuthor() const { return m_defaultAuthor; }
  */
 XLStyles& XLDocument::styles() { return m_styles; }
 
+const XLStyles& XLDocument::styles() const { return m_styles; }
+
 void XLDocument::compactStyles() { workbook().compactStyles(); }
 
 /**
@@ -929,15 +924,9 @@ const XLXmlData* XLDocument::getXmlData(std::string_view path, bool doNotThrow) 
     return &*result;
 }
 
-XLXmlData* XLDocument::findXmlPart(std::string_view path, bool doNotThrow)
-{
-    return getXmlData(path, doNotThrow);
-}
+XLXmlData* XLDocument::findXmlPart(std::string_view path, bool doNotThrow) { return getXmlData(path, doNotThrow); }
 
-const XLXmlData* XLDocument::findXmlPart(std::string_view path, bool doNotThrow) const
-{
-    return getXmlData(path, doNotThrow);
-}
+const XLXmlData* XLDocument::findXmlPart(std::string_view path, bool doNotThrow) const { return getXmlData(path, doNotThrow); }
 
 XLXmlData* XLDocument::emplaceXmlPart(const std::string& path, const std::string& id, XLContentType type)
 {
@@ -953,7 +942,6 @@ bool XLDocument::hasXmlData(std::string_view path) const
 {
     return std::find_if(m_data.begin(), m_data.end(), [&](const XLXmlData& item) { return item.getXmlPath() == path; }) != m_data.end();
 }
-
 
 // =============================================================================
 // Cell change listeners (calculation engine auto-dirty)

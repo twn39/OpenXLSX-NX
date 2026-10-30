@@ -38,8 +38,12 @@
 #include "XLComments.hpp"
 #include "XLContentTypes.hpp"
 #include "XLDrawing.hpp"
+#include "XLInternalAccess.hpp"
+#include "XLPackagePartFactory.hpp"
+#include "XLPackageServices.hpp"
 #include "XLProperties.hpp"
 #include "XLRelationships.hpp"
+#include "XLSharedStringTable.hpp"
 #include "XLSharedStrings.hpp"
 #include "XLStringArena.hpp"
 #include "XLStyles.hpp"
@@ -48,10 +52,6 @@
 #include "XLWorkbook.hpp"
 #include "XLXmlData.hpp"
 #include "XLZipArchive.hpp"
-#include "XLInternalAccess.hpp"
-#include "XLPackagePartFactory.hpp"
-#include "XLPackageServices.hpp"
-#include "XLSharedStringTable.hpp"
 
 namespace OpenXLSX
 {
@@ -93,9 +93,7 @@ namespace OpenXLSX
      * closing and saving the document.\n<b><em>The XLDocument is the entrypoint for clients
      * using the RapidXLSX library.</em></b>
      */
-    class OPENXLSX_EXPORT XLDocument final : public XLPackageServices,
-                                              public XLPackagePartFactory,
-                                              public XLSharedStringTable
+    class OPENXLSX_EXPORT XLDocument final : public XLPackageServices, public XLPackagePartFactory, public XLSharedStringTable
     {
     public:
         struct SharedFormula
@@ -110,21 +108,16 @@ namespace OpenXLSX
         // 只有持有 XLInternalAccess 通行证的类才能调用，普通用户代码无法编译。
         // =========================================================================
 
-        [[nodiscard]] XLXmlData* getXmlData(XLInternalAccess, std::string_view path, bool doNotThrow = false) {
-            return getXmlData(path, doNotThrow);
-        }
+        [[nodiscard]] XLXmlData* getXmlData(XLInternalAccess, std::string_view path, bool doNotThrow = false)
+        { return getXmlData(path, doNotThrow); }
 
-        [[nodiscard]] const XLXmlData* getXmlData(XLInternalAccess, std::string_view path, bool doNotThrow = false) const {
-            return getXmlData(path, doNotThrow);
-        }
+        [[nodiscard]] const XLXmlData* getXmlData(XLInternalAccess, std::string_view path, bool doNotThrow = false) const
+        { return getXmlData(path, doNotThrow); }
 
-        XLXmlData* addXmlData(XLInternalAccess, const std::string& path, const std::string& id, XLContentType type) {
-            return &m_data.emplace_back(this, path, id, type);
-        }
+        XLXmlData* addXmlData(XLInternalAccess, const std::string& path, const std::string& id, XLContentType type)
+        { return &m_data.emplace_back(this, path, id, type); }
 
-        std::map<void*, std::unordered_map<uint32_t, SharedFormula>>& sharedFormulas(XLInternalAccess) const {
-            return m_sharedFormulas;
-        }
+        std::map<void*, std::unordered_map<uint32_t, SharedFormula>>& sharedFormulas(XLInternalAccess) const { return m_sharedFormulas; }
 
         //---------- Public Member Functions
     public:
@@ -165,7 +158,7 @@ namespace OpenXLSX
          * @details Zip-bomb / OOM guard applied when bulk-loading XML parts into memory.
          *          Call after open() or create(); default is unlimited for compatibility.
          */
-        void setMaxEntryUncompressedSize(size_t maxBytes) { m_archive.setMaxEntryUncompressedSize(maxBytes); }
+        void                 setMaxEntryUncompressedSize(size_t maxBytes) { m_archive.setMaxEntryUncompressedSize(maxBytes); }
         [[nodiscard]] size_t maxEntryUncompressedSize() const { return m_archive.maxEntryUncompressedSize(); }
 
         /**
@@ -327,7 +320,8 @@ namespace OpenXLSX
         /**
          * @brief Provides access to shared document styles (fonts, fills, borders, cell formats).
          */
-        [[nodiscard]] XLStyles& styles();
+        [[nodiscard]] XLStyles&       styles();
+        [[nodiscard]] const XLStyles& styles() const;
 
         /**
          * @brief Compact and deduplicate all styles across the workbook and all worksheets.
@@ -345,14 +339,14 @@ namespace OpenXLSX
         [[nodiscard]] bool hasSheetDrawing(uint16_t sheetXmlNo) const override;
         [[nodiscard]] bool hasSheetTables(uint16_t sheetXmlNo) const override;
 
-        XLRelationships sheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false) override;
-        XLDrawing       sheetDrawing(uint16_t sheetXmlNo) override;
-        XLDrawing       createDrawing() override;
-        XLDrawing       drawing(std::string_view path) override;
-        XLVmlDrawing    sheetVmlDrawing(uint16_t sheetXmlNo) override;
-        XLComments      sheetComments(uint16_t sheetXmlNo) override;
+        XLRelationships    sheetRelationships(uint16_t sheetXmlNo, bool isChartsheet = false) override;
+        XLDrawing          sheetDrawing(uint16_t sheetXmlNo) override;
+        XLDrawing          createDrawing() override;
+        XLDrawing          drawing(std::string_view path) override;
+        XLVmlDrawing       sheetVmlDrawing(uint16_t sheetXmlNo) override;
+        XLComments         sheetComments(uint16_t sheetXmlNo) override;
         XLThreadedComments sheetThreadedComments(uint16_t sheetXmlNo) override;
-        XLTables        sheetTables(uint16_t sheetXmlNo) override;
+        XLTables           sheetTables(uint16_t sheetXmlNo) override;
 
         XLChart createChart(XLChartType type = XLChartType::Bar) override;
 
@@ -366,8 +360,12 @@ namespace OpenXLSX
          */
         void deleteManagedXmlPart(std::string_view path);
 
-        std::string createTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName) override;
-        std::string findOrCreateTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName) override;
+        std::string
+            createTableSlicerCache(uint32_t tableId, uint32_t tableColumnId, std::string_view name, std::string_view sourceName) override;
+        std::string findOrCreateTableSlicerCache(uint32_t         tableId,
+                                                 uint32_t         tableColumnId,
+                                                 std::string_view name,
+                                                 std::string_view sourceName) override;
 
         std::string createPivotSlicerCache(uint32_t         pivotCacheId,
                                            uint32_t         sheetId,
@@ -380,7 +378,9 @@ namespace OpenXLSX
                                                  std::string_view name,
                                                  std::string_view sourceName) override;
 
-        std::string createSlicer(std::string_view name, std::string_view cacheName, std::string_view caption,
+        std::string createSlicer(std::string_view name,
+                                 std::string_view cacheName,
+                                 std::string_view caption,
                                  std::string_view existingSlicerFile = {}) override;
 
         void deleteSlicerFileAndOrphanCache(const std::string& name) override;
@@ -467,11 +467,11 @@ namespace OpenXLSX
 
         // ----- XLSharedStringTable (read-only) -----
 
-        [[nodiscard]] int32_t            stringCount() const override;
-        [[nodiscard]] int32_t            getStringIndex(std::string_view str) const override;
-        [[nodiscard]] bool               stringExists(std::string_view str) const override;
-        [[nodiscard]] const char*        getString(int32_t index) const override;
-        [[nodiscard]] std::string_view   getStringView(int32_t index) const override;
+        [[nodiscard]] int32_t          stringCount() const override;
+        [[nodiscard]] int32_t          getStringIndex(std::string_view str) const override;
+        [[nodiscard]] bool             stringExists(std::string_view str) const override;
+        [[nodiscard]] const char*      getString(int32_t index) const override;
+        [[nodiscard]] std::string_view getStringView(int32_t index) const override;
 
         /**
          * @brief Check if the document has a persons metadata file.
@@ -499,8 +499,7 @@ namespace OpenXLSX
          * @details Used by XLCalculationEngine to auto-dirty the dependency graph.
          *          @p formulaChanged is true when the formula XML was modified.
          */
-        using XLCellChangeListener =
-            std::function<void(std::string_view sheetName, uint32_t row, uint16_t col, bool formulaChanged)>;
+        using XLCellChangeListener = std::function<void(std::string_view sheetName, uint32_t row, uint16_t col, bool formulaChanged)>;
 
         /**
          * @brief Register a cell-change listener. @p token must be unique (e.g. `this` of the engine).
@@ -552,11 +551,11 @@ namespace OpenXLSX
         mutable std::unique_ptr<std::shared_mutex>                           m_docMutex{std::make_unique<std::shared_mutex>()};
         mutable XLSharedStrings                                              m_sharedStrings{};
         mutable std::map<void*, std::unordered_map<uint32_t, SharedFormula>> m_sharedFormulas{};
-        std::unordered_map<const void*, XLCellChangeListener>                 m_cellChangeListeners{};
+        std::unordered_map<const void*, XLCellChangeListener>                m_cellChangeListeners{};
         std::map<std::string, std::string>                                   m_unhandledEntries{};
 
-        bool m_formulaNeedsRecalculation{false};
-        bool m_isEncryptedSession{false};
+        bool        m_formulaNeedsRecalculation{false};
+        bool        m_isEncryptedSession{false};
         std::string m_encryptionPassword{""};
         std::string m_tempDecryptedPath{""};
 

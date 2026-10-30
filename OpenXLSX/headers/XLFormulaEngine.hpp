@@ -43,7 +43,7 @@ namespace OpenXLSX
 {
     class XLWorksheet;
     class IXLCellProvider;
-}
+}    // namespace OpenXLSX
 
 namespace OpenXLSX
 {
@@ -130,8 +130,8 @@ namespace OpenXLSX
         BinOp,
         UnaryOp,
         FuncCall,
-        ArrayLit,   ///< Excel array constant {1,2;3,4} — children row-major; number=rows, text=cols
-        ErrorLit    ///< #NAME?, etc. – propagated as-is
+        ArrayLit,    ///< Excel array constant {1,2;3,4} — children row-major; number=rows, text=cols
+        ErrorLit     ///< #NAME?, etc. – propagated as-is
     };
 
     /**
@@ -147,6 +147,10 @@ namespace OpenXLSX
         std::string text;    ///< string literal, cell-ref text, range text, identifier, error text
         bool        boolean{false};
         XLTokenKind op{XLTokenKind::Error};    ///< operator for BinOp / UnaryOp
+
+        // ---- Pre-bound execution cache (Parse-Time Binding) ----
+        const void* funcImpl{nullptr};
+        bool        isRefFunction{false};
 
         // ---- Children ----
         std::vector<std::unique_ptr<XLASTNode>> children;    ///< operands or function arguments
@@ -177,11 +181,11 @@ namespace OpenXLSX
         explicit XLFormulaDiagnosticReporter(std::string formula) : m_formula(std::move(formula)) {}
 
         void reportError(std::string message, std::size_t offset);
-        
+
         [[nodiscard]] const std::vector<XLFormulaDiagnostic>& diagnostics() const;
-        [[nodiscard]] bool hasErrors() const;
-        void clear();
-        [[nodiscard]] std::string getFullReport() const;
+        [[nodiscard]] bool                                    hasErrors() const;
+        void                                                  clear();
+        [[nodiscard]] std::string                             getFullReport() const;
 
     private:
         std::string                      m_formula;
@@ -211,12 +215,12 @@ namespace OpenXLSX
         // All state is local to the recursive parse calls below.
         struct ParseContext
         {
-            gsl::span<const XLToken>         tokens;
-            std::size_t                      pos{0};
-            XLFormulaDiagnosticReporter*     reporter{nullptr};
-            bool                             panicMode{false};
-            std::size_t                      depth{0};
-            static constexpr std::size_t     kMaxDepth{256};
+            gsl::span<const XLToken>     tokens;
+            std::size_t                  pos{0};
+            XLFormulaDiagnosticReporter* reporter{nullptr};
+            bool                         panicMode{false};
+            std::size_t                  depth{0};
+            static constexpr std::size_t kMaxDepth{256};
 
             [[nodiscard]] const XLToken& current() const;
             [[nodiscard]] const XLToken& peek(std::size_t offset = 1) const;
@@ -235,8 +239,7 @@ namespace OpenXLSX
                 ++ctx.depth;
                 if (ctx.depth > ParseContext::kMaxDepth) {
                     ok = false;
-                    ctx.reportError("Formula exceeds maximum nesting depth (" +
-                                    std::to_string(ParseContext::kMaxDepth) + ")",
+                    ctx.reportError("Formula exceeds maximum nesting depth (" + std::to_string(ParseContext::kMaxDepth) + ")",
                                     ctx.current().offset);
                 }
             }
@@ -350,9 +353,9 @@ namespace OpenXLSX
             return m_nameResolver(name);
         }
 
-        [[nodiscard]] bool     hasCurrentCell() const noexcept { return m_hasCurrentCell; }
-        [[nodiscard]] uint32_t currentRow() const noexcept { return m_currentRow; }
-        [[nodiscard]] uint16_t currentCol() const noexcept { return m_currentCol; }
+        [[nodiscard]] bool               hasCurrentCell() const noexcept { return m_hasCurrentCell; }
+        [[nodiscard]] uint32_t           currentRow() const noexcept { return m_currentRow; }
+        [[nodiscard]] uint16_t           currentCol() const noexcept { return m_currentCol; }
         [[nodiscard]] const std::string& currentSheet() const noexcept { return m_currentSheet; }
 
         /**
@@ -402,8 +405,8 @@ namespace OpenXLSX
             uint64_t value{0};
             constexpr PackedCellKey() = default;
             constexpr explicit PackedCellKey(uint64_t v) : value(v) {}
-            constexpr bool operator==(const PackedCellKey& o) const noexcept { return value == o.value; }
-            constexpr bool operator!=(const PackedCellKey& o) const noexcept { return value != o.value; }
+            constexpr bool     operator==(const PackedCellKey& o) const noexcept { return value == o.value; }
+            constexpr bool     operator!=(const PackedCellKey& o) const noexcept { return value != o.value; }
             constexpr explicit operator bool() const noexcept { return value != 0; }
         };
 
@@ -449,8 +452,8 @@ namespace OpenXLSX
         {
             if (m_ok && m_session) m_session->leaveCall();
         }
-        XLEvalCallGuard(const XLEvalCallGuard&)            = delete;
-        XLEvalCallGuard& operator=(const XLEvalCallGuard&) = delete;
+        XLEvalCallGuard(const XLEvalCallGuard&)              = delete;
+        XLEvalCallGuard&   operator=(const XLEvalCallGuard&) = delete;
         [[nodiscard]] bool ok() const noexcept { return m_ok; }
 
     private:
@@ -469,8 +472,8 @@ namespace OpenXLSX
         {
             if (m_ok && m_session) m_session->leaveNodeEval();
         }
-        XLEvalNodeGuard(const XLEvalNodeGuard&)            = delete;
-        XLEvalNodeGuard& operator=(const XLEvalNodeGuard&) = delete;
+        XLEvalNodeGuard(const XLEvalNodeGuard&)              = delete;
+        XLEvalNodeGuard&   operator=(const XLEvalNodeGuard&) = delete;
         [[nodiscard]] bool ok() const noexcept { return m_ok; }
 
     private:
@@ -484,15 +487,13 @@ namespace OpenXLSX
     class OPENXLSX_EXPORT XLEvalCellGuard
     {
     public:
-        XLEvalCellGuard(XLEvalSession& session, std::string_view ref)
-            : m_session(&session), m_ok(session.pushEvaluatingCell(ref))
-        {}
+        XLEvalCellGuard(XLEvalSession& session, std::string_view ref) : m_session(&session), m_ok(session.pushEvaluatingCell(ref)) {}
         ~XLEvalCellGuard()
         {
             if (m_ok && m_session) m_session->popEvaluatingCell();
         }
-        XLEvalCellGuard(const XLEvalCellGuard&)            = delete;
-        XLEvalCellGuard& operator=(const XLEvalCellGuard&) = delete;
+        XLEvalCellGuard(const XLEvalCellGuard&)              = delete;
+        XLEvalCellGuard&   operator=(const XLEvalCellGuard&) = delete;
         [[nodiscard]] bool ok() const noexcept { return m_ok; }
 
     private:
@@ -553,7 +554,10 @@ namespace OpenXLSX
          * @param data Must contain rows*cols elements (row-major).
          */
         XLFormulaArg(std::vector<XLCellValue> data, size_t rows, size_t cols)
-            : m_type(Type::Array), m_array(std::move(data)), m_arrayRows(rows), m_arrayCols(cols)
+            : m_type(Type::Array),
+              m_array(std::move(data)),
+              m_arrayRows(rows),
+              m_arrayCols(cols)
         {
             if (m_arrayRows * m_arrayCols != m_array.size()) {
                 // Recover a consistent rectangular shape when possible.
@@ -677,8 +681,8 @@ namespace OpenXLSX
                 return XLFormulaArg(std::move(d), 1, 1);
             }
             if (m_type == Type::LazyRange) {
-                const size_t r = rows();
-                const size_t c = cols();
+                const size_t             r = rows();
+                const size_t             c = cols();
                 std::vector<XLCellValue> d;
                 d.reserve(r * c);
                 for (size_t i = 0; i < r * c; ++i) d.push_back((*this)[i]);
@@ -732,11 +736,11 @@ namespace OpenXLSX
      */
     struct OPENXLSX_EXPORT XLSpillResult
     {
-        bool        ok{false};             ///< false when the spill range is blocked
-        size_t      cellsWritten{0};       ///< number of cells written (0 on #SPILL!)
-        XLCellValue error;                 ///< #SPILL! when !ok, otherwise empty
-        size_t      rows{0};               ///< spill height
-        size_t      cols{0};               ///< spill width
+        bool        ok{false};          ///< false when the spill range is blocked
+        size_t      cellsWritten{0};    ///< number of cells written (0 on #SPILL!)
+        XLCellValue error;              ///< #SPILL! when !ok, otherwise empty
+        size_t      rows{0};            ///< spill height
+        size_t      cols{0};            ///< spill width
     };
 
     /**
@@ -754,12 +758,12 @@ namespace OpenXLSX
      * @param isOccupied Return true for cells that block spill (non-empty foreign content).
      * @param anchorRow/anchorCol The formula cell itself is never treated as a blocker.
      */
-    OPENXLSX_EXPORT bool spillRangeIsClear(const XLFormulaArg&   result,
-                                           uint32_t              topRow,
-                                           uint16_t              leftCol,
+    OPENXLSX_EXPORT bool spillRangeIsClear(const XLFormulaArg&     result,
+                                           uint32_t                topRow,
+                                           uint16_t                leftCol,
                                            const XLSpillOccupancy& isOccupied,
-                                           uint32_t              anchorRow = 0,
-                                           uint16_t              anchorCol = 0);
+                                           uint32_t                anchorRow = 0,
+                                           uint16_t                anchorCol = 0);
 
     /**
      * @brief Spill with #SPILL! detection: writes only when the target range is clear.
@@ -789,11 +793,11 @@ namespace OpenXLSX
         // ---- Phase D: AST cache (formula string → parsed tree) ----
 
         /** Enable/disable parse-tree caching (default: enabled). */
-        void setAstCacheEnabled(bool enabled) noexcept { m_astCacheEnabled = enabled; }
+        void               setAstCacheEnabled(bool enabled) noexcept { m_astCacheEnabled = enabled; }
         [[nodiscard]] bool astCacheEnabled() const noexcept { return m_astCacheEnabled; }
 
         /** Max distinct formulas retained in the cache (default 512). LRU-ish drop of arbitrary entry when full. */
-        void setAstCacheCapacity(std::size_t capacity) noexcept;
+        void                      setAstCacheCapacity(std::size_t capacity) noexcept;
         [[nodiscard]] std::size_t astCacheCapacity() const noexcept { return m_astCacheCapacity; }
 
         /** Number of cached ASTs. */
@@ -816,24 +820,29 @@ namespace OpenXLSX
          *   engine.evaluate("=A1+B1", XLFormulaEngine::makeResolver(ctx));
          * @endcode
          */
-        [[nodiscard]] XLCellValue evaluate(std::string_view formula, const XLCellResolver& resolver = {}, XLFormulaDiagnosticReporter* reporter = nullptr) const;
+        [[nodiscard]] XLCellValue
+            evaluate(std::string_view formula, const XLCellResolver& resolver = {}, XLFormulaDiagnosticReporter* reporter = nullptr) const;
 
         /**
          * @brief Evaluate with a full evaluation session (names, current cell, depth, …).
          * @details Multi-cell array results are reduced via implicit intersection (top-left).
          *          Use evaluateArray() when the full spill shape is required.
          */
-        [[nodiscard]] XLCellValue evaluate(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter = nullptr) const;
+        [[nodiscard]] XLCellValue
+            evaluate(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter = nullptr) const;
 
         /**
          * @brief Evaluate a formula preserving full array/range shape (Phase B spill path).
          */
-        [[nodiscard]] XLFormulaArg evaluateArray(std::string_view formula, const XLCellResolver& resolver = {}, XLFormulaDiagnosticReporter* reporter = nullptr) const;
+        [[nodiscard]] XLFormulaArg evaluateArray(std::string_view             formula,
+                                                 const XLCellResolver&        resolver = {},
+                                                 XLFormulaDiagnosticReporter* reporter = nullptr) const;
 
         /**
          * @brief Session-aware array evaluation (FILTER/UNIQUE/SORT/SEQUENCE, range arithmetic, …).
          */
-        [[nodiscard]] XLFormulaArg evaluateArray(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter = nullptr) const;
+        [[nodiscard]] XLFormulaArg
+            evaluateArray(std::string_view formula, XLEvalSession& session, XLFormulaDiagnosticReporter* reporter = nullptr) const;
 
         /**
          * @brief Create a CellResolver that reads live values from an evaluation context.
@@ -901,6 +910,8 @@ namespace OpenXLSX
 
         [[nodiscard]] static bool isRefReturningFunction(std::string_view name);
 
+        friend class XLFormulaParser;
+
         // ---- Built-in function table ----
         // Session-aware: every builtin returns XLFormulaArg (scalar or multi-cell array).
         using FuncImpl = std::function<XLFormulaArg(const std::vector<XLFormulaArg>&, XLEvalSession&)>;
@@ -910,8 +921,7 @@ namespace OpenXLSX
         [[nodiscard]] static std::string cacheKey(std::string_view formula);
 
         /** Parse (or fetch cached) AST. When @p reporter is non-null, cache is bypassed. */
-        [[nodiscard]] std::shared_ptr<XLASTNode> getOrParseAst(std::string_view formula,
-                                                               XLFormulaDiagnosticReporter* reporter) const;
+        [[nodiscard]] std::shared_ptr<XLASTNode> getOrParseAst(std::string_view formula, XLFormulaDiagnosticReporter* reporter) const;
 
         bool                             m_astCacheEnabled{true};
         std::size_t                      m_astCacheCapacity{512};

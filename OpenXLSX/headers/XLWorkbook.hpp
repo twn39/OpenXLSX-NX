@@ -209,6 +209,14 @@ namespace OpenXLSX
         void cloneSheet(std::string_view existingName, std::string_view newName);
 
         /**
+         * @brief Import and clone a worksheet from this or another workbook/document.
+         * @param sourceSheet The source worksheet to clone.
+         * @param newName The name of the new cloned sheet in this workbook.
+         * @return The newly created cloned XLWorksheet.
+         */
+        XLWorksheet cloneSheet(const XLWorksheet& sourceSheet, std::string_view newName);
+
+        /**
          * @brief Move a sheet to a new index.
          * @param sheetName The name of the sheet to move.
          * @param index The index (1-based) where the sheet shall be moved to.
