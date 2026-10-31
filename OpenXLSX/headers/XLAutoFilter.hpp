@@ -11,6 +11,7 @@
 #pragma once
 
 #include "XLXmlParser.hpp"
+#include <cstdint>
 #include <string>
 
 namespace OpenXLSX
