@@ -11,6 +11,8 @@
 #ifndef OPENXLSX_XLXMLPARSER_HPP
 #define OPENXLSX_XLXMLPARSER_HPP
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>    // shared_ptr, unique_ptr
 #include <cstring>   // std::strchr
 #include <string>

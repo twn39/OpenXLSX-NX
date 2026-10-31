@@ -20,6 +20,8 @@
 // ===== OpenXLSX Includes ===== //
 #include "OpenXLSX-Exports.hpp"
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>

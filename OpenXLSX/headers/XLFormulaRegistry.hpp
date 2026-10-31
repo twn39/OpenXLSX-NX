@@ -11,6 +11,7 @@
 #ifndef OPENXLSX_XLFORMULAREGISTRY_HPP
 #define OPENXLSX_XLFORMULAREGISTRY_HPP
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
